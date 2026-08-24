@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Studio Workspace</title>
+    <style>
+        :root { --bg: #0f172a; --panel: #1e293b; --accent: #ff5e1e; --text: #f8fafc; --success: #10b981; }
+        * { box-sizing: border-box; font-family: system-ui, sans-serif; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); padding: 20px; }
+        .page { display: none; max-width: 1000px; margin: 40px auto; background: var(--panel); padding: 30px; border-radius: 12px; }
+        .active { display: block; }
+        input, select, textarea, button { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 16px; background: #334155; border: none; color: white; border-radius: 6px; }
+        button { background: var(--accent); font-weight: bold; cursor: pointer; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 20px; }
+        .gallery-card { background: #0f172a; padding: 10px; border-radius: 8px; }
+        .gallery-card img { width: 100%; border-radius: 6px; }
+        .link-btn { background: none; border: none; color: #3b82f6; text-decoration: underline; cursor: pointer; text-align: center; margin-top: 10px; padding: 0; display: inline; width: auto; }
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-card { background: var(--panel); padding: 30px; border-radius: 12px; text-align: center; max-width: 350px; width: 90%; border: 1px solid #475569; }
+    </style>
+</head>
+<body>
+
+    <!-- Popup Modal -->
+    <div id="popup-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 id="modal-title" style="margin-bottom: 10px;">🎉 สำเร็จ!</h2>
+            <p id="modal-message" style="color: #94a3b8; margin-bottom: 20px;"></p>
+            <button id="modal-action-btn" onclick="closeModal()">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- 1. Login -->
+    <div id="page-login" class="page active" style="max-width: 400px;">
+        <h2>🔐 เข้าสู่ระบบ AI Studio</h2>
+        <input type="text" id="login-username" placeholder="Username">
+        <input type="password" id="login-password" placeholder="Password">
+        <button onclick="login()">เข้าสู่ระบบ</button>
+        <p style="text-align: center; color: #94a3b8;">ยังไม่มีบัญชีใช่ไหม? 
+            <button class="link-btn" onclick="navTo('page-register')">สมัครสมาชิกที่นี่</button>
+        </p>
+    </div>
+
+    <!-- 2. Register -->
+    <div id="page-register" class="page" style="max-width: 400px;">
+        <h2>📝 สมัครสมาชิกใหม่</h2>
+        <input type="text" id="reg-username" placeholder="ตั้ง Username">
+        <input type="password" id="reg-password" placeholder="ตั้ง Password">
+        <button onclick="register()" style="background: var(--success);">ยืนยันการสมัครสมาชิก</button>
+        <p style="text-align: center; color: #94a3b8;">มีบัญชีอยู่แล้ว? 
+            <button class="link-btn" onclick="navTo('page-login')">ย้อนกลับไปเข้าสู่ระบบ</button>
+        </p>
+    </div>
+
+    <!-- 3. Welcome -->
+    <div id="page-welcome" class="page" style="text-align: center;">
+        <h2>🎉 ยินดีต้อนรับคุณ <span id="user-display" style="color:var(--accent);"></span></h2>
+        <p style="color:#94a3b8; margin-top: 10px;">เลือกรายการที่ต้องการทำ:</p>
+        <div style="margin-top: 30px; display: flex; gap: 20px;">
+            <button onclick="navTo('page-gen')" style="padding:20px; font-size: 1.2rem;">🎨 1. สร้างรูปภาพ</button>
+            <button onclick="loadHistory()" style="padding:20px; font-size: 1.2rem; background:#3b82f6;">🖼️ 2. ดูประวัติการสร้าง</button>
+        </div>
+        <button onclick="logout()" style="background:#ef4444; width: auto; margin-top: 40px;">ออกจากระบบ</button>
+    </div>
+
+    <!-- 4. Generate -->
+    <div id="page-gen" class="page">
+        <button onclick="navTo('page-welcome')" style="width:auto; background:#475569;">⬅️ กลับหน้าหลัก</button>
+        <h2 style="margin-top:15px;">🎨 AI Image Generator</h2>
+        
+        <div class="grid-2">
+            <div>
+                <label>เลือก Checkpoint (Model)</label>
+                <select id="checkpoint-select"><option>กำลังโหลด Models...</option></select>
+
+                <label>Positive Prompt</label>
+                <textarea id="prompt" rows="3" placeholder="a cute cat, highly detailed..."></textarea>
+
+                <label>Negative Prompt</label>
+                <textarea id="neg-prompt" rows="2" placeholder="blurry, bad quality..."></textarea>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>ขนาดภาพ (Resolution)</label>
+                        <select id="size-select">
+                            <option value="1024x1024" selected>1024 x 1024 (SDXL)</option>
+                            <option value="512x512">512 x 512 (SD 1.5)</option>
+                            <option value="768x768">768 x 768</option>
+                            <option value="832x1216">832 x 1216 (แนวตั้ง SDXL)</option>
+                            <option value="1216x832">1216 x 832 (แนวนอน SDXL)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Sampling Method</label>
+                        <select id="sampler-select">
+                            <option value="Euler a" selected>Euler a</option>
+                            <option value="Euler">Euler</option>
+                            <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
+                            <option value="DPM++ SDE Karras">DPM++ SDE Karras</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label>Steps (10-50)</label>
+                        <input type="number" id="steps-input" value="20" min="10" max="50">
+                    </div>
+                    <div>
+                        <label>CFG Scale (1-20)</label>
+                        <input type="number" id="cfg-input" value="7" min="1" max="20" step="0.5">
+                    </div>
+                </div>
+
+                <button onclick="generate()">🚀 Generate Image</button>
+            </div>
+            <div style="text-align: center; background: #0f172a; padding: 20px; border-radius: 8px;">
+                <h3>ผลลัพธ์</h3>
+                <p id="status-text" style="color:#94a3b8; margin: 15px 0;">กด Generate เพื่อเริ่มสร้าง</p>
+                <img id="output-img" src="" style="width: 100%; border-radius: 8px; display:none;">
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. History -->
+    <div id="page-history" class="page">
+        <button onclick="navTo('page-welcome')" style="width:auto; background:#475569;">⬅️ กลับหน้าหลัก</button>
+        <h2 style="margin-top:15px;">🖼️ ประวัติการสร้างรูปภาพของคุณ</h2>
+        <div id="history-container" class="gallery"></div>
+    </div>
+
+    <script>
+        // เรียกไปที่ Backend พอร์ต 5000 ของเครื่อง Backend Server โดยอัตโนมัติ
+        const API_BASE = `http://${window.location.hostname}:5000`;
+        let currentUser = null;
+
+        function navTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        function showModal(title, message, isSuccess = true, callback = null) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            
+            const btn = document.getElementById('modal-action-btn');
+            btn.style.background = isSuccess ? 'var(--success)' : '#ef4444';
+            
+            btn.onclick = function() {
+                closeModal();
+                if(callback) callback();
+            };
+            
+            document.getElementById('popup-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('popup-modal').style.display = 'none';
+        }
+
+        async function register() {
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            if (!username || !password) return showModal('แจ้งเตือน', 'กรุณากรอก Username และ Password', false);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    document.getElementById('reg-username').value = '';
+                    document.getElementById('reg-password').value = '';
+                    showModal('🎉 สำเร็จ!', 'สมัครสมาชิกเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ', true, () => {
+                        navTo('page-login');
+                    });
+                } else {
+                    showModal('❌ ไม่สำเร็จ', data.message, false);
+                }
+            } catch (err) {
+                showModal('❌ ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ Backend ได้', false);
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            if (!username || !password) return showModal('แจ้งเตือน', 'กรุณากรอก Username และ Password', false);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await res.json();
+
+                if(data.status === 'success') {
+                    currentUser = data.user;
+                    document.getElementById('user-display').innerText = currentUser.username;
+                    navTo('page-welcome');
+                    loadModels();
+                } else { 
+                    showModal('❌ ข้อผิดพลาด', data.message, false); 
+                }
+            } catch (err) {
+                showModal('❌ ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อ Backend ได้', false);
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            navTo('page-login');
+        }
+
+        async function loadModels() {
+            try {
+                const res = await fetch(`${API_BASE}/api/models`);
+                const data = await res.json();
+                if(data.status === 'success') {
+                    const select = document.getElementById('checkpoint-select');
+                    select.innerHTML = data.models.map(m => `<option value="${m}">${m}</option>`).join('');
+                }
+            } catch (err) {
+                console.error("Failed to load models", err);
+            }
+        }
+
+        async function generate() {
+            const status = document.getElementById('status-text');
+            const img = document.getElementById('output-img');
+            status.innerText = "⏳ กำลังส่งคำสั่งไป AI Server (172.20.57.51)...";
+            img.style.display = "none";
+
+            const [width, height] = document.getElementById('size-select').value.split('x').map(Number);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser.id,
+                        prompt: document.getElementById('prompt').value,
+                        negative_prompt: document.getElementById('neg-prompt').value,
+                        checkpoint: document.getElementById('checkpoint-select').value,
+                        width: width,
+                        height: height,
+                        sampler_name: document.getElementById('sampler-select').value,
+                        steps: parseInt(document.getElementById('steps-input').value) || 20,
+                        cfg_scale: parseFloat(document.getElementById('cfg-input').value) || 7
+                    })
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    status.innerText = "สร้างสำเร็จ!";
+                    img.src = data.image;
+                    img.style.display = "block";
+                } else { 
+                    status.innerText = "เกิดข้อผิดพลาด: " + data.message; 
+                }
+            } catch (err) {
+                status.innerText = "ไม่สามารถติดต่อกับ Backend Server ได้";
+            }
+        }
+
+        async function loadHistory() {
+            navTo('page-history');
+            const container = document.getElementById('history-container');
+            container.innerHTML = "กำลังโหลดประวัติ...";
+
+            try {
+                const res = await fetch(`${API_BASE}/api/history/${currentUser.id}`);
+                const data = await res.json();
+                if(data.status === 'success') {
+                    if(data.history.length === 0) {
+                        container.innerHTML = "<p>คุณยังไม่มีประวัติการสร้างรูปภาพ</p>";
+                        return;
+                    }
+                    container.innerHTML = data.history.map(item => `
+                        <div class="gallery-card">
+                            <img src="${item.image_base64}">
+                            <p style="font-size:0.8rem; color:#94a3b8; margin-top:5px;"><b>Prompt:</b> ${item.prompt}</p>
+                            <p style="font-size:0.7rem; color:#64748b;">${item.created_at}</p>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                container.innerHTML = "ไม่สามารถโหลดประวัติได้";
+            }
+        }
+    </script>
+</body>
+</html>
