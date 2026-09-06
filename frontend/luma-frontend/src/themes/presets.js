@@ -88,3 +88,9 @@ export const THEME_PRESETS = [
     },
   },
 ];
+
+export const DEFAULT_THEME_ID = 'luma-dark';
+
+export function getThemeById(id) {
+  return THEME_PRESETS.find((theme) => theme.id === id) || THEME_PRESETS.find((theme) => theme.id === DEFAULT_THEME_ID);
+}
