@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import MockModeBanner from './MockModeBanner'
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
@@ -33,6 +34,7 @@ export default function Layout() {
         </div>
       </aside>
       <main className="main-content">
+        <MockModeBanner />
         <Outlet />
       </main>
     </div>

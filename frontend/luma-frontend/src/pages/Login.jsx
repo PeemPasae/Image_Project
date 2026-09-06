@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import MockModeBanner from '../components/MockModeBanner'
 import '../styles/auth.css'
 
 export default function Login() {
@@ -44,6 +45,8 @@ export default function Login() {
         </div>
         <h1>Welcome back</h1>
         <p className="subtitle">Log in to keep generating.</p>
+
+        <MockModeBanner />
 
         {error && <div className="error-banner">{error}</div>}
 

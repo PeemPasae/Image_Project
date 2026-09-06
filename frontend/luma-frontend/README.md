@@ -13,6 +13,14 @@ npm run dev
 Opens at `http://localhost:5173`. `vite.config.js` binds to `0.0.0.0` so teammates on the same
 LAN can also reach it at `http://192.168.1.10:5173` during integration.
 
+## Dev Preview Mode (no Backend needed)
+
+Set `VITE_MOCK_MODE=true` in `.env` to browse every page — Home, Generate, Result, History,
+Profile, Setting — with realistic fake data instead of hitting a real Backend. Login/Register
+accept anything and log you in as `preview@luma.dev`. A yellow banner shows whenever this is on
+so it's never mistaken for live data. Set it back to `false` once the real Backend is ready —
+no other code changes needed, every mock response mirrors the real `{success,data}` contract shape.
+
 ## Structure
 
 ```

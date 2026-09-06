@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import MockModeBanner from '../components/MockModeBanner'
 import '../styles/auth.css'
 
 export default function Register() {
@@ -52,6 +53,8 @@ export default function Register() {
         </div>
         <h1>Create your account</h1>
         <p className="subtitle">Start generating images with LUMA.</p>
+
+        <MockModeBanner />
 
         {error && <div className="error-banner">{error}</div>}
         {success && <div className="error-banner" style={{ background: 'rgba(52,211,153,0.1)', borderColor: 'rgba(52,211,153,0.3)', color: 'var(--success)' }}>Registration successful — redirecting to login…</div>}
