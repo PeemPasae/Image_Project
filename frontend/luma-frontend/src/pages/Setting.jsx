@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 
 const SAMPLERS = ['DPM++ 2M Karras', 'Euler a', 'Euler']
 const SIZES = [512, 768, 1024]
 const STORAGE_KEY = 'luma_settings'
 
 const DEFAULT_SETTINGS = {
-  appearance: 'dark',
   defaultModel: '',
   defaultWidth: 512,
   defaultHeight: 512,
@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
 
 export default function Setting() {
   const { logout } = useAuth()
+  const { themeId, setThemeId, themes } = useTheme()
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [saved, setSaved] = useState(false)
 
@@ -49,9 +50,10 @@ export default function Setting() {
           <div style={{ fontWeight: 700, marginBottom: 14 }}>Appearance</div>
           <div className="field">
             <label htmlFor="appearance">Theme</label>
-            <select id="appearance" value={settings.appearance} onChange={(e) => update('appearance', e.target.value)}>
-              <option value="dark">Dark Mode</option>
-              <option value="light">Light Mode</option>
+            <select id="appearance" value={themeId} onChange={(e) => setThemeId(e.target.value)}>
+              {themes.map((theme) => (
+                <option key={theme.id} value={theme.id}>{theme.label}</option>
+              ))}
             </select>
           </div>
 
