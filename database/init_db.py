@@ -12,5 +12,10 @@ with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
     conn.executescript(f.read())
 
 conn.commit()
+
+cur = conn.cursor()
+cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+print("ตารางในฐานข้อมูล:", cur.fetchall())
+
 conn.close()
-print("สร้าง/อัปเดตฐานข้อมูลจาก schema.sql เรียบร้อย")
+print("สร้าง/อัปเดตฐานข้อมูลจาก schema.sql เรียบร้อยที่:", DB_PATH)
