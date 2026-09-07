@@ -9,12 +9,24 @@ from app.models.generation import Generation  # Import SQLAlchemy Model
 from app.services.ai_client import generate_sd_image, fetch_available_models
 from app.utils.error_codes import (
     success_response, error_response, VALIDATION_ERROR, 
-    GENERATION_NOT_FOUND, GENERATION_FAILED
+    GENERATION_NOT_FOUND, GENERATION_FAILED, AI_SERVER_ERROR
 )
 
 sd_bp = Blueprint("sd", __name__)
 UPLOAD_FOLDER = os.path.join(os.getcwd(), "app", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@sd_bp.route("/models", methods=["GET", "OPTIONS"])
+def get_models():
+    """GET /api/v1/models - return available Stable Diffusion models."""
+    if request.method == "OPTIONS":
+        return "", 200
+
+    try:
+        return success_response({"models": fetch_available_models()})
+    except Exception as exc:
+        return error_response(AI_SERVER_ERROR, str(exc), 503)
+
 
 @sd_bp.route("/generate", methods=["POST"])
 @token_required

@@ -6,7 +6,16 @@ from app.extensions import db  # 1. Import db มาจาก extensions
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(
+        app,
+        origins=[
+            "http://localhost:5173",
+            "http://172.20.56.147:5173",
+            "http://172.20.56.225:5173",
+        ],
+        methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization"],
+    )
 
     # 2. ตั้งค่าการเชื่อมต่อฐานข้อมูล (SQLite)
     db_path = os.path.join(os.getcwd(), "instance", "database.db")
