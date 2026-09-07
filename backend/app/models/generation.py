@@ -5,7 +5,7 @@ class Generation(db.Model):
     __tablename__ = "generations"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False) # ผูกกับ User
+    user_id = db.Column(db.Integer, nullable=False)
     prompt = db.Column(db.String(2000), nullable=False)
     negative_prompt = db.Column(db.String(2000), nullable=True, default="")
     checkpoint = db.Column(db.String(255), nullable=False)
