@@ -8,9 +8,12 @@ import jwt
 from flask import Blueprint, request
 # นำเข้าเครื่องมือเข้ารหัสรหัสผ่าน และตรวจสอบรหัสผ่าน
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.exc import IntegrityError
 
 # นำเข้าตัวอ่าน secret key จาก middleware
 from app.middleware.jwt_auth import get_jwt_secret
+from app.extensions import db
+from app.models.user import User
 # นำเข้าฟังก์ชันตอบกลับ และ Error Codes
 from app.utils.error_codes import (
     success_response,
@@ -24,10 +27,8 @@ from app.utils.error_codes import (
 # สร้าง Blueprint "auth" สำหรับเส้นทางเกี่ยวกับยืนยันตัวตน
 auth_bp = Blueprint("auth", __name__)
 
-# จำลองตารางผู้ใช้ใน DB (รอทีม DB นำ SQLAlchemy Model มาเปลี่ยนใช้งาน)
+# เก็บไว้เพื่อ compatibility กับ test/client เก่าที่ import ตัวแปรนี้
 MOCK_USERS_DB = {}
-# ตัวนับ ID จำลอง
-MOCK_USER_ID_COUNTER = 1
 
 
 def is_valid_email(email):
@@ -54,36 +55,23 @@ def register():
     if not password or len(password) < 8:
         return error_response(VALIDATION_ERROR, "Password must be at least 8 characters long", 400)
 
-    # ตรวจสอบอีเมลซ้ำในระบบ
-    for user in MOCK_USERS_DB.values():
-        if user["email"] == email:
-            # ตอบกลับ Error 409 EMAIL_EXISTS
-            return error_response(EMAIL_EXISTS, "Email is already registered", 409)
+    if User.query.filter_by(email=email).first():
+        return error_response(EMAIL_EXISTS, "Email is already registered", 409)
 
-    # เข้ารหัสรหัสผ่าน (ห้ามเก็บเป็น Plain Text)
-    hashed_password = generate_password_hash(password)
-
-    # เรียกตัวนับ ID
-    global MOCK_USER_ID_COUNTER
-    user_id = MOCK_USER_ID_COUNTER
-    MOCK_USER_ID_COUNTER += 1
-
-    # ดึงเวลาปัจจุบัน UTC
-    now = datetime.datetime.now(datetime.timezone.utc)
-    # จัดเก็บลงตารางจำลอง
-    new_user = {
-        "id": user_id,
-        "email": email,
-        "password_hash": hashed_password,
-        "created_at": now.isoformat()
-    }
-    MOCK_USERS_DB[user_id] = new_user
+    new_user = User(
+        email=email,
+        password_hash=generate_password_hash(password),
+    )
+    db.session.add(new_user)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return error_response(EMAIL_EXISTS, "Email is already registered", 409)
 
     # คืน Response สำเร็จ 201 Created
     return success_response({
-        "id": new_user["id"],
-        "email": new_user["email"],
-        "created_at": new_user["created_at"]
+        **new_user.to_dict()
     }, status_code=201)
 
 
@@ -99,15 +87,10 @@ def login():
     if not email or not password:
         return error_response(VALIDATION_ERROR, "Email and password are required", 400)
 
-    # ค้นหาผู้ใช้ตาม Email
-    target_user = None
-    for user in MOCK_USERS_DB.values():
-        if user["email"] == email:
-            target_user = user
-            break
+    target_user = User.query.filter_by(email=email).first()
 
     # ตรวจสอบว่าพบผู้ใช้หรือไม่ และรหัสผ่านถูกต้องหรือไม่
-    if not target_user or not check_password_hash(target_user["password_hash"], password):
+    if not target_user or not check_password_hash(target_user.password_hash, password):
         # ตอบกลับ Error 401 INVALID_CREDENTIALS
         return error_response(INVALID_CREDENTIALS, "Invalid email or password", 401)
 
@@ -116,8 +99,8 @@ def login():
         expiration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
         # สร้าง Payload
         token_payload = {
-            "user_id": target_user["id"],
-            "email": target_user["email"],
+            "user_id": target_user.id,
+            "email": target_user.email,
             "exp": expiration
         }
         # สร้าง JWT Token
@@ -131,8 +114,6 @@ def login():
         "token_type": "Bearer",
         "expires_in": 86400,
         "user": {
-            "id": target_user["id"],
-            "email": target_user["email"],
-            "created_at": target_user["created_at"]
+            **target_user.to_dict()
         }
     }, status_code=200)

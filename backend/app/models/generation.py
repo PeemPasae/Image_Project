@@ -5,7 +5,12 @@ class Generation(db.Model):
     __tablename__ = "generations"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     prompt = db.Column(db.String(2000), nullable=False)
     negative_prompt = db.Column(db.String(2000), nullable=True, default="")
     checkpoint = db.Column(db.String(255), nullable=False)
@@ -15,7 +20,9 @@ class Generation(db.Model):
     steps = db.Column(db.Integer, nullable=False)
     cfg_scale = db.Column(db.Float, nullable=False)
     seed = db.Column(db.BigInteger, nullable=False)
-    image_path = db.Column(db.String(500), nullable=False)
+    # Legacy column retained for existing SQLite databases; images use image_data.
+    image_path = db.Column(db.String(500), nullable=False, default="")
+    image_data = db.Column(db.LargeBinary, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):

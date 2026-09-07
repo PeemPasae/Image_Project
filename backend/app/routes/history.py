@@ -1,12 +1,11 @@
 # app/routes/history.py
-import os
 from flask import Blueprint, request
 from app.middleware.jwt_auth import token_required
 from app.extensions import db
 from app.models.generation import Generation
 from app.utils.error_codes import (
     success_response, error_response, 
-    GENERATION_NOT_FOUND, INTERNAL_SERVER_ERROR
+    GENERATION_NOT_FOUND
 )
 
 history_bp = Blueprint("history", __name__)
@@ -55,14 +54,7 @@ def delete_history(generation_id):
     if not gen:
         return error_response(GENERATION_NOT_FOUND, "Record not found", 404)
 
-    # 1. ลบไฟล์ภาพออกจาก Local Storage
-    if os.path.exists(gen.image_path):
-        try:
-            os.remove(gen.image_path)
-        except Exception as e:
-            return error_response(INTERNAL_SERVER_ERROR, f"Failed to delete file: {str(e)}", 500)
-
-    # 2. ลบออกจาก Database
+    # ลบภาพและข้อมูลประวัติออกจากฐานข้อมูล
     db.session.delete(gen)
     db.session.commit()
 
