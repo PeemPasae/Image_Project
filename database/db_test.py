@@ -1,13 +1,26 @@
 import sqlite3
+import os
 
-# เชื่อมต่อ (ถ้ายังไม่มี app.db จะถูกสร้างให้อัตโนมัติ)
-conn = sqlite3.connect("app.db")
+# หาตำแหน่งโฟลเดอร์ที่ไฟล์ .py นี้อยู่จริงๆ ไม่สนว่ารันจากไหน
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "app.db")
 
-# ต้องเปิดเองเสมอ ไม่งั้น ON DELETE CASCADE จะไม่ทำงาน
+conn = sqlite3.connect(DB_PATH)
 conn.execute("PRAGMA foreign_keys = ON;")
-
-# cursor คือตัวที่ใช้ "รัน" คำสั่ง SQL จริงๆ
 cur = conn.cursor()
 
-print("เชื่อมต่อสำเร็จ")
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        email         VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+""")
+conn.commit()
+
+cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+print("ตารางในฐานข้อมูล:", cur.fetchall())
+print("สร้างตาราง users สำเร็จที่:", DB_PATH)
+
 conn.close()
