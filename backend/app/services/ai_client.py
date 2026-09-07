@@ -28,18 +28,19 @@ class AIServerErrorException(Exception):
 def fetch_available_models():
     """ฟังก์ชันดึงรายชื่อ Checkpoints/Models จาก AI Server"""
     try:
-        # ยิง GET Request ไปยัง endpoint /sdapi/v1/sd-models ของ SD WebUI
         response = requests.get(f"{AI_SERVER_URL}/sdapi/v1/sd-models", timeout=10)
-        # ถ้าตอบกลับ 200 OK
         if response.status_code == 200:
-            # แปลงผลลัพธ์เป็น JSON
             models_data = response.json()
-            # คัดเลือกเฉพาะฟิลด์ชื่อ Model ส่งกลับเป็น List
-            return [{"name": m.get("model_name"), "title": m.get("title")} for m in models_data]
-        # กรณี status code ไม่ใช่ 200 ให้โยน Error
+            # ดึง title และ model_name ป้องกันค่า None
+            return [
+                {
+                    "name": m.get("model_name") or m.get("title"),
+                    "title": m.get("title") or m.get("model_name")
+                } 
+                for m in models_data
+            ]
         raise AIServerErrorException("Failed to fetch models from AI Server")
     except requests.exceptions.RequestException:
-        # กรณีไม่สามารถเชื่อมต่อ AI Server ได้
         raise AIServerErrorException("AI Server is unreachable")
 
 

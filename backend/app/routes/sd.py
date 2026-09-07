@@ -45,7 +45,8 @@ def get_models():
     """GET /api/v1/models - ดึงรายการ Checkpoint/Model"""
     try:
         models = fetch_available_models()
-        return success_response(models, status_code=200)
+        # ห่อ models ไว้ใน dictionary {"models": ...}
+        return success_response({"models": models}, status_code=200)
     except AIServerErrorException as e:
         return error_response(AI_SERVER_ERROR, str(e), 502)
 
