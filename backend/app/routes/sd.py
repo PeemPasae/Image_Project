@@ -4,10 +4,14 @@ import os
 import uuid
 # นำเข้า base64 สำหรับแปลง Base64 string กลับเป็น Binary
 import base64
-# นำเข้า Blueprint และ request
-from flask import Blueprint, request
+from datetime import datetime
+
+# นำเข้า Blueprint, request และ send_file
+from flask import Blueprint, request, send_file
+
 # นำเข้า Decorator เช็ก JWT Token
 from app.middleware.jwt_auth import token_required
+
 # นำเข้าฟังก์ชันเรียก AI Server และ Exception ต่างๆ
 from app.services.ai_client import (
     fetch_available_models,
@@ -16,6 +20,7 @@ from app.services.ai_client import (
     AIServerTimeoutException,
     AIServerErrorException
 )
+
 # นำเข้าฟังก์ชันตอบกลับ และ Error Codes
 from app.utils.error_codes import (
     success_response,
@@ -24,7 +29,8 @@ from app.utils.error_codes import (
     AI_SERVER_BUSY,
     AI_SERVER_TIMEOUT,
     AI_SERVER_ERROR,
-    GENERATION_FAILED
+    GENERATION_FAILED,
+    GENERATION_NOT_FOUND
 )
 
 # สร้าง Blueprint "sd"
@@ -35,7 +41,7 @@ UPLOAD_FOLDER = os.path.join(os.getcwd(), "app", "uploads")
 # ถ้ายังไม่มีโฟลเดอร์ให้สร้างขึ้นอัตโนมัติ
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# จำลองตาราง generations ใน DB
+# จำลองตาราง generations ใน DB (แชร์ให้ history.py ใช้งานด้วย)
 MOCK_GENERATIONS_DB = {}
 MOCK_GEN_ID_COUNTER = 1
 
@@ -132,7 +138,7 @@ def generate_image():
             "cfg_scale": cfg_scale,
             "seed": seed,
             "image_path": file_path,
-            "created_at": "2026-09-07T10:00:00Z"
+            "created_at": datetime.utcnow().isoformat()
         }
         MOCK_GENERATIONS_DB[gen_id] = generation_record
 
@@ -151,3 +157,21 @@ def generate_image():
         return error_response(AI_SERVER_ERROR, str(e), 502)
     except Exception as e:
         return error_response(GENERATION_FAILED, f"Image processing failed: {str(e)}", 500)
+
+
+@sd_bp.route("/images/<int:gen_id>", methods=["GET"])
+@token_required
+def stream_image(gen_id):
+    """GET /api/v1/images/<gen_id> 🔒 - ส่งไฟล์ภาพ Binary (ป้องกัน IDOR)"""
+    record = MOCK_GENERATIONS_DB.get(gen_id)
+
+    # เช็กว่าพบรูปไหม และ user_id ตรงกันหรือไม่ (ป้องกัน IDOR)
+    if not record or record["user_id"] != request.user_id:
+        return error_response(GENERATION_NOT_FOUND, "Image not found or unauthorized", 404)
+
+    file_path = record.get("image_path")
+    if not file_path or not os.path.exists(file_path):
+        return error_response(GENERATION_NOT_FOUND, "File on disk not found", 404)
+
+    # ส่งไฟล์รูปภาพ PNG กลับไปให้ Frontend
+    return send_file(file_path, mimetype="image/png")
