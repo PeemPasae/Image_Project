@@ -23,13 +23,7 @@ def get_history():
         .paginate(page=page, per_page=limit, error_out=False)
 
     history_data = [
-        {
-            "id": item.id,
-            "prompt": item.prompt,
-            "checkpoint": item.checkpoint,
-            "image_url": f"/api/v1/images/{item.id}",
-            "created_at": item.created_at.isoformat()
-        }
+        item.to_dict()
         for item in pagination.items
     ]
 
@@ -43,6 +37,21 @@ def get_history():
             "total_pages": pagination.pages
         }
     }, status_code=200)
+
+
+@history_bp.route("/history/<int:generation_id>", methods=["GET"])
+@token_required
+def get_generation(generation_id):
+    """GET /api/v1/history/:id - ดึงรายละเอียด generation ของผู้ใช้ปัจจุบัน"""
+    generation = Generation.query.filter_by(
+        id=generation_id,
+        user_id=request.user_id,
+    ).first()
+
+    if not generation:
+        return error_response(GENERATION_NOT_FOUND, "Record not found", 404)
+
+    return success_response(generation.to_dict(), status_code=200)
 
 
 @history_bp.route("/history/<int:generation_id>", methods=["DELETE"])

@@ -32,10 +32,12 @@ def create_app():
 
     # 4. Register Blueprints
     from app.routes.auth import auth_bp
+    from app.routes.profile import profile_bp
     from app.routes.sd import sd_bp
     from app.routes.history import history_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/v1")
+    app.register_blueprint(profile_bp, url_prefix="/api/v1")
     app.register_blueprint(sd_bp, url_prefix="/api/v1")
     app.register_blueprint(history_bp, url_prefix="/api/v1")
 

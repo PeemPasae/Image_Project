@@ -29,6 +29,7 @@ class Generation(db.Model):
         """แปลง Object เป็น Dictionary สำหรับส่งกลับไปให้ API"""
         return {
             "id": self.id,
+            "generation_id": self.id,
             "user_id": self.user_id,
             "prompt": self.prompt,
             "negative_prompt": self.negative_prompt,

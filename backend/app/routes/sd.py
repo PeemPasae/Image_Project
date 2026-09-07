@@ -6,10 +6,17 @@ from app.middleware.jwt_auth import token_required
 from app.extensions import db
 from app.models.generation import Generation  # Import SQLAlchemy Model
 from app.models.user import User
-from app.services.ai_client import generate_sd_image, fetch_available_models
+from app.services.ai_client import (
+    AIServerBusyException,
+    AIServerTimeoutException,
+    AIServerErrorException,
+    generate_sd_image,
+    fetch_available_models,
+)
 from app.utils.error_codes import (
     success_response, error_response, VALIDATION_ERROR, 
-    GENERATION_NOT_FOUND, GENERATION_FAILED, AI_SERVER_ERROR, UNAUTHORIZED
+    GENERATION_NOT_FOUND, GENERATION_FAILED, AI_SERVER_ERROR, AI_SERVER_BUSY,
+    AI_SERVER_TIMEOUT, UNAUTHORIZED
 )
 
 sd_bp = Blueprint("sd", __name__)
@@ -67,12 +74,21 @@ def generate_image():
         db.session.commit() # บันทึกลงไฟล์ DB จริง
 
         return success_response({
-            "id": new_gen.id,
-            "prompt": new_gen.prompt,
+            "generation_id": new_gen.id,
             "image_url": f"/api/v1/images/{new_gen.id}",
-            "image": f"data:image/png;base64,{base64_img}"
+            "seed": new_gen.seed,
+            "created_at": new_gen.created_at.isoformat(),
         }, status_code=201)
 
+    except AIServerBusyException as exc:
+        db.session.rollback()
+        return error_response(AI_SERVER_BUSY, str(exc), 409)
+    except AIServerTimeoutException as exc:
+        db.session.rollback()
+        return error_response(AI_SERVER_TIMEOUT, str(exc), 504)
+    except AIServerErrorException as exc:
+        db.session.rollback()
+        return error_response(AI_SERVER_ERROR, str(exc), 503)
     except Exception as e:
         db.session.rollback()
         return error_response(GENERATION_FAILED, f"Processing failed: {str(e)}", 500)
