@@ -1,0 +1,19 @@
+# ===== ไฟล์ model ขนาดใหญ่ ห้าม commit =====
+models/**/*.safetensors
+models/**/*.ckpt
+models/**/*.pt
+models/**/*.pth
+models/**/*.bin
+models/**/*.vae.pt
+
+# ===== ผลลัพธ์การทดสอบ =====
+outputs/
+*.png
+*.jpg
+*.jpeg
+
+# ===== ของ webui / python =====
+venv/
+__pycache__/
+*.pyc
+.env
