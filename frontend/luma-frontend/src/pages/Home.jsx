@@ -31,6 +31,14 @@ export default function Home() {
         <Link to="/generate" className="btn btn-primary">Generate an image</Link>
       </div>
 
+      <div className="card" style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Features</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>New tools are coming — take a look.</div>
+        </div>
+        <Link to="/features" className="btn btn-primary">Explore Features</Link>
+      </div>
+
       <div className="page-header"><h1 style={{ fontSize: 16 }}>Recent Generations</h1></div>
       {loading ? (
         <div className="empty-state"><span className="spinner" /></div>
