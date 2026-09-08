@@ -1,24 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock axios so tests never hit a real network — we're only checking
-// that api.* correctly unwraps the {success, data} envelope and that
-// the shape matches what every page.jsx expects (this is exactly the
-// class of bug we hit: backend sending `name` instead of `model_name`).
-const mockClient = {
-  get: vi.fn(),
-  post: vi.fn(),
-  delete: vi.fn(),
-  interceptors: {
-    request: { use: vi.fn() },
-    response: { use: vi.fn() },
-  },
-}
+// vi.mock() is hoisted above imports by Vitest, so any variable it
+// references must be created via vi.hoisted() — a plain `const` here
+// would throw "Cannot access before initialization".
+const { mockClient } = vi.hoisted(() => {
+  const mockClient = {
+    get: vi.fn(),
+    post: vi.fn(),
+    delete: vi.fn(),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+  }
+  return { mockClient }
+})
 
 vi.mock('axios', () => ({
   default: { create: vi.fn(() => mockClient) },
 }))
 
-import { api } from '../client'
+import { api } from '../api/client'
 
 function envelope(data) {
   return { data: { success: true, data } }
@@ -55,9 +57,6 @@ describe('getModels contract', () => {
     )
     const data = await api.getModels()
     expect(Array.isArray(data.models)).toBe(true)
-    // This is the exact field the Backend broke — Generate.jsx reads
-    // m.model_name, not m.name. If Backend ever sends `name` again,
-    // this assertion fails loudly instead of showing an empty dropdown.
     expect(data.models[0]).toHaveProperty('model_name')
     expect(data.models[0]).toHaveProperty('title')
   })
@@ -69,8 +68,6 @@ describe('generate contract', () => {
       envelope({ generation_id: 42, image_url: '/images/42', seed: 123, created_at: '2026-09-07T00:00:00Z' })
     )
     const data = await api.generate({ prompt: 'test', width: 512, height: 512 })
-    // Result.jsx navigates to `/result/${data.generation_id}` — if this
-    // key is missing/renamed, users land on /result/undefined.
     expect(data).toHaveProperty('generation_id')
     expect(typeof data.generation_id).not.toBe('undefined')
   })
