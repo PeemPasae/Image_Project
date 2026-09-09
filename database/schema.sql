@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS generations (
     steps           INTEGER,
     cfg_scale       FLOAT,
     seed            BIGINT,
-    image_path      TEXT,
+    image_path      TEXT NOT NULL DEFAULT '',
+    image_data      BLOB NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

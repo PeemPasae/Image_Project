@@ -34,8 +34,8 @@ def fetch_available_models():
             # ดึง title และ model_name ป้องกันค่า None
             return [
                 {
-                    "name": m.get("model_name") or m.get("title"),
-                    "title": m.get("title") or m.get("model_name")
+                    "title": m.get("title") or m.get("model_name"),
+                    "model_name": m.get("model_name") or m.get("title")
                 } 
                 for m in models_data
             ]
