@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import AuthImage from '../components/AuthImage'
+import SkeletonCard from '../components/SkeletonCard'
 
 export default function History() {
   const navigate = useNavigate()
@@ -66,7 +67,9 @@ export default function History() {
       {error && <div className="error-banner">{error}</div>}
 
       {loading ? (
-        <div className="empty-state"><span className="spinner" /></div>
+        <div className="history-grid">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
       ) : items.length === 0 ? (
         <div className="empty-state card">
           No generations yet.
