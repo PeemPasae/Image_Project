@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import AuthImage from '../components/AuthImage'
+import SkeletonCard from '../components/SkeletonCard'
 
 export default function Home() {
   const { user } = useAuth()
@@ -41,7 +42,9 @@ export default function Home() {
 
       <div className="page-header"><h1 style={{ fontSize: 16 }}>Recent Generations</h1></div>
       {loading ? (
-        <div className="empty-state"><span className="spinner" /></div>
+        <div className="history-grid">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
       ) : recent.length === 0 ? (
         <div className="empty-state card">
           No generations yet.
