@@ -67,6 +67,7 @@
   .param-grid { grid-template-columns: 1fr; }
 }
 
+/* Theme Swatch */
 .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-width: 480px; }
 .theme-swatch {
   background: transparent; border: 2px solid var(--border); border-radius: 12px;
@@ -87,3 +88,26 @@
   display: flex; align-items: center; justify-content: center;
 }
 .theme-swatch-label { font-size: 12px; color: var(--text-dim); text-align: center; font-weight: 500; }
+
+
+/* Skeleton Loading */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-solid) 25%, rgba(255,255,255,0.06) 50%, var(--surface-solid) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+.skeleton-card { padding: 0; overflow: hidden; }
+.skeleton-thumb { aspect-ratio: 1/1; }
+.skeleton-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.skeleton-line { height: 11px; }
+.skeleton-line.w-80 { width: 80%; }
+.skeleton-line.w-50 { width: 50%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
