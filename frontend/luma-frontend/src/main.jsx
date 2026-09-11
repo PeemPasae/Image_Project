@@ -5,21 +5,17 @@ import './styles/theme.css'
 import './styles/layout.css'
 import './styles/pages.css'
 
+import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
 import ToastContainer from './components/Toast'
 
-import { ThemeProvider } from './context/ThemeContext'
-
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ToastProvider>
-      <App />
-      <ToastContainer />
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <App />
+        <ToastContainer />
+      </ToastProvider>
+    </ThemeProvider>
   </React.StrictMode>,
-
-  //   <ThemeProvider>
-  //     <App />
-  //   </ThemeProvider>
-  // </React.StrictMode>,
 )
