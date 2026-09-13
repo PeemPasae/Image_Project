@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
+import { useToast } from '../context/ToastContext'
+
 import AuthImage from '../components/AuthImage'
 import SkeletonCard from '../components/SkeletonCard'
 
 export default function History() {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ page: 1, total_pages: 1 })
   const [loading, setLoading] = useState(true)
@@ -31,8 +34,9 @@ export default function History() {
     try {
       await api.deleteGeneration(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
+      showToast('Generation deleted', 'success')
     } catch (err) {
-      window.alert(err.message)
+      showToast(err.message, 'error')
     } finally {
       setDeletingId(null)
     }
