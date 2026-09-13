@@ -48,11 +48,25 @@ export default function Setting() {
       {/* ===== Appearance ===== */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 14 }}>Appearance</div>
-        <div className="field" style={{ maxWidth: 280 }}>
-          <label htmlFor="theme">Theme</label>
-          <select id="theme" value={themeId} onChange={(e) => setThemeId(e.target.value)}>
-            {themes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
+        <div className="theme-grid">
+          {themes.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`theme-swatch ${t.id === themeId ? 'selected' : ''}`}
+              onClick={() => setThemeId(t.id)}
+              style={{ borderColor: t.id === themeId ? t.colors.accent1 : undefined }}
+            >
+              <div className="theme-swatch-preview" style={{ background: t.colors.bg, borderColor: t.colors.border }}>
+                <div className="theme-swatch-bar" style={{ background: t.colors.gradient }} />
+                <div className="theme-swatch-card" style={{ background: t.colors.surfaceSolid, borderColor: t.colors.border }} />
+                {t.id === themeId && (
+                  <div className="theme-swatch-check" style={{ background: t.colors.accent1 }}>✓</div>
+                )}
+              </div>
+              <div className="theme-swatch-label">{t.label}</div>
+            </button>
+          ))}
         </div>
       </div>
 
