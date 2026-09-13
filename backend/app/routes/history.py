@@ -1,0 +1,69 @@
+# app/routes/history.py
+import os
+from flask import Blueprint, request
+from app.middleware.jwt_auth import token_required
+from app.extensions import db
+from app.models.generation import Generation
+from app.utils.error_codes import (
+    success_response, error_response, 
+    GENERATION_NOT_FOUND, INTERNAL_SERVER_ERROR
+)
+
+history_bp = Blueprint("history", __name__)
+
+@history_bp.route("/history", methods=["GET"])
+@token_required
+def get_history():
+    """GET /api/v1/history - ดึงประวัติการสร้างรูปภาพตาม user_id"""
+    page = request.args.get("page", default=1, type=int)
+    limit = request.args.get("limit", default=20, type=int)
+
+    # 🔍 ดึงประวัติเฉพาะของ user_id ปัจจุบัน
+    pagination = Generation.query.filter_by(user_id=request.user_id)\
+        .order_by(Generation.created_at.desc())\
+        .paginate(page=page, per_page=limit, error_out=False)
+
+    history_data = [
+        {
+            "id": item.id,
+            "prompt": item.prompt,
+            "checkpoint": item.checkpoint,
+            "image_url": f"/api/v1/images/{item.id}",
+            "created_at": item.created_at.isoformat()
+        }
+        for item in pagination.items
+    ]
+
+    # 🎯 เปลี่ยน Key จาก "items" เป็น "history" ตามที่คุณต้องการ
+    return success_response({
+        "history": history_data,
+        "pagination": {
+            "page": pagination.page,
+            "limit": pagination.per_page,
+            "total": pagination.total,
+            "total_pages": pagination.pages
+        }
+    }, status_code=200)
+
+
+@history_bp.route("/history/<int:generation_id>", methods=["DELETE"])
+@token_required
+def delete_history(generation_id):
+    """DELETE /api/v1/history/:id - ลบรูปภาพออกจาก Disk และ Database"""
+    gen = Generation.query.filter_by(id=generation_id, user_id=request.user_id).first()
+
+    if not gen:
+        return error_response(GENERATION_NOT_FOUND, "Record not found", 404)
+
+    # 1. ลบไฟล์ภาพออกจาก Local Storage
+    if os.path.exists(gen.image_path):
+        try:
+            os.remove(gen.image_path)
+        except Exception as e:
+            return error_response(INTERNAL_SERVER_ERROR, f"Failed to delete file: {str(e)}", 500)
+
+    # 2. ลบออกจาก Database
+    db.session.delete(gen)
+    db.session.commit()
+
+    return success_response({"message": "History deleted successfully"}, status_code=200)

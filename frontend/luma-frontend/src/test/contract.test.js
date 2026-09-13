@@ -124,3 +124,17 @@ describe('error normalization', () => {
     })
   })
 })
+
+describe('getHistory contract — regression for Home.jsx crash', () => {
+  it('FAILS when backend returns a bare array instead of { history, pagination }', async () => {
+    // This mirrors what we suspect the real Backend is doing right now —
+    // sending data as a plain array instead of { history: [...], pagination: {...} }.
+    mockClient.get.mockResolvedValueOnce(
+      envelope([{ id: 1, prompt: 'x', checkpoint: 'anypastel', width: 512, height: 512 }])
+    )
+    const data = await api.getHistory()
+    // If this assertion fails, it confirms Home.jsx's `data.history` is undefined
+    // for the same reason getModels() broke — Backend contract mismatch.
+    expect(data.history).toBeDefined()
+  })
+})
