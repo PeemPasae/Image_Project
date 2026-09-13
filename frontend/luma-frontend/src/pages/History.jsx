@@ -83,7 +83,7 @@ export default function History() {
         <>
           <div className="history-grid">
             {items.map((item) => (
-              <div key={item.id} className="card history-card">
+              <div key={item.id} className="card history-card card-hoverable">
                 <Link to={`/result/${item.id}`} className="history-thumb">
                   <AuthImage imageUrl={`/api/v1/images/${item.id}`} alt={item.prompt} />
                 </Link>

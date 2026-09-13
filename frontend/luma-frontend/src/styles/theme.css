@@ -136,3 +136,13 @@ input, select, textarea { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+.btn:active:not(:disabled) { transform: scale(0.96); }
+.card-hoverable {
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.card-hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  border-color: var(--border-strong);
+}

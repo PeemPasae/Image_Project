@@ -53,7 +53,7 @@ export default function Home() {
       ) : (
         <div className="history-grid">
           {recent.map((item) => (
-            <Link key={item.id} to={`/result/${item.id}`} className="card history-card">
+            <Link key={item.id} to={`/result/${item.id}`} className="card history-card card-hoverable">
               <div className="history-thumb">
                 <AuthImage imageUrl={`/api/v1/images/${item.id}`} alt={item.prompt} />
               </div>
