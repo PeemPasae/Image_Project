@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useLayoutTemplate } from '../context/LayoutContext'
 
 const SAMPLERS = ['DPM++ 2M Karras', 'Euler a', 'Euler']
 const SIZES = [512, 768, 1024]
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS = {
 export default function Setting() {
   const { logout } = useAuth()
   const { themeId, setThemeId, themes } = useTheme()
+  const { templateId, setTemplateId, templates } = useLayoutTemplate()
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [saved, setSaved] = useState(false)
 
@@ -67,6 +69,36 @@ export default function Setting() {
               <div className="theme-swatch-label">{t.label}</div>
             </button>
           ))}
+        </div>
+
+        <div className="setting-subgroup">
+          <div className="setting-subgroup-title" id="layout-label">Layout</div>
+          <div className="template-grid" role="radiogroup" aria-labelledby="layout-label">
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={t.id === templateId}
+                className={`template-option ${t.id === templateId ? 'selected' : ''}`}
+                onClick={() => setTemplateId(t.id)}
+              >
+                <span className={`template-preview template-preview-${t.id}`} aria-hidden="true">
+                  <span className="template-preview-side" />
+                  <span className="template-preview-body">
+                    <span className="template-preview-line" />
+                    <span className="template-preview-grid">
+                      <i /><i /><i />
+                    </span>
+                  </span>
+                </span>
+                <span className="template-option-text">
+                  <span className="template-option-label">{t.label}</span>
+                  <span className="template-option-desc">{t.description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
