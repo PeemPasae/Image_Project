@@ -27,7 +27,7 @@
   --danger: #F87171 !important;
 
   /* --- 02 Typography --- */
-  --soft-font-display: 'Sora', sans-serif;
+  --soft-font-display: 'Fraunces', serif;
 
   /* --- 03 Spacing & Radius --- */
   --r-xs: 4px;
@@ -73,7 +73,7 @@
   flex-shrink: 0;
 }
 .soft-brand-name {
-  font-family: var(--soft-font-display);
+  font-family: var(--soft-font-display, 'Fraunces', serif);
   font-weight: 700; font-size: 20px; letter-spacing: 0.04em;
   color: var(--text);
 }
@@ -142,9 +142,9 @@
 
 [data-template='soft'] .page-header { margin-bottom: 32px; }
 [data-template='soft'] .page-header h1 {
-  font-family: var(--soft-font-display);
+  font-family: var(--soft-font-display, 'Fraunces', serif);
   font-weight: 600;                /* H1 — 28px Semibold */
-  font-size: 28px; letter-spacing: -0.01em; line-height: 1.25;
+  font-size: 32px; letter-spacing: -0.01em; line-height: 1.25;
   margin-bottom: 8px;
   color: var(--text);
 }
