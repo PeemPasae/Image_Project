@@ -7,17 +7,37 @@
    2. Scoped overrides under [data-template="soft"] that restyle the existing
       pages without touching a single page component.
 
-   Every colour here resolves through the active theme preset's CSS variables,
-   so Soft composes with all four themes rather than forcing a light palette.
+   Soft ships with its own fixed light palette (from the design-system
+   reference) rather than following the active theme preset — it overrides
+   every color variable with !important, since ThemeContext writes colors as
+   inline styles on <html>, which normal CSS specificity can't beat.
    ========================================================================== */
 
 [data-template='soft'] {
+  --bg: #FAFAFC !important;
+  --bg-alt: #FFFFFF !important;
+  --surface: #FFFFFF !important;
+  --surface-solid: #FFFFFF !important;
+  --border: #E5E7EE !important;
+  --border-strong: #D8DAE5 !important;
+  --purple: #8B5CF6 !important;
+  --violet: #A78BFA !important;
+  --blue: #5EB1FF !important;
+  --grad: linear-gradient(135deg, #8B5CF6, #5EB1FF) !important;
+  --text: #1E1E2E !important;
+  --text-dim: #6B7280 !important;
+  --text-faint: #9CA3AF !important;
+  --success: #34D399 !important;
+  --warning: #FBBF24 !important;
+  --danger: #F87171 !important;
+
+  --soft-font-display: 'Fraunces', serif;
   --soft-radius: 18px;
   --soft-radius-sm: 12px;
   --soft-gap: 24px;
   --soft-sidebar-w: 260px;
-  --soft-elevation: 0 1px 2px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.16);
-  --soft-elevation-hover: 0 2px 4px rgba(0, 0, 0, 0.14), 0 14px 32px rgba(0, 0, 0, 0.22);
+  --soft-elevation: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
+  --soft-elevation-hover: 0 2px 4px rgba(0, 0, 0, 0.08), 0 14px 32px rgba(15, 23, 42, 0.12);
 }
 
 /* ---------- Shell ---------- */
@@ -43,8 +63,8 @@
   flex-shrink: 0;
 }
 .soft-brand-name {
-  font-family: 'Sora', sans-serif;
-  font-weight: 700; font-size: 19px; letter-spacing: 0.06em;
+  font-family: var(--soft-font-display);
+  font-weight: 600; font-size: 21px; letter-spacing: 0;
   color: var(--text);
 }
 
@@ -112,7 +132,9 @@
 
 [data-template='soft'] .page-header { margin-bottom: 32px; }
 [data-template='soft'] .page-header h1 {
-  font-size: 34px; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 8px;
+  font-family: var(--soft-font-display);
+  font-weight: 500;
+  font-size: 34px; letter-spacing: -0.01em; line-height: 1.15; margin-bottom: 8px;
 }
 [data-template='soft'] .page-header p { font-size: 15px; }
 

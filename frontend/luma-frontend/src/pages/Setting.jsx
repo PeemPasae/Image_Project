@@ -50,11 +50,12 @@ export default function Setting() {
       {/* ===== Appearance ===== */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 14 }}>Appearance</div>
-        <div className="theme-grid">
+        <div className={`theme-grid ${templateId === 'soft' ? 'theme-grid-disabled' : ''}`}>
           {themes.map((t) => (
             <button
               key={t.id}
               type="button"
+              disabled={templateId === 'soft'}
               className={`theme-swatch ${t.id === themeId ? 'selected' : ''}`}
               onClick={() => setThemeId(t.id)}
               style={{ borderColor: t.id === themeId ? t.colors.accent1 : undefined }}
@@ -70,6 +71,9 @@ export default function Setting() {
             </button>
           ))}
         </div>
+        {templateId === 'soft' && (
+          <p className="setting-hint">Soft ships with its own fixed palette — switch back to Classic to pick a theme.</p>
+        )}
 
         <div className="setting-subgroup">
           <div className="setting-subgroup-title" id="layout-label">Layout</div>
