@@ -4,6 +4,15 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import AuthImage from '../components/AuthImage'
 import SkeletonCard from '../components/SkeletonCard'
+import NavIcon from '../components/NavIcon'
+
+// papangkorn.choowong@gmail.com -> "Papangkorn"
+// ถ้าอยากโชว์อีเมลเต็มเหมือนเดิม เปลี่ยนบรรทัด <h1> เป็น {user.email} ได้เลย
+function displayName(user) {
+  if (!user?.email) return 'there'
+  const first = user.email.split('@')[0].split(/[._\-+]/)[0]
+  return first.charAt(0).toUpperCase() + first.slice(1)
+}
 
 export default function Home() {
   const { user } = useAuth()
@@ -20,27 +29,39 @@ export default function Home() {
   return (
     <div>
       <div className="page-header">
-        <h1>Welcome{user ? `, ${user.email}` : ''}</h1>
+        <h1>Welcome{user ? `, ${displayName(user)}` : ''}</h1>
         <p>Ready to generate something new?</p>
       </div>
 
-      <div className="card" style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>New Generation</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>Write a prompt and let Stable Diffusion do the rest.</div>
+      {/* กล่องที่ 1 — Generate */}
+      <div className="card action-card">
+        <span className="action-card-icon" aria-hidden="true">
+          <NavIcon name="sparkle" size={20} />
+        </span>
+        <div className="action-card-text">
+          <div className="action-card-title">New Generation</div>
+          <div className="action-card-desc">Write a prompt and let Stable Diffusion do the rest.</div>
         </div>
         <Link to="/generate" className="btn btn-primary">Generate an image</Link>
       </div>
 
-      <div className="card" style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Features</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>New tools are coming — take a look.</div>
+      {/* กล่องที่ 2 — Features */}
+      <div className="card action-card">
+        <span className="action-card-icon action-card-icon-alt" aria-hidden="true">
+          <NavIcon name="grid" size={20} />
+        </span>
+        <div className="action-card-text">
+          <div className="action-card-title">Features</div>
+          <div className="action-card-desc">New tools are coming — take a look.</div>
         </div>
-        <Link to="/features" className="btn btn-primary">Explore Features</Link>
+        <Link to="/features" className="btn btn-secondary">Explore Features</Link>
       </div>
 
-      <div className="page-header"><h1 style={{ fontSize: 16 }}>Recent Generations</h1></div>
+      <div className="section-head">
+        <h2>Recent Generations</h2>
+        <Link to="/history" className="section-link">View all →</Link>
+      </div>
+
       {loading ? (
         <div className="history-grid">
           {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -59,7 +80,10 @@ export default function Home() {
               </div>
               <div className="history-body">
                 <div className="history-prompt">{item.prompt}</div>
-                <div className="history-meta"><span>{item.checkpoint}</span><span>{item.width}×{item.height}</span></div>
+                <div className="history-meta">
+                  <span>{item.checkpoint}</span>
+                  <span>{item.width} × {item.height}</span>
+                </div>
               </div>
             </Link>
           ))}

@@ -2,14 +2,30 @@
 // back to a live Backend later requires no changes to page code.
 
 function placeholderImage(seedText) {
-  // Deterministic-ish flat-color SVG so each mock generation looks distinct,
-  // with zero network dependency and zero copyright concerns.
+  // Gradient placeholder ที่อยู่ในจานสีของ design system (Primary ↔ Secondary)
+  // deterministic, ไม่พึ่ง network, ไม่มีปัญหาลิขสิทธิ์
   let hash = 0
   for (let i = 0; i < seedText.length; i++) hash = (hash * 31 + seedText.charCodeAt(i)) >>> 0
-  const hue = hash % 360
+
+  const PALETTE = [
+    ['#A78BFA', '#8B5CF6'], // Primary Light → Primary
+    ['#93C5FD', '#5EB1FF'], // Secondary Light → Secondary
+    ['#C4B5FD', '#93C5FD'],
+    ['#8B5CF6', '#5EB1FF'], // brand gradient
+  ]
+  const [from, to] = PALETTE[hash % PALETTE.length]
+  const cx = 140 + (hash % 240)
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
-    <rect width="512" height="512" fill="hsl(${hue},55%,22%)"/>
-    <circle cx="256" cy="256" r="120" fill="hsl(${(hue + 40) % 360},60%,45%)" opacity="0.6"/>
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${from}"/>
+        <stop offset="1" stop-color="${to}"/>
+      </linearGradient>
+    </defs>
+    <rect width="512" height="512" fill="url(#g)"/>
+    <circle cx="${cx}" cy="150" r="170" fill="#FFFFFF" opacity="0.18"/>
+    <circle cx="${512 - cx}" cy="400" r="130" fill="#FFFFFF" opacity="0.12"/>
   </svg>`
   return `data:image/svg+xml;base64,${btoa(svg)}`
 }
