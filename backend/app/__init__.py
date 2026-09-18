@@ -60,13 +60,13 @@ def create_app(test_config=None) -> Flask:
     from app.routes.profile import profile_bp
     from app.routes.sd import sd_bp
     from app.routes.history import history_bp
-    from app.services.image_filters import process_bp
+    #from app.services.image_filters import process_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/v1")
     app.register_blueprint(profile_bp, url_prefix="/api/v1")
     app.register_blueprint(sd_bp, url_prefix="/api/v1")
     app.register_blueprint(history_bp, url_prefix="/api/v1")
-    app.register_blueprint(process_bp, url_prefix="/api/v1")
+    #app.register_blueprint(process_bp, url_prefix="/api/v1")
 
     # 8. ตรวจสอบและสร้างตารางฐานข้อมูลอัตโนมัติ (Auto Schema Migration)
     with app.app_context():
