@@ -316,3 +316,16 @@
   background: color-mix(in srgb, var(--accent1, #8B5CF6) 20%, #FFFFFF);
 }
 [data-template='soft'] .section-head { margin: 40px 0 16px; }
+
+/* ---------- Native form controls (range/checkbox) ---------- */
+
+[data-template='soft'] input[type="range"] {
+  accent-color: var(--accent1, #8B5CF6);
+}
+
+[data-template='soft'] input[type="checkbox"] {
+  accent-color: var(--accent1, #8B5CF6);
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-xs);
+}

@@ -15,7 +15,8 @@ export const TEMPLATES = [
   },
 ]
 
-export const DEFAULT_TEMPLATE_ID = 'classic'
+{% comment %} export const DEFAULT_TEMPLATE_ID = 'classic' {% endcomment %}
+export const DEFAULT_TEMPLATE_ID = 'soft'
 
 export function getTemplateById(id) {
   return (
