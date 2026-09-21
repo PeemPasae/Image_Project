@@ -1,0 +1,3 @@
+# dependency เฉพาะสคริปต์ทดสอบใน Ai Server/scripts/
+# (ไม่เกี่ยวกับ requirements ของ stable-diffusion-webui)
+requests>=2.31.0
