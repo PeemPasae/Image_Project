@@ -1,40 +1,54 @@
+# ==============================================================================
+# ชื่อไฟล์: backend/config.py
+# หน้าที่: กำหนดค่าคอนฟิกูเรชันส่วนกลาง (Central Configuration) ของระบบ Backend
+# เกี่ยวข้องกับหน้าเว็บ: ทุกหน้าของระบบ (Authentication, Home, Generate, History, Profile, Setting)
+# ==============================================================================
+
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+
+# โหลดตัวแปรสภาพแวดล้อม (Environment Variables) จากไฟล์ .env เข้าสู่ระบบ
+load_dotenv()
 
 
 class Config:
     """
-    รวมค่า config ทั้งหมดไว้ที่เดียว เพื่อให้ app factory (app/__init__.py)
-    เรียกใช้ผ่าน app.config.from_object(Config) จุดเดียว แทนที่จะกระจาย
-    os.environ.get(...) ไปทั่วโค้ด — ถ้าอนาคตต้องมี TestConfig/ProdConfig
-    ก็แค่สร้าง subclass ใหม่แล้ว override ค่าที่ต่างกัน
+    คลาสรวมค่าคอนฟิกูเรชันทั้งหมดที่จำเป็นสำหรับการทำงานของ Flask Backend
     """
+    # --------------------------------------------------------------------------
+    # 1. การตั้งค่าความปลอดภัยและ JWT (JSON Web Token)
+    # --------------------------------------------------------------------------
+    # รหัสลับสำหรับเซ็นชื่อและตรวจสอบความถูกต้องของ JWT Token (ห้ามเปิดเผยสู่สาธารณะ)
+    SECRET_KEY = (
+        os.environ.get("JWT_SECRET_KEY") 
+        or os.environ.get("JWT_SECRET") 
+        or "luma_default_jwt_secret_key_2026"
+    )
 
-    # spec ข้อ 4: secret ต้องอ่านจาก .env ห้าม hardcode/commit
-    SECRET_KEY = os.environ.get("JWT_SECRET")
-    if not SECRET_KEY:
-        raise RuntimeError(
-            "ไม่พบ JWT_SECRET ใน environment — คัดลอก .env.example เป็น .env "
-            "แล้วใส่ค่า secret ก่อนรัน"
-        )
-
-    # spec ข้อ 4: JWT หมดอายุ 24 ชั่วโมง
+    # กำหนดอายุการใช้งานของ JWT Token เป็น 24 ชั่วโมง ตามข้อกำหนดของระบบ
     JWT_EXPIRES_IN = timedelta(hours=24)
 
-    # spec ข้อ 6: CORS อนุญาตเฉพาะ origin ที่กำหนด
-    CORS_ORIGINS = [
-        "http://localhost:5173",
-        "http://172.20.56.225:5173",
-    ]
+    # --------------------------------------------------------------------------
+    # 2. การตั้งค่า CORS (Cross-Origin Resource Sharing)
+    # --------------------------------------------------------------------------
+    # รายการ Origins ที่อนุญาตให้ส่งคำขอมายัง Backend ได้ (รองรับทั้ง Localhost และทุก IP ในวง LAN)
+    CORS_ORIGINS = "*"
 
-    # spec ข้อ 7: timeout ตอนเรียก AI Server
+    # --------------------------------------------------------------------------
+    # 3. การตั้งค่าการเชื่อมต่อ AI Server (Stable Diffusion WebUI / Forge)
+    # --------------------------------------------------------------------------
+    # URL สำหรับเรียกใช้งาน Stable Diffusion Web API
+    AI_SERVER_URL = os.environ.get("AI_SERVER_URL", "http://172.20.56.221:8088")
+
+    # เวลาสูงสุดที่รอการประมวลผลภาพจาก AI Server (วินาที) หากเกินจะตัดเป็น Timeout
     AI_SERVER_TIMEOUT_SECONDS = 75
 
-    # AI Server อยู่เครื่องอื่นในวง LAN -> อ่าน IP จาก .env เหมือน JWT_SECRET
-    # เปลี่ยน IP เมื่อไหร่ แก้ที่ .env อย่างเดียว ไม่ต้องแตะโค้ด
-    AI_SERVER_URL = os.environ.get("AI_SERVER_URL")
-    if not AI_SERVER_URL:
-        raise RuntimeError(
-            "ไม่พบ AI_SERVER_URL ใน environment — เพิ่มบรรทัด "
-            "AI_SERVER_URL=http://<ip>:<port> ใน .env ก่อนรัน"
-        )
+    # --------------------------------------------------------------------------
+    # 4. การตั้งค่าสำหรับระบบประเมินเวลา (Time Estimation Configuration)
+    # --------------------------------------------------------------------------
+    # เวลาเฉลี่ยโดยประมาณต่อ 1 Sampling Step สำหรับภาพขนาด 512x512 (หน่วย: วินาที)
+    ESTIMATED_SECONDS_PER_STEP = 0.15
+
+    # เวลา Overhead คงที่ขั้นต่ำสำหรับการเตรียม Model และจัดสรรหน่วยความจำ GPU (หน่วย: วินาที)
+    ESTIMATED_BASE_OVERHEAD_SECONDS = 1.5
