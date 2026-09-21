@@ -1,0 +1,331 @@
+/* ==========================================================================
+   Template B — "Soft"
+   Token ทั้งหมดอิงจาก LUMA UI Style Guide (Design System v1.0)
+   ปล. ต้องใช้ !important เพราะ ThemeContext เขียนสีเป็น inline style บน <html>
+   ========================================================================== */
+
+[data-template='soft'] {
+  /* --- 01 Color Tokens --- */
+  --bg: #F7F5F2 !important;          /* ivory */
+  --bg-alt: #FBFAF8 !important;     /* Surface */
+  --surface: #FFFFFF !important;
+  --surface-solid: #FFFFFF !important;
+  --surface-subtle: #F8FAFC;
+  --border: #E2E8F0 !important;
+  --border-strong: #CBD5E1 !important; /* Gray 200 */
+  --purple: #8B5CF6 !important;        /* Primary */
+  --violet: #A78BFA !important;        /* Primary Light */
+  --blue: #5EB1FF !important;          /* Secondary */
+  --blue-light: #93C5FD;               /* Secondary Light */
+  --grad: linear-gradient(135deg, #8B5CF6, #5EB1FF) !important;
+  --text: #0F172A !important;          /* Dark 900 */
+  --text-mid: #1E293B;                 /* Dark 700 */
+  --text-dim: #64748B !important;      /* Gray 500 */
+  --text-faint: #94A3B8 !important;    /* Gray 400 */
+  --success: #34D399 !important;
+  --warning: #FBBF24 !important;
+  --danger: #F87171 !important;
+
+  /* --- 02 Typography --- */
+  --soft-font-display: 'Fraunces', serif;
+
+  /* --- 03 Spacing & Radius --- */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --soft-radius: var(--r-lg);
+  --soft-radius-sm: var(--r-md);
+  --soft-gap: 24px;
+  --soft-sidebar-w: 260px;
+
+  /* --- Elevation (Level 1 / 2) --- */
+  --soft-elevation: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --soft-elevation-hover: 0 2px 4px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.10);
+}
+
+[data-template='soft'] body,
+[data-template='soft'] {
+  background: var(--bg) !important;
+}
+
+[data-template='soft'] body {
+  background: var(--bg) !important;
+  color: var(--text);
+}
+
+/* ---------- Shell ---------- */
+
+.soft-shell { display: flex; min-height: 100vh; }
+
+.soft-sidebar {
+  width: var(--soft-sidebar-w);
+  flex-shrink: 0;
+  background: var(--surface-solid);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.soft-brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
+.soft-brand-mark {
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  background: var(--grad); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.soft-brand-name {
+  font-family: var(--soft-font-display, 'Fraunces', serif);
+  font-weight: 700; font-size: 20px; letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.soft-nav { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.soft-nav a {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  font-size: 14px; font-weight: 500;
+  color: var(--text-dim);
+  transition: background .15s ease, color .15s ease;
+}
+.soft-nav a:hover { background: var(--surface-subtle); color: var(--text); }
+.soft-nav a.active {
+  background: color-mix(in srgb, var(--accent1, #8B5CF6) 12%, transparent);
+  color: var(--accent1, #8B5CF6);
+  font-weight: 600;
+}
+.soft-nav a:focus-visible,
+.soft-logout:focus-visible {
+  outline: 2px solid var(--accent1, #8B5CF6);
+  outline-offset: 2px;
+}
+
+.soft-sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: 12px; }
+.soft-logout {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  background: transparent; border: none;
+  border-radius: var(--r-md);
+  font-size: 14px; font-weight: 500;
+  color: var(--text-faint);
+  cursor: pointer; text-align: left; width: 100%;
+  transition: background .15s ease, color .15s ease;
+}
+.soft-logout:hover { background: var(--surface-subtle); color: var(--text); }
+
+.soft-user {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+}
+.soft-user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--grad); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 13px; flex-shrink: 0;
+}
+.soft-user-meta { display: flex; flex-direction: column; min-width: 0; }
+.soft-user-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.soft-user-email {
+  font-size: 12px; color: var(--text-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.soft-main {
+  flex: 1; min-width: 0;
+  padding: 40px 48px 64px;
+  max-width: 1240px;
+}
+
+/* ---------- Typography scale (02) ---------- */
+
+[data-template='soft'] .page-header { margin-bottom: 32px; }
+[data-template='soft'] .page-header h1 {
+  font-family: var(--soft-font-display, 'Fraunces', serif);
+  font-weight: 600;                /* H1 — 28px Semibold */
+  font-size: 28px; letter-spacing: -0.01em; line-height: 1.25;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+[data-template='soft'] .page-title-display {
+  font-size: 32px; font-weight: 700;   /* Display — 32px Bold */
+}
+[data-template='soft'] .page-header p { font-size: 16px; color: var(--text-dim); }
+[data-template='soft'] .page-eyebrow { color: var(--text-faint); }
+[data-template='soft'] .section-head h2 {
+  font-family: var(--soft-font-display);
+  font-weight: 600; font-size: 22px;   /* H2 — 22px Semibold */
+  letter-spacing: -0.01em; color: var(--text);
+}
+[data-template='soft'] h3 { font-family: var(--soft-font-display); font-weight: 500; font-size: 18px; }
+
+/* ---------- Cards / Buttons (05) ---------- */
+
+[data-template='soft'] .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--soft-radius);
+  padding: 24px;
+  box-shadow: var(--soft-elevation);
+}
+[data-template='soft'] .card-hoverable:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--soft-elevation-hover);
+}
+
+/* Primary = สีทึบตาม guide, gradient สงวนไว้ให้ brand เท่านั้น */
+[data-template='soft'] .btn { border-radius: var(--r-md); padding: 12px 20px; }
+[data-template='soft'] .btn-primary {
+  background: var(--accent1, #8B5CF6) !important;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+[data-template='soft'] .btn-primary:hover:not(:disabled) {
+  background: #7C3AED !important;
+  transform: translateY(-1px);
+}
+[data-template='soft'] .btn-ghost {
+  background: #FFFFFF;
+  border: 1px solid var(--border-strong);
+  color: var(--text-mid);
+}
+[data-template='soft'] .btn-ghost:hover:not(:disabled) {
+  background: var(--surface-subtle); color: var(--text);
+}
+[data-template='soft'] .section-link { color: var(--accent1, #8B5CF6); }
+
+/* ---------- Generation cards ---------- */
+
+[data-template='soft'] .history-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--soft-gap);
+}
+[data-template='soft'] .history-card { padding: 0; }
+[data-template='soft'] .history-thumb { aspect-ratio: 4 / 3; }
+[data-template='soft'] .history-body { padding: 16px 18px 18px; }
+[data-template='soft'] .history-prompt {
+  font-size: 14px; color: var(--text); font-weight: 500;
+  line-height: 1.5; margin-bottom: 12px;
+}
+[data-template='soft'] .history-meta {
+  font-size: 12px; gap: 8px; margin-bottom: 0;
+  justify-content: flex-start; flex-wrap: wrap; align-items: center;
+}
+/* Chips ตาม guide: pill + tint ม่วงอ่อน */
+[data-template='soft'] .history-meta span {
+  background: color-mix(in srgb, var(--accent1, #8B5CF6) 8%, #FFFFFF);
+  border: 1px solid color-mix(in srgb, var(--accent1, #8B5CF6) 16%, transparent);
+  border-radius: 100px;
+  padding: 4px 10px;
+  color: var(--text-mid);
+  font-weight: 500;
+}
+[data-template='soft'] .history-meta span.history-time {
+  background: none; border: none; padding: 0;
+  margin-left: auto; color: var(--text-faint); font-weight: 400;
+}
+[data-template='soft'] .history-actions { gap: 8px; margin-top: 14px; }
+[data-template='soft'] .history-actions .btn {
+  padding: 9px 10px; border-radius: var(--r-sm); font-size: 13px;
+}
+
+/* ---------- Fields / misc ---------- */
+
+[data-template='soft'] .field label { font-size: 13px; color: var(--text-mid); }
+[data-template='soft'] .field input,
+[data-template='soft'] .field select,
+[data-template='soft'] .field textarea {
+  background: #FFFFFF;
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 14px;
+}
+[data-template='soft'] .field input:focus,
+[data-template='soft'] .field select:focus,
+[data-template='soft'] .field textarea:focus {
+  border-color: var(--accent1, #8B5CF6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent1, #8B5CF6) 14%, transparent);
+}
+[data-template='soft'] .two-col { gap: 32px; }
+[data-template='soft'] .result-image-wrap { border-radius: var(--soft-radius); }
+[data-template='soft'] .skeleton {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+}
+[data-template='soft'] .skeleton-thumb { aspect-ratio: 4 / 3; }
+[data-template='soft'] .empty-state { padding: 72px 24px; }
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+  .soft-main { padding: 28px 24px 48px; }
+  [data-template='soft'] .page-header h1,
+  [data-template='soft'] .page-title-display { font-size: 26px; }
+}
+
+@media (max-width: 760px) {
+  .soft-shell { flex-direction: column; }
+  .soft-sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .soft-brand { padding: 0; flex-shrink: 0; }
+  .soft-nav { flex-direction: row; }
+  .soft-nav a { padding: 9px 12px; white-space: nowrap; }
+  .soft-nav a span { display: none; }
+  .soft-sidebar-footer { margin-top: 0; margin-left: auto; flex-direction: row; align-items: center; }
+  .soft-logout span { display: none; }
+  .soft-user-meta { display: none; }
+  .soft-user { padding: 6px; border: none; background: transparent; }
+  .soft-main { padding: 20px 16px 40px; }
+}
+
+/* ---------- Home action cards (soft) ---------- */
+[data-template='soft'] .action-card { padding: 20px 24px; margin-bottom: 16px; }
+[data-template='soft'] .action-card-icon {
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent1, #8B5CF6) 12%, #FFFFFF);
+  color: var(--accent1, #8B5CF6);
+}
+[data-template='soft'] .action-card-icon-alt {
+  background: rgba(94, 177, 255, 0.14);
+  color: #3B9BF0;
+}
+[data-template='soft'] .action-card-title { color: var(--text); }
+[data-template='soft'] .action-card-desc { color: var(--text-dim); }
+[data-template='soft'] .btn-secondary {
+  background: color-mix(in srgb, var(--accent1, #8B5CF6) 12%, #FFFFFF);
+  color: var(--accent1, #8B5CF6);
+  border-color: transparent;
+}
+[data-template='soft'] .btn-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent1, #8B5CF6) 20%, #FFFFFF);
+}
+[data-template='soft'] .section-head { margin: 40px 0 16px; }
+
+/* ---------- Native form controls (range/checkbox) ---------- */
+
+[data-template='soft'] input[type="range"] {
+  accent-color: var(--accent1, #8B5CF6);
+}
+
+[data-template='soft'] input[type="checkbox"] {
+  accent-color: var(--accent1, #8B5CF6);
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-xs);
+}
