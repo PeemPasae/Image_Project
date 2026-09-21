@@ -6,8 +6,8 @@
 
 [data-template='soft'] {
   /* --- 01 Color Tokens --- */
-  --bg: #FAFAFC !important;          /* Background */
-  --bg-alt: #F8FAFC !important;      /* Surface */
+  --bg: #F7F5F2 !important;          /* ivory */
+  --bg-alt: #FBFAF8 !important;     /* Surface */
   --surface: #FFFFFF !important;
   --surface-solid: #FFFFFF !important;
   --surface-subtle: #F8FAFC;
@@ -48,6 +48,11 @@
 [data-template='soft'] body,
 [data-template='soft'] {
   background: var(--bg) !important;
+}
+
+[data-template='soft'] body {
+  background: var(--bg) !important;
+  color: var(--text);
 }
 
 /* ---------- Shell ---------- */
@@ -144,7 +149,7 @@
 [data-template='soft'] .page-header h1 {
   font-family: var(--soft-font-display, 'Fraunces', serif);
   font-weight: 600;                /* H1 — 28px Semibold */
-  font-size: 32px; letter-spacing: -0.01em; line-height: 1.25;
+  font-size: 28px; letter-spacing: -0.01em; line-height: 1.25;
   margin-bottom: 8px;
   color: var(--text);
 }
