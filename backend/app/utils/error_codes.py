@@ -21,6 +21,8 @@ AI_SERVER_ERROR = "AI_SERVER_ERROR"              # HTTP 502/503: เกิดข
 AI_SERVER_TIMEOUT = "AI_SERVER_TIMEOUT"          # HTTP 504: AI Server ประมวลผลช้าเกินเวลาที่กำหนด (เกิน 75 วินาที)
 GENERATION_FAILED = "GENERATION_FAILED"          # HTTP 500: กระบวนการสร้างหรือประมวลผลรูปภาพล้มเหลว
 INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR"  # HTTP 500: เกิดข้อผิดพลาดที่ไม่คาดคิดภายในระบบ Backend
+UNSUPPORTED_FILE_TYPE = "UNSUPPORTED_FILE_TYPE"  # HTTP 415: ไฟล์ที่อัปโหลดไม่ใช่ .jpg / .jpeg / .png / .webp
+INVALID_IMAGE = "INVALID_IMAGE"                  # HTTP 400: ไฟล์รูปภาพเสียหาย ถอดรหัส (decode) ไม่ได้
 
 
 def success_response(data=None, status_code: int = 200):
