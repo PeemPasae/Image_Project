@@ -63,6 +63,16 @@ async function request(promise) {
   }
 }
 
+function readBlobText(blob) {
+  if (typeof blob.text === 'function') return blob.text()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(blob)
+  })
+}
+
 export const api = {
   register: (email, password) => {
     if (MOCK_MODE) return delay().then(() => ({ message: 'Registration successful' }))
@@ -127,6 +137,38 @@ export const api = {
     }
     return client.get(imageUrl, { baseURL: BASE_URL.replace(/\/api\/v1$/, ''), responseType: 'blob' })
       .then((res) => URL.createObjectURL(res.data))
+  },
+
+  /**
+   * POST /process/spot-blur — multipart upload, binary PNG back (no envelope).
+   * `circles` is [[x, y, radius], ...] in the ORIGINAL image's pixel space.
+   */
+  processSpotBlur: (file, circles, strength, soft = true) => {
+    if (MOCK_MODE) {
+      // Mock: just hand back the original image, no real processing.
+      return delay(800).then(() => URL.createObjectURL(file))
+    }
+    const form = new FormData()
+    form.append('image', file)
+    form.append('circles', JSON.stringify(circles))
+    form.append('strength', strength)
+    form.append('soft', String(soft))
+    return client.post('/process/spot-blur', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      responseType: 'blob',
+    }).then((res) => URL.createObjectURL(res.data))
+      .catch(async (err) => {
+        // Same normalized shape as request(), but with responseType 'blob' the
+        // error body arrives as a Blob, so parse the JSON envelope out of it first.
+        let apiError = err.response?.data?.error
+        const body = err.response?.data
+        if (!apiError && typeof Blob !== 'undefined' && body instanceof Blob) {
+          try { apiError = JSON.parse(await readBlobText(body))?.error } catch { /* not JSON */ }
+        }
+        const wrapped = new Error(apiError?.message || err.message || 'Something went wrong')
+        wrapped.code = apiError?.code || (err.code === 'ECONNABORTED' ? 'AI_SERVER_TIMEOUT' : 'NETWORK_ERROR')
+        throw wrapped
+      })
   },
 }
 

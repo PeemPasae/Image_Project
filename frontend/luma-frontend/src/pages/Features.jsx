@@ -1,29 +1,31 @@
-// Placeholder page for upcoming features. Each card is intentionally
-// empty for now — fill in title/description/image once the team decides
-// which features ship first.
-const PLACEHOLDER_FEATURES = [
-  { id: 1 },
-  { id: 2 },
-  { id: 3 },
-  { id: 4 },
-]
+import { useState } from 'react'
+import FeatureTabs from '../components/features/FeatureTabs'
+import SpotBlurTool from '../components/features/SpotBlurTool'
+import '../styles/features.css'
 
+// Grid of feature cards that morphs (FLIP) into a folder-style tab bar with
+// the selected tool's panel attached underneath. Only Spot Blur exists so far.
 export default function Features() {
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div>
       <div className="page-header">
         <h1>Features</h1>
-        <p>More tools are on the way — check back soon.</p>
+        <p>{expanded ? 'Pick a spot, blur it.' : 'Image tools for your generations — more on the way.'}</p>
       </div>
 
-      <div className="history-grid">
-        {PLACEHOLDER_FEATURES.map((f) => (
-          <div key={f.id} className="card feature-card-placeholder">
-            <div className="feature-placeholder-icon">✨</div>
-            <div className="feature-placeholder-label">Coming soon</div>
-          </div>
-        ))}
-      </div>
+      <FeatureTabs
+        expanded={expanded}
+        onSelect={(id) => { if (id === 'spot-blur') setExpanded(true) }}
+        onBack={() => setExpanded(false)}
+      />
+
+      {expanded && (
+        <div className="feature-panel">
+          <SpotBlurTool />
+        </div>
+      )}
     </div>
   )
 }

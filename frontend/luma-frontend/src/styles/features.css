@@ -1,0 +1,201 @@
+/* Features page — grid ↔ folder-tab morph + Spot Blur tool.
+   Theme/template-agnostic: only the shared CSS variables are used. */
+
+.feature-tabs, .feature-panel { --ft-radius: var(--r-lg, var(--radius)); }
+
+/* ---------- Grid state (2x2, reuses .history-grid) ---------- */
+
+.feature-tabs .history-grid.feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.feature-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 150px;
+  padding: 22px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--ft-radius);
+  transition: border-color .15s ease;
+  will-change: transform;
+}
+.feature-tile.is-ready:hover { border-color: var(--border-strong); }
+.feature-tile.is-ready:focus-visible { outline: 2px solid var(--accent1, var(--purple)); outline-offset: 2px; }
+.feature-tile.is-inert {
+  opacity: .5;
+  cursor: not-allowed;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+}
+
+.feature-tile-icon { font-size: 22px; line-height: 1; color: var(--accent1, var(--purple)); }
+.feature-tile-title {
+  font-family: var(--soft-font-display, 'Sora', sans-serif);
+  font-size: 16px;
+  font-weight: 600;
+}
+.feature-tile-desc { font-size: 13px; color: var(--text-dim); }
+.feature-tile-badge {
+  margin-top: auto;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--text-faint);
+}
+
+/* ---------- Expanded state: tab row ---------- */
+
+.feature-tabs.is-expanded {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.feature-tab-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.feature-tab-row .feature-tile {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+.feature-tab-row .feature-tile-desc,
+.feature-tab-row .feature-tile-badge { display: none; }
+.feature-tab-row .feature-tile-icon { font-size: 15px; }
+.feature-tab-row .feature-tile-title { font-size: 14px; }
+
+/* Active tab: same surface as the panel, no bottom edge — reads as one folder. */
+.feature-tab-row .feature-tile.is-active {
+  position: relative;
+  z-index: 1;
+  padding: 12px 20px 13px;
+  margin-bottom: -1px;
+  border-bottom: none;
+  border-radius: var(--ft-radius) var(--ft-radius) 0 0;
+  cursor: default;
+}
+
+/* Inert tabs: small, fully bordered pills floating beside the active tab. */
+.feature-tab-row .feature-tile.is-inert {
+  padding: 6px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.feature-tab-row .feature-tile.is-inert .feature-tile-title { font-size: 12.5px; font-weight: 600; }
+.feature-tab-row .feature-tile.is-inert .feature-tile-icon { font-size: 12px; }
+
+.feature-back {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: color .15s, border-color .15s;
+}
+.feature-back:hover { color: var(--text); border-color: var(--border-strong); }
+
+.feature-panel {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 0 var(--ft-radius) var(--ft-radius) var(--ft-radius);
+  padding: 24px;
+  animation: feature-panel-in 320ms ease-out;
+}
+@keyframes feature-panel-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-panel { animation: none; }
+}
+
+/* ---------- Spot Blur tool ---------- */
+
+.spot-blur-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.spot-blur-title {
+  font-family: var(--soft-font-display, 'Sora', sans-serif);
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.spot-blur-sub { font-size: 13px; color: var(--text-dim); }
+.spot-blur-file { flex-shrink: 0; cursor: pointer; }
+
+.spot-blur-empty {
+  padding: 48px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-md, var(--radius));
+}
+
+.spot-blur-stage {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  line-height: 0;
+  border-radius: var(--r-md, var(--radius));
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.spot-blur-image {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  user-select: none;
+}
+.spot-blur-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--accent1, var(--purple)); /* read by the canvas as its fill colour */
+  opacity: .35;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.result-image-wrap.spot-blur-result {
+  aspect-ratio: auto;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.result-image-wrap.spot-blur-result img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.spot-blur-controls { margin-top: 18px; }
+.spot-blur-actions { align-items: center; justify-content: flex-end; }
+.spot-blur-count { margin-right: auto; font-size: 12.5px; color: var(--text-faint); }
+
+@media (max-width: 760px) {
+  .feature-tabs .history-grid.feature-grid { grid-template-columns: 1fr; }
+  .feature-tabs.is-expanded { flex-direction: column-reverse; align-items: stretch; }
+  .feature-back { align-self: flex-end; }
+  .spot-blur-head { flex-direction: column; }
+}
