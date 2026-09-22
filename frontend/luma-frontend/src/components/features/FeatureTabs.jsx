@@ -1,16 +1,17 @@
 import { useLayoutEffect, useRef } from 'react'
+import { Focus } from 'lucide-react'
 
 export const FEATURES = [
-  { id: 'spot-blur', icon: '◎', title: 'Spot Blur', desc: 'Paint over areas to blur them.', ready: true },
-  { id: 'relight', icon: '☀', title: 'Relight', desc: 'Change the lighting of a photo.', ready: false },
-  { id: 'remove-object', icon: '✂', title: 'Remove Object', desc: 'Erase unwanted objects.', ready: false },
-  { id: 'ai-enhance', icon: '✦', title: 'AI Enhance', desc: 'Upscale and sharpen details.', ready: false },
+  { id: 'spot-blur', icon: <Focus strokeWidth={1.75} />, title: 'Spot Blur', ready: true },
+  { id: 'relight', icon: '✨', title: 'Relight', ready: false },
+  { id: 'remove-object', icon: '✨', title: 'Remove Object', ready: false },
+  { id: 'ai-enhance', icon: '✨', title: 'AI Enhance', ready: false },
 ]
 
 const DURATION = 320
 
 // The 4 tiles never unmount: `expanded` only swaps the container's layout
-// (grid ↔ tab row) and the tiles FLIP-animate between their two positions.
+// (card row ↔ tab row) and the tiles FLIP-animate between their two positions.
 export default function FeatureTabs({ expanded, activeId = 'spot-blur', onSelect, onBack }) {
   const tileRefs = useRef({})
   // "First" rects, captured right before the state change that re-lays-out the tiles.
@@ -84,7 +85,7 @@ export default function FeatureTabs({ expanded, activeId = 'spot-blur', onSelect
 
   return (
     <div className={`feature-tabs${expanded ? ' is-expanded' : ''}`}>
-      <div className={expanded ? 'feature-tab-row' : 'history-grid feature-grid'}>
+      <div className={expanded ? 'feature-tab-row' : 'feature-grid'}>
         {FEATURES.map((f) => {
           const isActive = expanded && f.id === activeId
           const className = [
@@ -105,7 +106,6 @@ export default function FeatureTabs({ expanded, activeId = 'spot-blur', onSelect
             >
               <span className="feature-tile-icon" aria-hidden="true">{f.icon}</span>
               <span className="feature-tile-title">{f.title}</span>
-              <span className="feature-tile-desc">{f.desc}</span>
               {!f.ready && <span className="feature-tile-badge">Coming soon</span>}
             </button>
           )
