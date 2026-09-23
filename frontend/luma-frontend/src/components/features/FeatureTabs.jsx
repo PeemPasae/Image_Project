@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { Focus } from 'lucide-react'
 
 export const FEATURES = [
@@ -8,114 +9,109 @@ export const FEATURES = [
   { id: 'ai-enhance', icon: '✨', title: 'AI Enhance', ready: false },
 ]
 
-const DURATION = 320
+// Soft overshoot so the box stretches and settles a little, like liquid.
+const MOVE = { type: 'spring', duration: 0.45, bounce: 0.2 }
+const STAGGER = 0.03
+const CONTENT_OUT = { duration: 0.1, ease: 'easeIn' }
+const CONTENT_IN = { duration: 0.15, ease: 'easeOut' }
+const BACK_OUT = { duration: 0.15, ease: 'easeIn' }
+const BACK_IN = { duration: 0.2, ease: 'easeOut' }
+const TAB_RADIUS = 12
 
-// The 4 tiles never unmount: `expanded` only swaps the container's layout
-// (card row ↔ tab row) and the tiles FLIP-animate between their two positions.
-export default function FeatureTabs({ expanded, activeId = 'spot-blur', onSelect, onBack }) {
-  const tileRefs = useRef({})
-  // "First" rects, captured right before the state change that re-lays-out the tiles.
-  const firstRects = useRef(null)
-
-  function captureFirst() {
-    const rects = {}
-    for (const f of FEATURES) {
-      const el = tileRefs.current[f.id]
-      if (el) rects[f.id] = el.getBoundingClientRect()
-    }
-    firstRects.current = rects
-  }
-
+// Reads the card radius (--ft-radius, differs per template) as a number so
+// Motion can animate it between card and tab shapes.
+function useCardRadius(ref, fallback = 16) {
+  const [radius, setRadius] = useState(fallback)
   useLayoutEffect(() => {
-    const first = firstRects.current
-    firstRects.current = null
-    if (!first) return
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    if (!ref.current) return
+    const value = parseFloat(getComputedStyle(ref.current).getPropertyValue('--ft-radius'))
+    if (Number.isFinite(value)) setRadius(value)
+  }, [ref])
+  return radius
+}
 
-    const frames = []
-    for (const f of FEATURES) {
-      const el = tileRefs.current[f.id]
-      const from = first[f.id]
-      if (!el || !from) continue
-
-      // Last: the tile is already in its new layout; drop any in-flight animation first.
-      el.style.transition = 'none'
-      el.style.transform = ''
-      const to = el.getBoundingClientRect()
-      if (!to.width || !to.height) continue
-
-      // Invert: put it back where it visually was, no transition.
-      const dx = from.left - to.left
-      const dy = from.top - to.top
-      const sx = from.width / to.width
-      const sy = from.height / to.height
-      el.style.transformOrigin = 'top left'
-      el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
-
-      // Play: next frame, release the transform with a transition.
-      frames.push(requestAnimationFrame(() => {
-        el.style.transition = `transform ${DURATION}ms ease-out`
-        el.style.transform = ''
-      }))
-    }
-
-    const cleanup = setTimeout(() => {
-      for (const f of FEATURES) {
-        const el = tileRefs.current[f.id]
-        if (el) el.style.transition = ''
-      }
-    }, DURATION + 50)
-
-    return () => {
-      frames.forEach(cancelAnimationFrame)
-      clearTimeout(cleanup)
-    }
-  }, [expanded])
-
-  function handleSelect(id) {
-    if (expanded) return
-    captureFirst()
-    onSelect(id)
+function cornerRadii(top, bottom) {
+  return {
+    borderTopLeftRadius: top,
+    borderTopRightRadius: top,
+    borderBottomLeftRadius: bottom,
+    borderBottomRightRadius: bottom,
   }
+}
 
-  function handleBack() {
-    captureFirst()
-    onBack()
-  }
+// Purely presentational: Features sequences the open/close steps and drives
+// these props. The tiles never unmount; Motion's `layout` animates each box
+// between the card row and the tab bar while its content is hidden.
+//   layout         'grid' | 'tabs'
+//   contentVisible icon/label/badge shown (hidden while boxes morph)
+//   joined         active tab drops its bottom border and merges with the panel
+//   backVisible    "All features" button shown
+export default function FeatureTabs({
+  layout, contentVisible, joined, backVisible,
+  activeId = 'spot-blur', onSelect, onBack, onTileSettled,
+}) {
+  const containerRef = useRef(null)
+  const cardRadius = useCardRadius(containerRef)
+  const tabs = layout === 'tabs'
 
   return (
-    <div className={`feature-tabs${expanded ? ' is-expanded' : ''}`}>
-      <div className={expanded ? 'feature-tab-row' : 'feature-grid'}>
-        {FEATURES.map((f) => {
-          const isActive = expanded && f.id === activeId
+    <div ref={containerRef} className={`feature-tabs${tabs ? ' is-expanded' : ''}`}>
+      <div className={tabs ? 'feature-tab-row' : 'feature-grid'}>
+        {FEATURES.map((f, i) => {
+          const isActive = tabs && f.id === activeId
           const className = [
             'feature-tile',
             f.ready ? 'is-ready' : 'is-inert',
             isActive ? 'is-active' : '',
+            isActive && joined ? 'is-joined' : '',
           ].filter(Boolean).join(' ')
 
+          // Staggered left→right into the tab bar, right→left back to the row.
+          const order = tabs ? i : FEATURES.length - 1 - i
+
           return (
-            <button
+            <motion.button
               key={f.id}
-              ref={(el) => { tileRefs.current[f.id] = el }}
+              layout
               type="button"
               className={className}
-              disabled={!f.ready}
+              style={cornerRadii(cardRadius, cardRadius)}
+              animate={tabs ? cornerRadii(TAB_RADIUS, 0) : cornerRadii(cardRadius, cardRadius)}
+              transition={{ ...MOVE, delay: order * STAGGER }}
+              aria-disabled={!f.ready || undefined}
               aria-pressed={isActive}
-              onClick={f.ready ? () => handleSelect(f.id) : undefined}
+              title={!f.ready && tabs ? 'Coming soon' : undefined}
+              onClick={f.ready ? () => onSelect(f.id) : undefined}
+              onLayoutAnimationComplete={() => onTileSettled?.(f.id)}
             >
-              <span className="feature-tile-icon" aria-hidden="true">{f.icon}</span>
-              <span className="feature-tile-title">{f.title}</span>
-              {!f.ready && <span className="feature-tile-badge">Coming soon</span>}
-            </button>
+              <motion.span
+                className="feature-tile-content"
+                initial={false}
+                animate={{ opacity: contentVisible ? 1 : 0 }}
+                transition={contentVisible ? CONTENT_IN : CONTENT_OUT}
+              >
+                <span className="feature-tile-icon" aria-hidden="true">{f.icon}</span>
+                <span className="feature-tile-title">{f.title}</span>
+                {!f.ready && <span className="feature-tile-badge">Coming soon</span>}
+              </motion.span>
+            </motion.button>
           )
         })}
       </div>
 
-      {expanded && (
-        <button type="button" className="feature-back" onClick={handleBack}>
+      {tabs && (
+        <motion.button
+          type="button"
+          className="feature-back"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: backVisible ? 1 : 0 }}
+          transition={backVisible ? BACK_IN : BACK_OUT}
+          style={{ pointerEvents: backVisible ? 'auto' : 'none' }}
+          onClick={onBack}
+          disabled={!backVisible}
+        >
           ← All features
-        </button>
+        </motion.button>
       )}
     </div>
   )
