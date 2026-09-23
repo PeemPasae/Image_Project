@@ -1,0 +1,221 @@
+/* Features page — grid ↔ folder-tab morph + Spot Blur tool.
+   Theme/template-agnostic: only the shared CSS variables are used. */
+
+.feature-tabs, .feature-panel { --ft-radius: var(--r-lg, var(--radius)); }
+
+/* ---------- Collapsed state: one row of 4 cards ---------- */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--soft-gap, 16px);
+}
+
+/* Same look as .card in the Soft template: solid surface + level-1 elevation
+   (Classic has no elevation token, so it stays flat like its own .card).
+   Corner radii are driven by Motion (FeatureTabs) so they animate with the box. */
+.feature-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  padding: 22px 16px;
+  position: relative;
+  z-index: 2; /* above the panel: joins it as a tab, and covers it while it fades out */
+  text-align: center;
+  color: var(--text);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--ft-radius);
+  box-shadow: var(--soft-elevation, none);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.feature-grid .feature-tile.is-ready:hover { border-color: var(--border-strong); box-shadow: var(--soft-elevation-hover, none); }
+.feature-tile.is-ready:focus-visible { outline: 2px solid var(--accent1, var(--purple)); outline-offset: 2px; }
+.feature-tile.is-inert { opacity: .5; cursor: not-allowed; }
+
+/* Icon + label (+ badge). Faded out by Motion while the box morphs. */
+.feature-tile-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: transform .15s ease;
+}
+.feature-tile-icon {
+  display: inline-flex;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--accent1, var(--purple));
+}
+.feature-tile-icon svg { width: 1em; height: 1em; }
+/* Font family is inherited from body, same as the sidebar nav links. */
+.feature-tile-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.feature-tile-badge {
+  margin-top: -6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+/* ---------- Expanded state: tab bar ---------- */
+
+.feature-tabs { --ft-tab-h: 40px; --ft-tab-active-h: 52px; }
+
+/* Tabs and the back button share one top line. */
+.feature-tabs.is-expanded {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.feature-tab-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+/* Every tab is a rectangle rounded on top only (radii driven by Motion).
+   Coming-soon tabs are 12px shorter than the active one, so their bottom edge
+   floats above the panel and never touches it. No shadow in this mode. */
+.feature-tab-row .feature-tile {
+  min-height: 0;
+  height: var(--ft-tab-h);
+  padding: 0 14px;
+  background: transparent;
+  box-shadow: none;
+}
+.feature-tab-row .feature-tile-content { flex-direction: row; gap: 8px; }
+.feature-tab-row .feature-tile-badge { display: none; }
+.feature-tab-row .feature-tile-icon { font-size: 15px; }
+.feature-tab-row .feature-tile-title { font-size: 14px; }
+.feature-tab-row .feature-tile.is-inert .feature-tile-title { font-size: 12.5px; }
+.feature-tab-row .feature-tile.is-inert .feature-tile-icon { font-size: 12px; }
+
+/* Active tab: taller, reaches down 1px over the panel's top border. While
+   joined its bottom edge is transparent and its surface (same variable as
+   the panel) hides the panel's top border underneath — one folder shape. */
+.feature-tab-row .feature-tile.is-active {
+  height: var(--ft-tab-active-h);
+  margin-bottom: -1px;
+  padding: 0 20px;
+  background: var(--surface-solid);
+  cursor: default;
+  transition: none;
+}
+.feature-tab-row .feature-tile.is-active.is-joined { border-bottom-color: transparent; }
+/* Hover grows only the content — the box must not move or the seam reopens. */
+.feature-tab-row .feature-tile.is-active:hover .feature-tile-content { transform: scale(1.05); }
+
+.feature-back {
+  flex-shrink: 0;
+  margin-top: calc((var(--ft-tab-h) - 30px) / 2); /* centred on the short tabs */
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: color .15s, border-color .15s;
+}
+.feature-back:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+
+.feature-stage { position: relative; }
+
+/* Size and radius are animated inline (bouncy pour in/out) and released
+   afterwards, so at rest the panel is full width and content height. */
+.feature-panel {
+  position: relative;
+  z-index: 1; /* below the tabs */
+  overflow: hidden;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 0 12px 12px 12px;
+}
+/* `.is-settled` carries no styling of its own — a CSS `transition: height`
+   can't animate to/from the `auto` height the panel rests at, so it's just a
+   marker Features.jsx reads (via a ResizeObserver) to know the open/close
+   sequence has finished and later content-driven height changes (e.g. an
+   image upload) should get a short WAAPI transition instead of jumping. */
+.feature-panel-body { padding: 24px; }
+
+/* ---------- Spot Blur tool ---------- */
+
+.spot-blur-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.spot-blur-title {
+  font-family: var(--soft-font-display, 'Sora', sans-serif);
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.spot-blur-sub { font-size: 13px; color: var(--text-dim); }
+.spot-blur-file { flex-shrink: 0; cursor: pointer; }
+
+.spot-blur-empty {
+  padding: 48px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-md, var(--radius));
+}
+
+.spot-blur-stage {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  line-height: 0;
+  border-radius: var(--r-md, var(--radius));
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.spot-blur-image {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  user-select: none;
+}
+.spot-blur-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--accent1, var(--purple)); /* read by the canvas as its fill colour */
+  opacity: .35;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.result-image-wrap.spot-blur-result {
+  aspect-ratio: auto;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.result-image-wrap.spot-blur-result img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.spot-blur-controls { margin-top: 18px; }
+.spot-blur-actions { align-items: center; justify-content: flex-end; }
+.spot-blur-count { margin-right: auto; font-size: 12.5px; color: var(--text-faint); }
+
+@media (max-width: 760px) {
+  .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .feature-tabs.is-expanded { flex-direction: column-reverse; align-items: stretch; }
+  .feature-back { align-self: flex-end; margin: 0 0 10px; }
+  /* Keep the tab bar on one line: coming-soon tabs shrink to their icon. */
+  .feature-tab-row .feature-tile.is-inert .feature-tile-title { display: none; }
+  .spot-blur-head { flex-direction: column; }
+}
