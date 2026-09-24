@@ -51,17 +51,19 @@ function animateProp(el, prop, from, to, { duration, delay, easing }) {
   return el.animate([{ [prop]: from }, { [prop]: to }], { duration, delay, easing, fill: 'both' })
 }
 
-function inflatePanel(el, w0, W, H) {
+function inflatePanel(el, x0, w0, W, H) {
   return [
     animateProp(el, 'height', '0px', `${H}px`, OPEN_HEIGHT),
     animateProp(el, 'width', `${w0}px`, `${W}px`, OPEN_WIDTH),
+    animateProp(el, 'left', `${x0}px`, '0px', OPEN_WIDTH),
     animateProp(el, 'borderRadius', RADIUS_OPEN, RADIUS_FULL, OPEN_RADIUS),
   ].filter(Boolean)
 }
 
-function deflatePanel(el, w0, W, H) {
+function deflatePanel(el, x0, w0, W, H) {
   return [
     animateProp(el, 'width', `${W}px`, `${w0}px`, CLOSE_WIDTH),
+    animateProp(el, 'left', '0px', `${x0}px`, CLOSE_WIDTH),
     animateProp(el, 'height', `${H}px`, '0px', CLOSE_HEIGHT),
     animateProp(el, 'borderRadius', RADIUS_FULL, RADIUS_OPEN, CLOSE_RADIUS),
   ].filter(Boolean)
@@ -171,6 +173,16 @@ export default function Features() {
     return stageRef.current?.querySelector('.feature-tile.is-active')?.offsetWidth ?? 0
   }
 
+  // x offset of the active tab relative to the stage — where the panel's
+  // narrow (tab-width) state should sit, since it's the currently active
+  // tile that's flush against it, not necessarily tile 0.
+  function activeTabOffset() {
+    const stage = stageRef.current
+    const tab = stage?.querySelector('.feature-tile.is-active')
+    if (!stage || !tab) return 0
+    return tab.getBoundingClientRect().left - stage.getBoundingClientRect().left
+  }
+
   async function open(id) {
     if (busy.current || ui.layout !== 'grid') return
     busy.current = true
@@ -201,7 +213,7 @@ export default function Features() {
       const W = stageRef.current.clientWidth
       body.style.width = `${W - 2}px` // inside the panel's 1px side borders
       const H = body.offsetHeight + 2 // + panel's top/bottom border
-      anim.current = inflatePanel(panel, activeTabWidth(), W, H)
+      anim.current = inflatePanel(panel, activeTabOffset(), activeTabWidth(), W, H)
       await Promise.all(anim.current.map((a) => a.finished.catch(() => {})))
       if (!alive()) return
       // Release the fixed size so the panel follows its content (image upload).
@@ -240,7 +252,7 @@ export default function Features() {
       const W = panel.offsetWidth
       const H = panel.offsetHeight
       body.style.width = `${panel.clientWidth}px`
-      anim.current = deflatePanel(panel, activeTabWidth(), W, H)
+      anim.current = deflatePanel(panel, activeTabOffset(), activeTabWidth(), W, H)
       // Tab content starts fading just before the pour-back lands, so the tiles
       // can move the moment it does — no idle gap.
       const fade = setTimeout(() => update({ content: false }), CLOSE_TOTAL - CONTENT_FADE_OUT)
