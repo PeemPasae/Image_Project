@@ -82,18 +82,26 @@
 .feature-tab-row .feature-tile-icon { font-size: 15px; }
 .feature-tab-row .feature-tile-title { font-size: 14px; }
 
-/* Active tab: taller, reaches down 1px over the panel's top border. While
-   joined its bottom edge is transparent and its surface (same variable as
-   the panel) hides the panel's top border underneath — one folder shape. */
+/* Active tab, before it's stepped up to joined height: same height as the
+   others (below), just distinguishable by fill/padding while it's still
+   part of the group morph. */
 .feature-tab-row .feature-tile.is-active {
-  height: var(--ft-tab-active-h);
-  margin-bottom: -1px;
   padding: 0 20px;
   background: var(--surface-solid);
   cursor: default;
   transition: none;
 }
-.feature-tab-row .feature-tile.is-active.is-joined { border-bottom-color: transparent; }
+/* Stepped up to joined height: taller, reaches down 1px over the panel's top
+   border. Kept off `.is-active` on purpose — see FeatureTabs.jsx — so the
+   height jump is its own separate beat, not baked into the group morph.
+   While joined its bottom edge is transparent and its surface (same
+   variable as the panel) hides the panel's top border underneath — one
+   folder shape. */
+.feature-tab-row .feature-tile.is-tall {
+  height: var(--ft-tab-active-h);
+  margin-bottom: -1px;
+}
+.feature-tab-row .feature-tile.is-tall.is-joined { border-bottom-color: transparent; }
 /* Hover grows only the content — the box must not move or the seam reopens. */
 .feature-tab-row .feature-tile.is-active:hover .feature-tile-content { transform: scale(1.05); }
 

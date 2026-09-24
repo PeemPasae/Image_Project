@@ -75,6 +75,7 @@ const INITIAL = {
   layout: 'grid',       // 'grid' | 'tabs'
   content: true,        // tile icons/labels visible
   joined: false,        // active tab merged with the panel
+  tallActive: false,    // active tab stepped up from generic tab height to joined height
   panel: false,         // panel mounted
   panelContent: false,  // active tool visible inside the panel
   back: false,          // "All features" visible
@@ -82,10 +83,13 @@ const INITIAL = {
   switching: false,      // mid same-open tool switch (picks the fade durations below)
 }
 
-// Open:   content out → tiles morph to tabs → tab joins, panel pours out of
-//         it → panel content + back button fade in.
-// Close:  panel content + back out → panel pours back into the tab → tab
-//         detaches, content out, tiles morph back → content in.
+// Open:   content out → tiles morph to tabs, ALL to the same generic tab
+//         height (no target divergence yet) → active tile alone steps up to
+//         joined height → tab joins, panel pours out of it → panel content +
+//         back button fade in.
+// Close:  panel content + back out → panel pours back into the tab → active
+//         tile steps back down to generic tab height → tiles (now all at the
+//         same height again) morph back to cards together → content in.
 // Switch: (panel already open, a different live tab clicked) old content
 //         fades out → activeId flips, so the "joined" tall-tab treatment
 //         slides from the old tab to the new one and the panel glides to the
@@ -209,7 +213,7 @@ export default function Features() {
     const alive = () => run === runId.current
 
     if (reduceMotion) {
-      update({ activeId: id, layout: 'tabs', joined: true, panel: true }, true)
+      update({ activeId: id, layout: 'tabs', joined: true, tallActive: true, panel: true }, true)
       update({ panelContent: true, back: true })
       busy.current = false
       return
@@ -219,19 +223,28 @@ export default function Features() {
     await wait(CONTENT_FADE_OUT)
     if (!alive()) return
 
-    // Two separate gates from here: the panel only needs its own anchor (the
-    // active tab) settled, while the tab labels wait on the whole group —
-    // decoupled so the panel doesn't sit idle for the ~150ms tail of the
-    // other, still-staggering tiles finishing their own spring.
-    const allSettled = tilesSettled()
-    const activeSettled = tileSettled(id)
+    // Phase 1: every tile — including the soon-to-be-active one — morphs to
+    // the same generic tab height. No target divergence yet, so all four move
+    // as one cohesive group instead of the active tile visibly pulling away
+    // toward a taller target while its siblings settle shorter.
+    const phase1Settled = tilesSettled()
     update({ activeId: id, layout: 'tabs' }, true)
-    allSettled.then(() => { if (alive()) update({ content: true }) })
+    phase1Settled.then(() => { if (alive()) update({ content: true }) })
 
-    await activeSettled
+    await phase1Settled
     if (!alive()) return
 
-    update({ joined: true, panel: true }, true)
+    // Phase 2: only the active tile steps up from generic tab height to
+    // joined height — a short, separate spring. The panel starts the instant
+    // THIS step settles (same active-tile-only gate as before), so there's
+    // still no idle gap, just a later handoff point.
+    const phase2Settled = tileSettled(id)
+    update({ joined: true, tallActive: true }, true)
+
+    await phase2Settled
+    if (!alive()) return
+
+    update({ panel: true }, true)
     const panel = panelRef.current
     const body = bodyRef.current
     if (panel && body) {
@@ -250,9 +263,6 @@ export default function Features() {
       panel.classList.add('is-settled')
     }
 
-    await allSettled
-    if (!alive()) return
-
     update({ panelContent: true, back: true })
     busy.current = false
   }
@@ -268,7 +278,7 @@ export default function Features() {
     if (!alive()) return
 
     if (reduceMotion) {
-      update({ layout: 'grid', joined: false, panel: false })
+      update({ layout: 'grid', joined: false, tallActive: false, panel: false })
       busy.current = false
       return
     }
@@ -291,9 +301,20 @@ export default function Features() {
       anim.current = null
     }
 
-    const settled = tilesSettled()
-    update({ content: false, joined: false, panel: false, layout: 'grid' }, true)
-    await settled
+    // Reverse of phase 2: shrink the active tile from joined height back to
+    // generic tab height first, so it doesn't skip straight from tall to
+    // card-size while its siblings are still at the generic height.
+    const phase2Reversed = tileSettled(ui.activeId)
+    update({ joined: false, tallActive: false, panel: false }, true)
+
+    await phase2Reversed
+    if (!alive()) return
+
+    // Reverse of phase 1: every tile is back at the same generic height now
+    // — morph them all back into cards together, same as they came in.
+    const phase1Reversed = tilesSettled()
+    update({ content: false, layout: 'grid' }, true)
+    await phase1Reversed
     if (!alive()) return
 
     update({ content: true })
@@ -343,6 +364,7 @@ export default function Features() {
             layout={ui.layout}
             contentVisible={ui.content}
             joined={ui.joined}
+            tallActive={ui.tallActive}
             backVisible={ui.back}
             activeId={ui.activeId}
             onSelect={(id) => {
