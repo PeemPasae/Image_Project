@@ -73,6 +73,32 @@ function readBlobText(blob) {
   })
 }
 
+// Same normalized shape as request(), but with responseType 'blob' the error
+// body arrives as a Blob, so parse the JSON envelope out of it first.
+async function wrapBlobError(err) {
+  let apiError = err.response?.data?.error
+  const body = err.response?.data
+  if (!apiError && typeof Blob !== 'undefined' && body instanceof Blob) {
+    try { apiError = JSON.parse(await readBlobText(body))?.error } catch { /* not JSON */ }
+  }
+  const wrapped = new Error(apiError?.message || err.message || 'Something went wrong')
+  wrapped.code = apiError?.code || (err.code === 'ECONNABORTED' ? 'AI_SERVER_TIMEOUT' : 'NETWORK_ERROR')
+  throw wrapped
+}
+
+// Shared by the /process/* image filters below (everything but spot-blur,
+// which has its own `circles` payload shape): multipart upload of `image`
+// plus flat form fields, binary PNG back (no envelope).
+function processImage(path, file, fields) {
+  const form = new FormData()
+  form.append('image', file)
+  for (const [key, value] of Object.entries(fields)) form.append(key, String(value))
+  return client.post(path, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob',
+  }).then((res) => URL.createObjectURL(res.data)).catch(wrapBlobError)
+}
+
 export const api = {
   register: (email, password) => {
     if (MOCK_MODE) return delay().then(() => ({ message: 'Registration successful' }))
@@ -156,19 +182,34 @@ export const api = {
     return client.post('/process/spot-blur', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
       responseType: 'blob',
-    }).then((res) => URL.createObjectURL(res.data))
-      .catch(async (err) => {
-        // Same normalized shape as request(), but with responseType 'blob' the
-        // error body arrives as a Blob, so parse the JSON envelope out of it first.
-        let apiError = err.response?.data?.error
-        const body = err.response?.data
-        if (!apiError && typeof Blob !== 'undefined' && body instanceof Blob) {
-          try { apiError = JSON.parse(await readBlobText(body))?.error } catch { /* not JSON */ }
-        }
-        const wrapped = new Error(apiError?.message || err.message || 'Something went wrong')
-        wrapped.code = apiError?.code || (err.code === 'ECONNABORTED' ? 'AI_SERVER_TIMEOUT' : 'NETWORK_ERROR')
-        throw wrapped
-      })
+    }).then((res) => URL.createObjectURL(res.data)).catch(wrapBlobError)
+  },
+
+  /** POST /process/cartoonize — multipart upload, binary PNG back (no envelope). */
+  processCartoonize: (file, { num_colors = 8, line_thickness = 2, smoothness = 5 } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    return processImage('/process/cartoonize', file, { num_colors, line_thickness, smoothness })
+  },
+
+  /** POST /process/tilt-shift — multipart upload, binary PNG back (no envelope). */
+  processTiltShift: (file, {
+    focus_position = 0.5, focus_width = 0.2, blur_strength = 15,
+    saturation_boost = 1.4, contrast_boost = 1.2,
+  } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    return processImage('/process/tilt-shift', file, {
+      focus_position, focus_width, blur_strength, saturation_boost, contrast_boost,
+    })
+  },
+
+  /** POST /process/hdr-enhancer — multipart upload, binary PNG back (no envelope). */
+  processHdrEnhancer: (file, {
+    clahe_clip_limit = 3.0, clahe_grid_size = 8, detail_strength = 1.5, color_balance = true,
+  } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    return processImage('/process/hdr-enhancer', file, {
+      clahe_clip_limit, clahe_grid_size, detail_strength, color_balance,
+    })
   },
 }
 

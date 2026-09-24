@@ -1,12 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { Focus } from 'lucide-react'
+import { Focus, Palette, Aperture, Contrast } from 'lucide-react'
 
 export const FEATURES = [
-  { id: 'spot-blur', icon: <Focus strokeWidth={1.75} />, title: 'Spot Blur', ready: true },
-  { id: 'relight', icon: '✨', title: 'Relight', ready: false },
-  { id: 'remove-object', icon: '✨', title: 'Remove Object', ready: false },
-  { id: 'ai-enhance', icon: '✨', title: 'AI Enhance', ready: false },
+  { id: 'spot-blur', icon: <Focus strokeWidth={1.75} />, title: 'Spot Blur' },
+  { id: 'cartoonize', icon: <Palette strokeWidth={1.75} />, title: 'Cartoonize' },
+  { id: 'tilt-shift', icon: <Aperture strokeWidth={1.75} />, title: 'Tilt-Shift' },
+  { id: 'hdr-enhancer', icon: <Contrast strokeWidth={1.75} />, title: 'HDR Enhancer' },
 ]
 
 // Soft overshoot so the box stretches and settles a little, like liquid.
@@ -39,16 +39,19 @@ function cornerRadii(top, bottom) {
   }
 }
 
-// Purely presentational: Features sequences the open/close steps and drives
-// these props. The tiles never unmount; Motion's `layout` animates each box
-// between the card row and the tab bar while its content is hidden.
+// Purely presentational: Features sequences the open/close/switch steps and
+// drives these props. The tiles never unmount; Motion's `layout` animates
+// each box between the card row and the tab bar (and, within the tab bar,
+// between any tile becoming/un-becoming the active one) while its content is
+// hidden — that per-tile `layout` interpolation is what makes the "joined"
+// treatment read as sliding from tab to tab rather than jump-cutting.
 //   layout         'grid' | 'tabs'
-//   contentVisible icon/label/badge shown (hidden while boxes morph)
+//   contentVisible icon/label shown (hidden while boxes morph)
 //   joined         active tab drops its bottom border and merges with the panel
 //   backVisible    "All features" button shown
 export default function FeatureTabs({
   layout, contentVisible, joined, backVisible,
-  activeId = 'spot-blur', onSelect, onBack, onTileSettled,
+  activeId = null, onSelect, onBack, onTileSettled,
 }) {
   const containerRef = useRef(null)
   const cardRadius = useCardRadius(containerRef)
@@ -61,7 +64,6 @@ export default function FeatureTabs({
           const isActive = tabs && f.id === activeId
           const className = [
             'feature-tile',
-            f.ready ? 'is-ready' : 'is-inert',
             isActive ? 'is-active' : '',
             isActive && joined ? 'is-joined' : '',
           ].filter(Boolean).join(' ')
@@ -78,10 +80,8 @@ export default function FeatureTabs({
               style={cornerRadii(cardRadius, cardRadius)}
               animate={tabs ? cornerRadii(TAB_RADIUS, 0) : cornerRadii(cardRadius, cardRadius)}
               transition={{ ...MOVE, delay: order * STAGGER }}
-              aria-disabled={!f.ready || undefined}
               aria-pressed={isActive}
-              title={!f.ready && tabs ? 'Coming soon' : undefined}
-              onClick={f.ready ? () => onSelect(f.id) : undefined}
+              onClick={() => onSelect(f.id)}
               onLayoutAnimationComplete={() => onTileSettled?.(f.id)}
             >
               <motion.span
@@ -92,7 +92,6 @@ export default function FeatureTabs({
               >
                 <span className="feature-tile-icon" aria-hidden="true">{f.icon}</span>
                 <span className="feature-tile-title">{f.title}</span>
-                {!f.ready && <span className="feature-tile-badge">Coming soon</span>}
               </motion.span>
             </motion.button>
           )

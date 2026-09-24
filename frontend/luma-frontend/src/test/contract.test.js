@@ -181,3 +181,146 @@ describe('processSpotBlur contract', () => {
     })
   })
 })
+
+describe('processCartoonize contract', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock-result')
+  })
+
+  it('posts multipart form with image/num_colors/line_thickness/smoothness and returns a blob URL', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+
+    const url = await api.processCartoonize(file, { num_colors: 16, line_thickness: 3, smoothness: 7 })
+
+    expect(url).toBe('blob:mock-result')
+    expect(URL.createObjectURL).toHaveBeenCalledWith(png)
+
+    const [path, form, config] = mockClient.post.mock.calls[0]
+    expect(path).toBe('/process/cartoonize')
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('image')).toBeInstanceOf(File)
+    expect(form.get('num_colors')).toBe('16')
+    expect(form.get('line_thickness')).toBe('3')
+    expect(form.get('smoothness')).toBe('7')
+    expect(config).toMatchObject({
+      responseType: 'blob',
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  })
+
+  it('throws with .code parsed from a Blob error body', async () => {
+    const body = new Blob(
+      [JSON.stringify({ success: false, error: { code: 'VALIDATION_ERROR', message: 'num_colors must be 4-32' } })],
+      { type: 'application/json' }
+    )
+    mockClient.post.mockRejectedValueOnce({ response: { data: body } })
+    const file = new File(['img'], 'photo.png', { type: 'image/png' })
+
+    await expect(api.processCartoonize(file, { num_colors: 100 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'num_colors must be 4-32',
+    })
+  })
+})
+
+describe('processTiltShift contract', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock-result')
+  })
+
+  it('posts multipart form with all tilt-shift fields and returns a blob URL', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+
+    const url = await api.processTiltShift(file, {
+      focus_position: 0.4,
+      focus_width: 0.3,
+      blur_strength: 20,
+      saturation_boost: 1.8,
+      contrast_boost: 1.5,
+    })
+
+    expect(url).toBe('blob:mock-result')
+    expect(URL.createObjectURL).toHaveBeenCalledWith(png)
+
+    const [path, form, config] = mockClient.post.mock.calls[0]
+    expect(path).toBe('/process/tilt-shift')
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('image')).toBeInstanceOf(File)
+    expect(form.get('focus_position')).toBe('0.4')
+    expect(form.get('focus_width')).toBe('0.3')
+    expect(form.get('blur_strength')).toBe('20')
+    expect(form.get('saturation_boost')).toBe('1.8')
+    expect(form.get('contrast_boost')).toBe('1.5')
+    expect(config).toMatchObject({
+      responseType: 'blob',
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  })
+
+  it('throws with .code parsed from a Blob error body', async () => {
+    const body = new Blob(
+      [JSON.stringify({ success: false, error: { code: 'VALIDATION_ERROR', message: 'blur_strength must be 1-30' } })],
+      { type: 'application/json' }
+    )
+    mockClient.post.mockRejectedValueOnce({ response: { data: body } })
+    const file = new File(['img'], 'photo.png', { type: 'image/png' })
+
+    await expect(api.processTiltShift(file, { blur_strength: 99 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'blur_strength must be 1-30',
+    })
+  })
+})
+
+describe('processHdrEnhancer contract', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock-result')
+  })
+
+  it('posts multipart form with all hdr-enhancer fields (color_balance sent as a string) and returns a blob URL', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+
+    const url = await api.processHdrEnhancer(file, {
+      clahe_clip_limit: 2.5,
+      clahe_grid_size: 12,
+      detail_strength: 2.0,
+      color_balance: false,
+    })
+
+    expect(url).toBe('blob:mock-result')
+    expect(URL.createObjectURL).toHaveBeenCalledWith(png)
+
+    const [path, form, config] = mockClient.post.mock.calls[0]
+    expect(path).toBe('/process/hdr-enhancer')
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('image')).toBeInstanceOf(File)
+    expect(form.get('clahe_clip_limit')).toBe('2.5')
+    expect(form.get('clahe_grid_size')).toBe('12')
+    expect(form.get('detail_strength')).toBe('2')
+    expect(form.get('color_balance')).toBe('false')
+    expect(config).toMatchObject({
+      responseType: 'blob',
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  })
+
+  it('throws with .code parsed from a Blob error body', async () => {
+    const body = new Blob(
+      [JSON.stringify({ success: false, error: { code: 'VALIDATION_ERROR', message: 'clahe_grid_size must be 2-16' } })],
+      { type: 'application/json' }
+    )
+    mockClient.post.mockRejectedValueOnce({ response: { data: body } })
+    const file = new File(['img'], 'photo.png', { type: 'image/png' })
+
+    await expect(api.processHdrEnhancer(file, { clahe_grid_size: 100 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'clahe_grid_size must be 2-16',
+    })
+  })
+})

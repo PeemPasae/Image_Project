@@ -3,11 +3,26 @@ import { flushSync } from 'react-dom'
 import { MotionConfig, motion, useReducedMotion } from 'motion/react'
 import FeatureTabs, { FEATURES } from '../components/features/FeatureTabs'
 import SpotBlurTool from '../components/features/SpotBlurTool'
+import CartoonizeTool from '../components/features/CartoonizeTool'
+import TiltShiftTool from '../components/features/TiltShiftTool'
+import HdrEnhancerTool from '../components/features/HdrEnhancerTool'
 import '../styles/features.css'
+
+// Page-level concern (subtitle text, which component renders in the panel)
+// keyed by tile id — FeatureTabs itself stays presentation-only.
+const TOOL_META = {
+  'spot-blur': { subtitle: 'Pick a spot, blur it.', Component: SpotBlurTool },
+  cartoonize: { subtitle: 'Turn your photo into a cartoon/anime style.', Component: CartoonizeTool },
+  'tilt-shift': { subtitle: 'Simulate a tilt-shift, miniature-model look.', Component: TiltShiftTool },
+  'hdr-enhancer': { subtitle: 'Boost detail and contrast, HDR-style.', Component: HdrEnhancerTool },
+}
 
 // ---- Timings (ms) ----
 const CONTENT_FADE_OUT = 100
-const PANEL_CONTENT_FADE_OUT = 150
+const PANEL_CONTENT_FADE_IN = 200 // opening: panel content + back button fade in
+const PANEL_CONTENT_FADE_OUT = 150 // closing: panel content + back button fade out
+const SWITCH_FADE_OUT = 120 // fading out the old tool's content before a same-open tab switch
+const SWITCH_FADE_IN = 150 // fading in the new tool's content after
 const SETTLE_FALLBACK = 1000 // if a tile's onLayoutAnimationComplete never fires
 
 // Panel "bouncy pour" (open) / pour-back (close). Rectangle the whole way —
@@ -59,14 +74,21 @@ const INITIAL = {
   content: true,        // tile icons/labels visible
   joined: false,        // active tab merged with the panel
   panel: false,         // panel mounted
-  panelContent: false,  // Spot Blur tool visible inside the panel
+  panelContent: false,  // active tool visible inside the panel
   back: false,          // "All features" visible
+  activeId: null,        // which tile is open ('spot-blur', 'cartoonize', …)
+  switching: false,      // mid same-open tool switch (picks the fade durations below)
 }
 
-// Open:  content out → tiles morph to tabs → tab joins, panel pours out of
-//        it → panel content + back button fade in.
-// Close: panel content + back out → panel pours back into the tab → tab
-//        detaches, content out, tiles morph back → content in.
+// Open:   content out → tiles morph to tabs → tab joins, panel pours out of
+//         it → panel content + back button fade in.
+// Close:  panel content + back out → panel pours back into the tab → tab
+//         detaches, content out, tiles morph back → content in.
+// Switch: (panel already open, a different live tab clicked) old content
+//         fades out → activeId flips, so the "joined" tall-tab treatment
+//         slides from the old tab to the new one and the panel glides to the
+//         new tool's height (same `.is-settled` transition as an image
+//         upload) → new content fades in. No morph/bouncy-pour replay.
 export default function Features() {
   const reduceMotion = useReducedMotion()
   const [ui, setUi] = useState(INITIAL)
@@ -149,14 +171,14 @@ export default function Features() {
     return stageRef.current?.querySelector('.feature-tile.is-active')?.offsetWidth ?? 0
   }
 
-  async function open() {
+  async function open(id) {
     if (busy.current || ui.layout !== 'grid') return
     busy.current = true
     const run = ++runId.current
     const alive = () => run === runId.current
 
     if (reduceMotion) {
-      update({ layout: 'tabs', joined: true, panel: true }, true)
+      update({ activeId: id, layout: 'tabs', joined: true, panel: true }, true)
       update({ panelContent: true, back: true })
       busy.current = false
       return
@@ -167,7 +189,7 @@ export default function Features() {
     if (!alive()) return
 
     const settled = tilesSettled()
-    update({ layout: 'tabs' }, true)
+    update({ activeId: id, layout: 'tabs' }, true)
     await settled
     if (!alive()) return
 
@@ -237,12 +259,42 @@ export default function Features() {
     busy.current = false
   }
 
+  // Panel already open, a different live tab clicked. No morph/bouncy-pour —
+  // just fade the content, swap which tab is joined + which tool renders, and
+  // let the panel's existing `.is-settled` resize transition (see the
+  // ResizeObserver effect above) glide it to the new tool's height.
+  async function switchTool(id) {
+    if (busy.current || ui.layout !== 'tabs' || id === ui.activeId) return
+    busy.current = true
+    const run = ++runId.current
+    const alive = () => run === runId.current
+
+    if (reduceMotion) {
+      update({ activeId: id })
+      busy.current = false
+      return
+    }
+
+    update({ switching: true, panelContent: false })
+    await wait(SWITCH_FADE_OUT)
+    if (!alive()) return
+
+    update({ activeId: id, panelContent: true }, true)
+    await wait(SWITCH_FADE_IN)
+    if (!alive()) return
+
+    update({ switching: false })
+    busy.current = false
+  }
+
+  const ActiveTool = TOOL_META[ui.activeId]?.Component
+
   return (
     <MotionConfig reducedMotion="user">
       <div>
         <div className="page-header">
           <h1>Features</h1>
-          <p>{ui.layout === 'grid' ? 'Image tools for your generations — more on the way.' : 'Pick a spot, blur it.'}</p>
+          <p>{ui.layout === 'grid' ? 'Image tools for your generations — more on the way.' : TOOL_META[ui.activeId]?.subtitle}</p>
         </div>
 
         <div className="feature-stage" ref={stageRef}>
@@ -251,7 +303,11 @@ export default function Features() {
             contentVisible={ui.content}
             joined={ui.joined}
             backVisible={ui.back}
-            onSelect={(id) => { if (id === 'spot-blur') open() }}
+            activeId={ui.activeId}
+            onSelect={(id) => {
+              if (ui.layout === 'grid') open(id)
+              else if (id !== ui.activeId) switchTool(id)
+            }}
             onBack={close}
             onTileSettled={(id) => settleWaiter.current?.(id)}
           />
@@ -263,9 +319,14 @@ export default function Features() {
                 className="feature-panel-body"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: ui.panelContent ? 1 : 0 }}
-                transition={{ duration: ui.panelContent ? 0.2 : 0.15, ease: 'easeOut' }}
+                transition={{
+                  duration: (ui.panelContent
+                    ? (ui.switching ? SWITCH_FADE_IN : PANEL_CONTENT_FADE_IN)
+                    : (ui.switching ? SWITCH_FADE_OUT : PANEL_CONTENT_FADE_OUT)) / 1000,
+                  ease: 'easeOut',
+                }}
               >
-                <SpotBlurTool />
+                {ActiveTool && <ActiveTool />}
               </motion.div>
             </div>
           )}
