@@ -100,7 +100,7 @@ export default function Features() {
   const busy = useRef(false)
   const runId = useRef(0)
   const anim = useRef(null)
-  const settleWaiter = useRef(null)
+  const settleWaiters = useRef(new Set())
 
   useEffect(() => () => {
     runId.current++ // abandon any running sequence
@@ -156,16 +156,35 @@ export default function Features() {
   function tilesSettled() {
     return new Promise((resolve) => {
       const pending = new Set(FEATURES.map((f) => f.id))
-      const done = () => {
-        clearTimeout(timer)
-        settleWaiter.current = null
-        resolve()
-      }
-      const timer = setTimeout(done, SETTLE_FALLBACK)
-      settleWaiter.current = (id) => {
+      const onId = (id) => {
         pending.delete(id)
         if (pending.size === 0) done()
       }
+      const done = () => {
+        clearTimeout(timer)
+        settleWaiters.current.delete(onId)
+        resolve()
+      }
+      const timer = setTimeout(done, SETTLE_FALLBACK)
+      settleWaiters.current.add(onId)
+    })
+  }
+
+  // Resolves once one specific tile finishes its own layout animation — lets
+  // the panel start pouring as soon as its anchor (the active tab) is ready,
+  // instead of waiting on the other, still-staggering tiles to catch up too.
+  function tileSettled(id) {
+    return new Promise((resolve) => {
+      const onId = (settledId) => {
+        if (settledId === id) done()
+      }
+      const done = () => {
+        clearTimeout(timer)
+        settleWaiters.current.delete(onId)
+        resolve()
+      }
+      const timer = setTimeout(done, SETTLE_FALLBACK)
+      settleWaiters.current.add(onId)
     })
   }
 
@@ -200,12 +219,19 @@ export default function Features() {
     await wait(CONTENT_FADE_OUT)
     if (!alive()) return
 
-    const settled = tilesSettled()
+    // Two separate gates from here: the panel only needs its own anchor (the
+    // active tab) settled, while the tab labels wait on the whole group —
+    // decoupled so the panel doesn't sit idle for the ~150ms tail of the
+    // other, still-staggering tiles finishing their own spring.
+    const allSettled = tilesSettled()
+    const activeSettled = tileSettled(id)
     update({ activeId: id, layout: 'tabs' }, true)
-    await settled
+    allSettled.then(() => { if (alive()) update({ content: true }) })
+
+    await activeSettled
     if (!alive()) return
 
-    update({ content: true, joined: true, panel: true }, true)
+    update({ joined: true, panel: true }, true)
     const panel = panelRef.current
     const body = bodyRef.current
     if (panel && body) {
@@ -223,6 +249,9 @@ export default function Features() {
       // From here the panel's height tracks its content via CSS, not JS.
       panel.classList.add('is-settled')
     }
+
+    await allSettled
+    if (!alive()) return
 
     update({ panelContent: true, back: true })
     busy.current = false
@@ -321,7 +350,7 @@ export default function Features() {
               else if (id !== ui.activeId) switchTool(id)
             }}
             onBack={close}
-            onTileSettled={(id) => settleWaiter.current?.(id)}
+            onTileSettled={(id) => settleWaiters.current.forEach((fn) => fn(id))}
           />
 
           {ui.panel && (
