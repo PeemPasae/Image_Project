@@ -163,6 +163,12 @@
   color: var(--text-faint);
   border: 1.5px dashed var(--border-strong);
   border-radius: var(--r-md, var(--radius));
+  transition: border-color .15s ease, background-color .15s ease;
+}
+/* Dragging a file over the empty-state dropzone. */
+.spot-blur-empty.is-drag-over {
+  border-color: var(--accent1, var(--purple));
+  background: color-mix(in srgb, var(--accent1, var(--purple)) 8%, transparent);
 }
 
 .spot-blur-stage {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import { useToast } from '../../context/ToastContext'
-import ImageUploader from './ImageUploader'
+import ImageUploader, { ImageDropzone, useImagePicker } from './ImageUploader'
 
 export default function HdrEnhancerTool() {
   const { showToast } = useToast()
@@ -30,6 +30,7 @@ export default function HdrEnhancerTool() {
     setPreviewUrl(url)
     setResult('')
   }
+  const pickImage = useImagePicker(handleImagePicked)
 
   async function handleDone() {
     if (!file) return
@@ -57,12 +58,10 @@ export default function HdrEnhancerTool() {
           <h2 className="spot-blur-title">HDR Enhancer</h2>
           <p className="spot-blur-sub">Upload an image to boost detail and contrast, HDR-style, using CLAHE.</p>
         </div>
-        <ImageUploader file={file} onChange={handleImagePicked} />
+        <ImageUploader file={file} onPick={pickImage} />
       </div>
 
-      {!previewUrl && (
-        <div className="spot-blur-empty">No image yet — JPG, PNG, or WEBP.</div>
-      )}
+      {!previewUrl && <ImageDropzone onPick={pickImage} />}
 
       {previewUrl && resultUrl && (
         <div className="result-image-wrap spot-blur-result">

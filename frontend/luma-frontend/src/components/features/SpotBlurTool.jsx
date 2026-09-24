@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import SpotBlurCanvas from './SpotBlurCanvas'
-import ImageUploader from './ImageUploader'
+import ImageUploader, { ImageDropzone, useImagePicker } from './ImageUploader'
 
 export default function SpotBlurTool() {
   const { showToast } = useToast()
@@ -33,6 +33,7 @@ export default function SpotBlurTool() {
     setCircles([])
     setResult('')
   }
+  const pickImage = useImagePicker(handleImagePicked)
 
   async function handleDone() {
     if (!file) return
@@ -61,12 +62,10 @@ export default function SpotBlurTool() {
           <h2 className="spot-blur-title">Spot Blur</h2>
           <p className="spot-blur-sub">Upload an image, then click and drag over the areas you want blurred.</p>
         </div>
-        <ImageUploader file={file} onChange={handleImagePicked} />
+        <ImageUploader file={file} onPick={pickImage} />
       </div>
 
-      {!previewUrl && (
-        <div className="spot-blur-empty">No image yet — JPG, PNG, or WEBP.</div>
-      )}
+      {!previewUrl && <ImageDropzone onPick={pickImage} />}
 
       {previewUrl && resultUrl && (
         <div className="result-image-wrap spot-blur-result">

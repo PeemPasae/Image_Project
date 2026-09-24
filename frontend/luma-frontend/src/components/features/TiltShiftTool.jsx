@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import { useToast } from '../../context/ToastContext'
-import ImageUploader from './ImageUploader'
+import ImageUploader, { ImageDropzone, useImagePicker } from './ImageUploader'
 
 export default function TiltShiftTool() {
   const { showToast } = useToast()
@@ -31,6 +31,7 @@ export default function TiltShiftTool() {
     setPreviewUrl(url)
     setResult('')
   }
+  const pickImage = useImagePicker(handleImagePicked)
 
   async function handleDone() {
     if (!file) return
@@ -59,12 +60,10 @@ export default function TiltShiftTool() {
           <h2 className="spot-blur-title">Tilt-Shift</h2>
           <p className="spot-blur-sub">Upload an image to simulate a tilt-shift lens (miniature-model look).</p>
         </div>
-        <ImageUploader file={file} onChange={handleImagePicked} />
+        <ImageUploader file={file} onPick={pickImage} />
       </div>
 
-      {!previewUrl && (
-        <div className="spot-blur-empty">No image yet — JPG, PNG, or WEBP.</div>
-      )}
+      {!previewUrl && <ImageDropzone onPick={pickImage} />}
 
       {previewUrl && resultUrl && (
         <div className="result-image-wrap spot-blur-result">
