@@ -85,8 +85,10 @@ const INITIAL = {
 
 // Open:   content out → tiles morph to tabs, ALL to the same generic tab
 //         height (no target divergence yet) → active tile alone steps up to
-//         joined height → tab joins, panel pours out of it → panel content +
-//         back button fade in.
+//         joined height WHILE the panel pours out of it at the same time
+//         (the panel's starting geometry only depends on tab width, which is
+//         already final by then, so the two motions overlap instead of
+//         chaining) → panel content + back button fade in.
 // Close:  panel content + back out → panel pours back into the tab → active
 //         tile steps back down to generic tab height → tiles (now all at the
 //         same height again) morph back to cards together → content in.
@@ -235,16 +237,14 @@ export default function Features() {
     if (!alive()) return
 
     // Phase 2: only the active tile steps up from generic tab height to
-    // joined height — a short, separate spring. The panel starts the instant
-    // THIS step settles (same active-tile-only gate as before), so there's
-    // still no idle gap, just a later handoff point.
-    const phase2Settled = tileSettled(id)
-    update({ joined: true, tallActive: true }, true)
-
-    await phase2Settled
-    if (!alive()) return
-
-    update({ panel: true }, true)
+    // joined height — a short, separate spring. The panel's starting
+    // geometry (activeTabOffset/activeTabWidth) only depends on the tile's
+    // WIDTH, which is already final by the end of phase 1 (padding/content
+    // driven, not height — verified: identical whether the tile is 40px or
+    // 52px tall). So the panel doesn't need to wait for phase 2 to settle;
+    // it starts pouring the same instant phase 2 begins, overlapping the
+    // two motions instead of chaining them.
+    update({ joined: true, tallActive: true, panel: true }, true)
     const panel = panelRef.current
     const body = bodyRef.current
     if (panel && body) {
