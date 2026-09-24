@@ -3,11 +3,26 @@ import { flushSync } from 'react-dom'
 import { MotionConfig, motion, useReducedMotion } from 'motion/react'
 import FeatureTabs, { FEATURES } from '../components/features/FeatureTabs'
 import SpotBlurTool from '../components/features/SpotBlurTool'
+import CartoonizeTool from '../components/features/CartoonizeTool'
+import TiltShiftTool from '../components/features/TiltShiftTool'
+import HdrEnhancerTool from '../components/features/HdrEnhancerTool'
 import '../styles/features.css'
+
+// Page-level concern (subtitle text, which component renders in the panel)
+// keyed by tile id — FeatureTabs itself stays presentation-only.
+const TOOL_META = {
+  'spot-blur': { subtitle: 'Pick a spot, blur it.', Component: SpotBlurTool },
+  cartoonize: { subtitle: 'Turn your photo into a cartoon/anime style.', Component: CartoonizeTool },
+  'tilt-shift': { subtitle: 'Simulate a tilt-shift, miniature-model look.', Component: TiltShiftTool },
+  'hdr-enhancer': { subtitle: 'Boost detail and contrast, HDR-style.', Component: HdrEnhancerTool },
+}
 
 // ---- Timings (ms) ----
 const CONTENT_FADE_OUT = 100
-const PANEL_CONTENT_FADE_OUT = 150
+const PANEL_CONTENT_FADE_IN = 200 // opening: panel content + back button fade in
+const PANEL_CONTENT_FADE_OUT = 150 // closing: panel content + back button fade out
+const SWITCH_FADE_OUT = 120 // fading out the old tool's content before a same-open tab switch
+const SWITCH_FADE_IN = 150 // fading in the new tool's content after
 const SETTLE_FALLBACK = 1000 // if a tile's onLayoutAnimationComplete never fires
 
 // Panel "bouncy pour" (open) / pour-back (close). Rectangle the whole way —
@@ -36,17 +51,19 @@ function animateProp(el, prop, from, to, { duration, delay, easing }) {
   return el.animate([{ [prop]: from }, { [prop]: to }], { duration, delay, easing, fill: 'both' })
 }
 
-function inflatePanel(el, w0, W, H) {
+function inflatePanel(el, x0, w0, W, H) {
   return [
     animateProp(el, 'height', '0px', `${H}px`, OPEN_HEIGHT),
     animateProp(el, 'width', `${w0}px`, `${W}px`, OPEN_WIDTH),
+    animateProp(el, 'left', `${x0}px`, '0px', OPEN_WIDTH),
     animateProp(el, 'borderRadius', RADIUS_OPEN, RADIUS_FULL, OPEN_RADIUS),
   ].filter(Boolean)
 }
 
-function deflatePanel(el, w0, W, H) {
+function deflatePanel(el, x0, w0, W, H) {
   return [
     animateProp(el, 'width', `${W}px`, `${w0}px`, CLOSE_WIDTH),
+    animateProp(el, 'left', '0px', `${x0}px`, CLOSE_WIDTH),
     animateProp(el, 'height', `${H}px`, '0px', CLOSE_HEIGHT),
     animateProp(el, 'borderRadius', RADIUS_FULL, RADIUS_OPEN, CLOSE_RADIUS),
   ].filter(Boolean)
@@ -58,15 +75,28 @@ const INITIAL = {
   layout: 'grid',       // 'grid' | 'tabs'
   content: true,        // tile icons/labels visible
   joined: false,        // active tab merged with the panel
+  tallActive: false,    // active tab stepped up from generic tab height to joined height
   panel: false,         // panel mounted
-  panelContent: false,  // Spot Blur tool visible inside the panel
+  panelContent: false,  // active tool visible inside the panel
   back: false,          // "All features" visible
+  activeId: null,        // which tile is open ('spot-blur', 'cartoonize', …)
+  switching: false,      // mid same-open tool switch (picks the fade durations below)
 }
 
-// Open:  content out → tiles morph to tabs → tab joins, panel pours out of
-//        it → panel content + back button fade in.
-// Close: panel content + back out → panel pours back into the tab → tab
-//        detaches, content out, tiles morph back → content in.
+// Open:   content out → tiles morph to tabs, ALL to the same generic tab
+//         height (no target divergence yet) → active tile alone steps up to
+//         joined height WHILE the panel pours out of it at the same time
+//         (the panel's starting geometry only depends on tab width, which is
+//         already final by then, so the two motions overlap instead of
+//         chaining) → panel content + back button fade in.
+// Close:  panel content + back out → panel pours back into the tab → active
+//         tile steps back down to generic tab height → tiles (now all at the
+//         same height again) morph back to cards together → content in.
+// Switch: (panel already open, a different live tab clicked) old content
+//         fades out → activeId flips, so the "joined" tall-tab treatment
+//         slides from the old tab to the new one and the panel glides to the
+//         new tool's height (same `.is-settled` transition as an image
+//         upload) → new content fades in. No morph/bouncy-pour replay.
 export default function Features() {
   const reduceMotion = useReducedMotion()
   const [ui, setUi] = useState(INITIAL)
@@ -76,7 +106,7 @@ export default function Features() {
   const busy = useRef(false)
   const runId = useRef(0)
   const anim = useRef(null)
-  const settleWaiter = useRef(null)
+  const settleWaiters = useRef(new Set())
 
   useEffect(() => () => {
     runId.current++ // abandon any running sequence
@@ -132,16 +162,35 @@ export default function Features() {
   function tilesSettled() {
     return new Promise((resolve) => {
       const pending = new Set(FEATURES.map((f) => f.id))
-      const done = () => {
-        clearTimeout(timer)
-        settleWaiter.current = null
-        resolve()
-      }
-      const timer = setTimeout(done, SETTLE_FALLBACK)
-      settleWaiter.current = (id) => {
+      const onId = (id) => {
         pending.delete(id)
         if (pending.size === 0) done()
       }
+      const done = () => {
+        clearTimeout(timer)
+        settleWaiters.current.delete(onId)
+        resolve()
+      }
+      const timer = setTimeout(done, SETTLE_FALLBACK)
+      settleWaiters.current.add(onId)
+    })
+  }
+
+  // Resolves once one specific tile finishes its own layout animation — lets
+  // the panel start pouring as soon as its anchor (the active tab) is ready,
+  // instead of waiting on the other, still-staggering tiles to catch up too.
+  function tileSettled(id) {
+    return new Promise((resolve) => {
+      const onId = (settledId) => {
+        if (settledId === id) done()
+      }
+      const done = () => {
+        clearTimeout(timer)
+        settleWaiters.current.delete(onId)
+        resolve()
+      }
+      const timer = setTimeout(done, SETTLE_FALLBACK)
+      settleWaiters.current.add(onId)
     })
   }
 
@@ -149,14 +198,24 @@ export default function Features() {
     return stageRef.current?.querySelector('.feature-tile.is-active')?.offsetWidth ?? 0
   }
 
-  async function open() {
+  // x offset of the active tab relative to the stage — where the panel's
+  // narrow (tab-width) state should sit, since it's the currently active
+  // tile that's flush against it, not necessarily tile 0.
+  function activeTabOffset() {
+    const stage = stageRef.current
+    const tab = stage?.querySelector('.feature-tile.is-active')
+    if (!stage || !tab) return 0
+    return tab.getBoundingClientRect().left - stage.getBoundingClientRect().left
+  }
+
+  async function open(id) {
     if (busy.current || ui.layout !== 'grid') return
     busy.current = true
     const run = ++runId.current
     const alive = () => run === runId.current
 
     if (reduceMotion) {
-      update({ layout: 'tabs', joined: true, panel: true }, true)
+      update({ activeId: id, layout: 'tabs', joined: true, tallActive: true, panel: true }, true)
       update({ panelContent: true, back: true })
       busy.current = false
       return
@@ -166,12 +225,26 @@ export default function Features() {
     await wait(CONTENT_FADE_OUT)
     if (!alive()) return
 
-    const settled = tilesSettled()
-    update({ layout: 'tabs' }, true)
-    await settled
+    // Phase 1: every tile — including the soon-to-be-active one — morphs to
+    // the same generic tab height. No target divergence yet, so all four move
+    // as one cohesive group instead of the active tile visibly pulling away
+    // toward a taller target while its siblings settle shorter.
+    const phase1Settled = tilesSettled()
+    update({ activeId: id, layout: 'tabs' }, true)
+    phase1Settled.then(() => { if (alive()) update({ content: true }) })
+
+    await phase1Settled
     if (!alive()) return
 
-    update({ content: true, joined: true, panel: true }, true)
+    // Phase 2: only the active tile steps up from generic tab height to
+    // joined height — a short, separate spring. The panel's starting
+    // geometry (activeTabOffset/activeTabWidth) only depends on the tile's
+    // WIDTH, which is already final by the end of phase 1 (padding/content
+    // driven, not height — verified: identical whether the tile is 40px or
+    // 52px tall). So the panel doesn't need to wait for phase 2 to settle;
+    // it starts pouring the same instant phase 2 begins, overlapping the
+    // two motions instead of chaining them.
+    update({ joined: true, tallActive: true, panel: true }, true)
     const panel = panelRef.current
     const body = bodyRef.current
     if (panel && body) {
@@ -179,7 +252,7 @@ export default function Features() {
       const W = stageRef.current.clientWidth
       body.style.width = `${W - 2}px` // inside the panel's 1px side borders
       const H = body.offsetHeight + 2 // + panel's top/bottom border
-      anim.current = inflatePanel(panel, activeTabWidth(), W, H)
+      anim.current = inflatePanel(panel, activeTabOffset(), activeTabWidth(), W, H)
       await Promise.all(anim.current.map((a) => a.finished.catch(() => {})))
       if (!alive()) return
       // Release the fixed size so the panel follows its content (image upload).
@@ -205,7 +278,7 @@ export default function Features() {
     if (!alive()) return
 
     if (reduceMotion) {
-      update({ layout: 'grid', joined: false, panel: false })
+      update({ layout: 'grid', joined: false, tallActive: false, panel: false })
       busy.current = false
       return
     }
@@ -218,7 +291,7 @@ export default function Features() {
       const W = panel.offsetWidth
       const H = panel.offsetHeight
       body.style.width = `${panel.clientWidth}px`
-      anim.current = deflatePanel(panel, activeTabWidth(), W, H)
+      anim.current = deflatePanel(panel, activeTabOffset(), activeTabWidth(), W, H)
       // Tab content starts fading just before the pour-back lands, so the tiles
       // can move the moment it does — no idle gap.
       const fade = setTimeout(() => update({ content: false }), CLOSE_TOTAL - CONTENT_FADE_OUT)
@@ -228,21 +301,62 @@ export default function Features() {
       anim.current = null
     }
 
-    const settled = tilesSettled()
-    update({ content: false, joined: false, panel: false, layout: 'grid' }, true)
-    await settled
+    // Reverse of phase 2: shrink the active tile from joined height back to
+    // generic tab height first, so it doesn't skip straight from tall to
+    // card-size while its siblings are still at the generic height.
+    const phase2Reversed = tileSettled(ui.activeId)
+    update({ joined: false, tallActive: false, panel: false }, true)
+
+    await phase2Reversed
+    if (!alive()) return
+
+    // Reverse of phase 1: every tile is back at the same generic height now
+    // — morph them all back into cards together, same as they came in.
+    const phase1Reversed = tilesSettled()
+    update({ content: false, layout: 'grid' }, true)
+    await phase1Reversed
     if (!alive()) return
 
     update({ content: true })
     busy.current = false
   }
 
+  // Panel already open, a different live tab clicked. No morph/bouncy-pour —
+  // just fade the content, swap which tab is joined + which tool renders, and
+  // let the panel's existing `.is-settled` resize transition (see the
+  // ResizeObserver effect above) glide it to the new tool's height.
+  async function switchTool(id) {
+    if (busy.current || ui.layout !== 'tabs' || id === ui.activeId) return
+    busy.current = true
+    const run = ++runId.current
+    const alive = () => run === runId.current
+
+    if (reduceMotion) {
+      update({ activeId: id })
+      busy.current = false
+      return
+    }
+
+    update({ switching: true, panelContent: false })
+    await wait(SWITCH_FADE_OUT)
+    if (!alive()) return
+
+    update({ activeId: id, panelContent: true }, true)
+    await wait(SWITCH_FADE_IN)
+    if (!alive()) return
+
+    update({ switching: false })
+    busy.current = false
+  }
+
+  const ActiveTool = TOOL_META[ui.activeId]?.Component
+
   return (
     <MotionConfig reducedMotion="user">
       <div>
         <div className="page-header">
           <h1>Features</h1>
-          <p>{ui.layout === 'grid' ? 'Image tools for your generations — more on the way.' : 'Pick a spot, blur it.'}</p>
+          <p>{ui.layout === 'grid' ? 'Image tools for your generations — more on the way.' : TOOL_META[ui.activeId]?.subtitle}</p>
         </div>
 
         <div className="feature-stage" ref={stageRef}>
@@ -250,10 +364,15 @@ export default function Features() {
             layout={ui.layout}
             contentVisible={ui.content}
             joined={ui.joined}
+            tallActive={ui.tallActive}
             backVisible={ui.back}
-            onSelect={(id) => { if (id === 'spot-blur') open() }}
+            activeId={ui.activeId}
+            onSelect={(id) => {
+              if (ui.layout === 'grid') open(id)
+              else if (id !== ui.activeId) switchTool(id)
+            }}
             onBack={close}
-            onTileSettled={(id) => settleWaiter.current?.(id)}
+            onTileSettled={(id) => settleWaiters.current.forEach((fn) => fn(id))}
           />
 
           {ui.panel && (
@@ -263,9 +382,14 @@ export default function Features() {
                 className="feature-panel-body"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: ui.panelContent ? 1 : 0 }}
-                transition={{ duration: ui.panelContent ? 0.2 : 0.15, ease: 'easeOut' }}
+                transition={{
+                  duration: (ui.panelContent
+                    ? (ui.switching ? SWITCH_FADE_IN : PANEL_CONTENT_FADE_IN)
+                    : (ui.switching ? SWITCH_FADE_OUT : PANEL_CONTENT_FADE_OUT)) / 1000,
+                  ease: 'easeOut',
+                }}
               >
-                <SpotBlurTool />
+                {ActiveTool && <ActiveTool />}
               </motion.div>
             </div>
           )}

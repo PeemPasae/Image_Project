@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import { useToast } from '../../context/ToastContext'
 import SpotBlurCanvas from './SpotBlurCanvas'
-
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+import ImageUploader from './ImageUploader'
 
 export default function SpotBlurTool() {
   const { showToast } = useToast()
@@ -15,31 +14,24 @@ export default function SpotBlurTool() {
   const [loading, setLoading] = useState(false)
   const [resultUrl, setResultUrl] = useState('')
 
-  // Revoke object URLs when they're replaced and on unmount.
-  const urls = useRef({ preview: '', result: '' })
+  // ImageUploader owns the preview URL's lifecycle; this only needs to revoke
+  // the processed result URL (replaced or left behind on unmount).
+  const resultUrlRef = useRef('')
   useEffect(() => () => {
-    if (urls.current.preview) URL.revokeObjectURL(urls.current.preview)
-    if (urls.current.result) URL.revokeObjectURL(urls.current.result)
+    if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current)
   }, [])
 
-  function replaceUrl(key, next, setter) {
-    if (urls.current[key]) URL.revokeObjectURL(urls.current[key])
-    urls.current[key] = next
-    setter(next)
+  function setResult(next) {
+    if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current)
+    resultUrlRef.current = next
+    setResultUrl(next)
   }
 
-  function handleFileChange(e) {
-    const picked = e.target.files?.[0]
-    e.target.value = '' // allow re-picking the same file
-    if (!picked) return
-    if (!ACCEPTED_TYPES.includes(picked.type)) {
-      showToast('Please upload a JPG, PNG, or WEBP image.', 'error')
-      return
-    }
+  function handleImagePicked(picked, url) {
     setFile(picked)
+    setPreviewUrl(url)
     setCircles([])
-    replaceUrl('result', '', setResultUrl)
-    replaceUrl('preview', URL.createObjectURL(picked), setPreviewUrl)
+    setResult('')
   }
 
   async function handleDone() {
@@ -53,7 +45,7 @@ export default function SpotBlurTool() {
       // Contract wants [[x, y, radius], ...] as integers in natural-image pixels.
       const payload = circles.map((c) => [Math.round(c.x), Math.round(c.y), Math.max(1, Math.round(c.r))])
       const url = await api.processSpotBlur(file, payload, strength, true)
-      replaceUrl('result', url, setResultUrl)
+      setResult(url)
       showToast('Blur applied', 'success')
     } catch (err) {
       showToast(err.message, 'error')
@@ -69,10 +61,7 @@ export default function SpotBlurTool() {
           <h2 className="spot-blur-title">Spot Blur</h2>
           <p className="spot-blur-sub">Upload an image, then click and drag over the areas you want blurred.</p>
         </div>
-        <label className="btn btn-ghost spot-blur-file">
-          {file ? 'Change image' : 'Choose image'}
-          <input type="file" accept={ACCEPTED_TYPES.join(',')} onChange={handleFileChange} hidden />
-        </label>
+        <ImageUploader file={file} onChange={handleImagePicked} />
       </div>
 
       {!previewUrl && (
@@ -109,7 +98,7 @@ export default function SpotBlurTool() {
           <div className="action-row spot-blur-actions">
             {resultUrl ? (
               <>
-                <button type="button" className="btn btn-ghost" onClick={() => replaceUrl('result', '', setResultUrl)}>
+                <button type="button" className="btn btn-ghost" onClick={() => setResult('')}>
                   Back to editing
                 </button>
                 <a className="btn btn-primary" href={resultUrl} download="spot-blur.png">Download</a>
