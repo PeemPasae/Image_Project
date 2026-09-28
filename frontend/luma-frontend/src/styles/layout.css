@@ -3,7 +3,7 @@
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: rgba(10, 12, 22, 0.9);
+  background: var(--surface-solid);
   border-right: 1px solid var(--border);
   backdrop-filter: blur(14px);
   padding: 22px 14px;
@@ -30,7 +30,7 @@
 .nav-list a:hover { background: var(--surface); color: var(--text); }
 .nav-list a.active {
   background: linear-gradient(90deg, rgba(139,92,246,0.18), rgba(94,177,255,0.05));
-  color: #fff;
+  color: var(--text);
   box-shadow: inset 2px 0 0 var(--purple);
 }
 

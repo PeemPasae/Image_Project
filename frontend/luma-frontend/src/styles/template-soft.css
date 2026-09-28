@@ -18,6 +18,9 @@
   --blue: #5EB1FF !important;          /* Secondary */
   --blue-light: #93C5FD;               /* Secondary Light */
   --grad: linear-gradient(135deg, #8B5CF6, #5EB1FF) !important;
+  --accent1: #8B5CF6 !important;       /* Primary — keep in sync with --purple above */
+  --accent2: #5EB1FF !important;       /* Secondary — keep in sync with --blue above */
+  --gradient: linear-gradient(135deg, #8B5CF6, #5EB1FF) !important;
   --text: #0F172A !important;          /* Dark 900 */
   --text-mid: #1E293B;                 /* Dark 700 */
   --text-dim: #64748B !important;      /* Gray 500 */
