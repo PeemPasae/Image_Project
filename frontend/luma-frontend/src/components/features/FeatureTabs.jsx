@@ -1,13 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { Focus, Palette, Aperture, Contrast } from 'lucide-react'
+import { getActiveFeatures } from '../../features/active'
 
-export const FEATURES = [
-  { id: 'spot-blur', icon: <Focus strokeWidth={1.75} />, title: 'Spot Blur' },
-  { id: 'cartoonize', icon: <Palette strokeWidth={1.75} />, title: 'Cartoonize' },
-  { id: 'tilt-shift', icon: <Aperture strokeWidth={1.75} />, title: 'Tilt-Shift' },
-  { id: 'hdr-enhancer', icon: <Contrast strokeWidth={1.75} />, title: 'HDR Enhancer' },
-]
+export const FEATURES = getActiveFeatures()
 
 // Soft overshoot so the box stretches and settles a little, like liquid.
 const MOVE = { type: 'spring', duration: 0.45, bounce: 0.2 }

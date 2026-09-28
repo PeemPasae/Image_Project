@@ -1,21 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { MotionConfig, motion, useReducedMotion } from 'motion/react'
-import FeatureTabs, { FEATURES } from '../components/features/FeatureTabs'
-import SpotBlurTool from '../components/features/SpotBlurTool'
-import CartoonizeTool from '../components/features/CartoonizeTool'
-import TiltShiftTool from '../components/features/TiltShiftTool'
-import HdrEnhancerTool from '../components/features/HdrEnhancerTool'
+import FeatureTabs from '../components/features/FeatureTabs'
+import { getActiveFeatures } from '../features/active'
 import '../styles/features.css'
+
+const FEATURES = getActiveFeatures()
 
 // Page-level concern (subtitle text, which component renders in the panel)
 // keyed by tile id — FeatureTabs itself stays presentation-only.
-const TOOL_META = {
-  'spot-blur': { subtitle: 'Pick a spot, blur it.', Component: SpotBlurTool },
-  cartoonize: { subtitle: 'Turn your photo into a cartoon/anime style.', Component: CartoonizeTool },
-  'tilt-shift': { subtitle: 'Simulate a tilt-shift, miniature-model look.', Component: TiltShiftTool },
-  'hdr-enhancer': { subtitle: 'Boost detail and contrast, HDR-style.', Component: HdrEnhancerTool },
-}
+const TOOL_META = Object.fromEntries(
+  FEATURES.map((f) => [f.id, { subtitle: f.subtitle, Component: f.component }])
+)
 
 // ---- Timings (ms) ----
 const CONTENT_FADE_OUT = 100
