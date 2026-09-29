@@ -1,6 +1,6 @@
 import axios from 'axios'
 import {
-  MOCK_USER, MOCK_MODELS, MOCK_GENERATIONS, MOCK_PROFILE,
+  MOCK_USER, MOCK_MODELS, MOCK_GENERATIONS, MOCK_PROFILE, MOCK_GESTURE_RESULT,
   mockImageUrlFor, delay,
 } from './mockData'
 
@@ -210,6 +210,22 @@ export const api = {
     return processImage('/process/hdr-enhancer', file, {
       clahe_clip_limit, clahe_grid_size, detail_strength, color_balance,
     })
+  },
+
+  /**
+   * POST /process/gesture — multipart upload, JSON result through the normal
+   * {success,data} envelope (unlike the other /process/* filters, this one
+   * does NOT return an image — no blob/responseType here).
+   */
+  processGesture: (file, { num_hands = 2, min_confidence = 0.5 } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => MOCK_GESTURE_RESULT)
+    const form = new FormData()
+    form.append('image', file)
+    form.append('num_hands', String(num_hands))
+    form.append('min_confidence', String(min_confidence))
+    return request(client.post('/process/gesture', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }))
   },
 }
 

@@ -324,3 +324,103 @@ describe('processHdrEnhancer contract', () => {
     })
   })
 })
+
+describe('processGesture contract', () => {
+  it('posts multipart form with image/num_hands/min_confidence and returns the parsed JSON result (not a blob)', async () => {
+    mockClient.post.mockResolvedValueOnce(
+      envelope({
+        found: true,
+        hand_count: 1,
+        gesture: 'Thumb_Up',
+        gesture_th: 'ชูนิ้วโป้ง',
+        confidence: 92.5,
+        handedness: 'Right',
+        inference_time_ms: 40.1,
+        hands: [{ gesture: 'Thumb_Up', gesture_th: 'ชูนิ้วโป้ง', confidence: 92.5, handedness: 'Right', landmarks: [] }],
+      })
+    )
+    const file = new File(['img'], 'hand.jpg', { type: 'image/jpeg' })
+
+    const data = await api.processGesture(file, { num_hands: 3, min_confidence: 0.7 })
+
+    expect(data.found).toBe(true)
+    expect(data.gesture_th).toBe('ชูนิ้วโป้ง')
+    expect(data.confidence).toBe(92.5)
+
+    const [path, form, config] = mockClient.post.mock.calls[0]
+    expect(path).toBe('/process/gesture')
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('image')).toBeInstanceOf(File)
+    expect(form.get('num_hands')).toBe('3')
+    expect(form.get('min_confidence')).toBe('0.7')
+    expect(config).toMatchObject({
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    expect(config.responseType).toBeUndefined() // JSON envelope, not a blob response like the other /process/* filters
+  })
+
+  it('defaults to num_hands=2, min_confidence=0.5 when not passed', async () => {
+    mockClient.post.mockResolvedValueOnce(envelope({ found: false, hand_count: 0, gesture: null, gesture_th: 'ไม่พบมือในภาพ', confidence: 0, handedness: null, inference_time_ms: 5, hands: [] }))
+    const file = new File(['img'], 'hand.jpg', { type: 'image/jpeg' })
+
+    await api.processGesture(file)
+
+    const [, form] = mockClient.post.mock.calls[0]
+    expect(form.get('num_hands')).toBe('2')
+    expect(form.get('min_confidence')).toBe('0.5')
+  })
+
+  it('returns found:false with gesture/handedness as null when no hand is detected', async () => {
+    mockClient.post.mockResolvedValueOnce(
+      envelope({
+        found: false,
+        hand_count: 0,
+        gesture: null,
+        gesture_th: 'ไม่พบมือในภาพ',
+        confidence: 0,
+        handedness: null,
+        inference_time_ms: 12.3,
+        hands: [],
+      })
+    )
+    const file = new File(['img'], 'empty.png', { type: 'image/png' })
+
+    const data = await api.processGesture(file)
+
+    expect(data.found).toBe(false)
+    expect(data.gesture).toBeNull()
+    expect(data.handedness).toBeNull()
+    expect(data.gesture_th).toBe('ไม่พบมือในภาพ')
+  })
+
+  it('throws with .code on validation error (e.g. num_hands out of 1-4 range)', async () => {
+    mockClient.post.mockRejectedValueOnce({
+      response: {
+        data: {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'num_hands must be an integer 1-4, min_confidence must be a number 0.1-1.0',
+          },
+        },
+      },
+    })
+    const file = new File(['img'], 'hand.jpg', { type: 'image/jpeg' })
+
+    await expect(api.processGesture(file, { num_hands: 9 })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    })
+  })
+
+  it('throws with .code MODEL_UNAVAILABLE when the gesture model is unavailable (HTTP 503)', async () => {
+    mockClient.post.mockRejectedValueOnce({
+      response: {
+        data: { error: { code: 'MODEL_UNAVAILABLE', message: 'Gesture model could not be downloaded' } },
+      },
+    })
+    const file = new File(['img'], 'hand.jpg', { type: 'image/jpeg' })
+
+    await expect(api.processGesture(file)).rejects.toMatchObject({
+      code: 'MODEL_UNAVAILABLE',
+    })
+  })
+})

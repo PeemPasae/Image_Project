@@ -71,6 +71,31 @@ export const MOCK_PROFILE = {
   generation_count: MOCK_GENERATIONS.length,
 }
 
+// Mirrors backend/app/services/image_filters/gesture.py's _format() shape —
+// a single detected "Thumb_Up" hand, same field names/ranges as the real API
+// (confidence 0-100, 21 landmarks).
+export const MOCK_GESTURE_RESULT = {
+  found: true,
+  hand_count: 1,
+  gesture: 'Thumb_Up',
+  gesture_th: 'ชูนิ้วโป้ง',
+  confidence: 92.5,
+  handedness: 'Right',
+  inference_time_ms: 42.3,
+  hands: [
+    {
+      gesture: 'Thumb_Up',
+      gesture_th: 'ชูนิ้วโป้ง',
+      confidence: 92.5,
+      handedness: 'Right',
+      landmarks: Array.from({ length: 21 }, (_, i) => ({
+        x: 0.42 + (i % 5) * 0.02,
+        y: 0.3 + Math.floor(i / 5) * 0.05,
+      })),
+    },
+  ],
+}
+
 export function mockImageUrlFor(id) {
   const gen = MOCK_GENERATIONS.find((g) => g.id === Number(id))
   return placeholderImage(gen ? gen.prompt : String(id))
