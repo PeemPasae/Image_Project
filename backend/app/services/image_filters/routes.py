@@ -13,14 +13,20 @@ import numpy as np
 from flask import Blueprint, request, send_file
 
 from app.middleware.jwt_auth import token_required
+from app.extensions import db
+from app.models.generation import Generation
 from app.services.image_filters.spot_blur import spot_blur
 from app.services.image_filters.gesture import (
     recognize_gesture, recognize_gesture_frame, close_gesture_session,
 )
 from app.services.image_filters.remove_bg import remove_background
+from app.services.image_filters.cartoonize import cartoonize
+from app.services.image_filters.tilt_shift import tilt_shift
+from app.services.image_filters.hdr_enhancer import hdr_enhancer
 from app.utils.error_codes import (
     error_response, success_response,
     VALIDATION_ERROR, UNSUPPORTED_FILE_TYPE, INVALID_IMAGE, MODEL_UNAVAILABLE, GENERATION_FAILED,
+    GENERATION_NOT_FOUND, IMAGE_NOT_FOUND,
 )
 
 process_bp = Blueprint("process", __name__)
@@ -267,3 +273,216 @@ def process_remove_bg():
 
     png = cv2.imencode(".png", result)[1].tobytes()
     return send_file(BytesIO(png), mimetype="image/png")
+
+
+# ==============================================================================
+# Cartoonize Filter Endpoints
+# ==============================================================================
+
+
+@process_bp.route("/process/cartoonize", methods=["POST"])
+@token_required
+def process_cartoonize():
+    """POST /api/v1/process/cartoonize 🔒 แปลงภาพถ่ายเป็นสไตล์การ์ตูน/อนิเมะ แล้วส่งกลับเป็น PNG"""
+    file = request.files.get("image")
+    form = request.form
+
+    # 1. ไฟล์ภาพ
+    if not file:
+        return error_response(VALIDATION_ERROR, "image file is required", 400)
+    if not file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        return error_response(UNSUPPORTED_FILE_TYPE, "Only .jpg, .jpeg, .png, .webp are supported", 415)
+
+    # 2. พารามิเตอร์: num_colors (2-32), line_thickness (1-5), smoothness (1-10)
+    try:
+        num_colors = int(form.get("num_colors", 8))
+        line_thickness = int(form.get("line_thickness", 2))
+        smoothness = int(form.get("smoothness", 5))
+    except (ValueError, TypeError):
+        num_colors, line_thickness, smoothness = 8, 2, 5
+
+    valid = (
+        2 <= num_colors <= 32
+        and 1 <= line_thickness <= 5
+        and 1 <= smoothness <= 10
+    )
+    if not valid:
+        return error_response(
+            VALIDATION_ERROR,
+            "num_colors must be an integer 2-32, line_thickness 1-5, smoothness 1-10",
+            400,
+        )
+
+    # 3. decode ภาพ (IMREAD_COLOR ทำให้เป็น BGR 3 ช่องเสมอ)
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    if img is None:
+        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+
+    # 4. แปลงภาพสไตล์การ์ตูน แล้วส่งกลับเป็น PNG
+    try:
+        result = cartoonize(img, num_colors=num_colors, line_thickness=line_thickness, smoothness=smoothness)
+    except Exception as e:
+        return error_response(GENERATION_FAILED, f"Cartoonize failed: {str(e)}", 500)
+
+    png = cv2.imencode(".png", result)[1].tobytes()
+    return send_file(BytesIO(png), mimetype="image/png")
+
+
+@process_bp.route("/process/cartoonize/<int:generation_id>", methods=["POST"])
+@token_required
+def process_cartoonize_generation(generation_id: int):
+    """POST /api/v1/process/cartoonize/:generation_id 🔒 ดึงภาพเดิมจากประวัติมาแปลงเป็นการ์ตูนและบันทึกเป็นประวัติแบบที่ 2"""
+    source_gen = Generation.query.filter_by(id=generation_id, user_id=request.user_id).first()
+    if not source_gen:
+        return error_response(GENERATION_NOT_FOUND, "Source image not found or access denied", 404)
+    if not source_gen.image_data:
+        return error_response(IMAGE_NOT_FOUND, "Source image binary data is missing", 404)
+
+    body = request.get_json(silent=True) or {}
+    try:
+        num_colors = int(body.get("num_colors", 8))
+        line_thickness = int(body.get("line_thickness", 2))
+        smoothness = int(body.get("smoothness", 5))
+    except (ValueError, TypeError):
+        num_colors, line_thickness, smoothness = 8, 2, 5
+
+    img = cv2.imdecode(np.frombuffer(source_gen.image_data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return error_response(INVALID_IMAGE, "Source image could not be decoded", 400)
+
+    try:
+        result = cartoonize(img, num_colors=num_colors, line_thickness=line_thickness, smoothness=smoothness)
+    except Exception as e:
+        return error_response(GENERATION_FAILED, f"Cartoonize failed: {str(e)}", 500)
+
+    png_bytes = cv2.imencode(".png", result)[1].tobytes()
+    new_gen = Generation(
+        user_id=request.user_id,
+        category="image_filter",
+        action_type="cartoonize",
+        prompt=f"Cartoonize filter applied to Generation #{generation_id}",
+        params=json.dumps({"num_colors": num_colors, "line_thickness": line_thickness, "smoothness": smoothness}),
+        source_image_id=generation_id,
+        image_data=png_bytes,
+    )
+    db.session.add(new_gen)
+    db.session.commit()
+
+    return success_response(new_gen.to_dict(), 200)
+
+
+# ==============================================================================
+# Tilt-Shift & HDR Enhancer Endpoints
+# ==============================================================================
+
+
+@process_bp.route("/process/tilt-shift", methods=["POST"])
+@token_required
+def process_tilt_shift():
+    """POST /api/v1/process/tilt-shift 🔒 จำลองเอฟเฟกต์เลนส์ Tilt-Shift (โมเดลจิ๋ว) แล้วส่งกลับเป็น PNG"""
+    file = request.files.get("image")
+    form = request.form
+
+    if not file:
+        return error_response(VALIDATION_ERROR, "image file is required", 400)
+    if not file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        return error_response(UNSUPPORTED_FILE_TYPE, "Only .jpg, .jpeg, .png, .webp are supported", 415)
+
+    try:
+        focus_position = float(form.get("focus_position", 0.5))
+        focus_width = float(form.get("focus_width", 0.2))
+        blur_strength = int(form.get("blur_strength", 15))
+        saturation_boost = float(form.get("saturation_boost", 1.4))
+        contrast_boost = float(form.get("contrast_boost", 1.2))
+    except (ValueError, TypeError):
+        return error_response(VALIDATION_ERROR, "Invalid parameter types for tilt-shift", 400)
+
+    valid = (
+        0.0 <= focus_position <= 1.0
+        and 0.05 <= focus_width <= 0.8
+        and 1 <= blur_strength <= 30
+        and 1.0 <= saturation_boost <= 2.5
+        and 1.0 <= contrast_boost <= 2.0
+    )
+    if not valid:
+        return error_response(
+            VALIDATION_ERROR,
+            "Parameters out of valid bounds: focus_position (0.0-1.0), focus_width (0.05-0.8), "
+            "blur_strength (1-30), saturation_boost (1.0-2.5), contrast_boost (1.0-2.0)",
+            400,
+        )
+
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    if img is None:
+        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+
+    try:
+        result = tilt_shift(
+            img,
+            focus_position=focus_position,
+            focus_width=focus_width,
+            blur_strength=blur_strength,
+            saturation_boost=saturation_boost,
+            contrast_boost=contrast_boost,
+        )
+    except Exception as e:
+        return error_response(GENERATION_FAILED, f"Tilt-shift processing failed: {str(e)}", 500)
+
+    png = cv2.imencode(".png", result)[1].tobytes()
+    return send_file(BytesIO(png), mimetype="image/png")
+
+
+@process_bp.route("/process/hdr-enhancer", methods=["POST"])
+@token_required
+def process_hdr_enhancer():
+    """POST /api/v1/process/hdr-enhancer 🔒 เพิ่มมิติและความคมชัดสไตล์ HDR แล้วส่งกลับเป็น PNG"""
+    file = request.files.get("image")
+    form = request.form
+
+    if not file:
+        return error_response(VALIDATION_ERROR, "image file is required", 400)
+    if not file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        return error_response(UNSUPPORTED_FILE_TYPE, "Only .jpg, .jpeg, .png, .webp are supported", 415)
+
+    try:
+        clahe_clip_limit = float(form.get("clahe_clip_limit", 3.0))
+        clahe_grid_size = int(form.get("clahe_grid_size", 8))
+        detail_strength = float(form.get("detail_strength", 1.5))
+    except (ValueError, TypeError):
+        return error_response(VALIDATION_ERROR, "Invalid numeric parameters for hdr-enhancer", 400)
+
+    color_balance = form.get("color_balance", "true").lower() in ("true", "1", "yes")
+
+    valid = (
+        1.0 <= clahe_clip_limit <= 5.0
+        and 2 <= clahe_grid_size <= 16
+        and 0.0 <= detail_strength <= 3.0
+    )
+    if not valid:
+        return error_response(
+            VALIDATION_ERROR,
+            "clahe_clip_limit must be 1.0-5.0, clahe_grid_size 2-16, detail_strength 0.0-3.0",
+            400,
+        )
+
+    data = file.read()
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    if img is None:
+        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+
+    try:
+        result = hdr_enhancer(
+            img,
+            clahe_clip_limit=clahe_clip_limit,
+            clahe_grid_size=clahe_grid_size,
+            detail_strength=detail_strength,
+            color_balance=color_balance,
+        )
+    except Exception as e:
+        return error_response(GENERATION_FAILED, f"HDR enhancer processing failed: {str(e)}", 500)
+
+    png = cv2.imencode(".png", result)[1].tobytes()
+    return send_file(BytesIO(png), mimetype="image/png")
+

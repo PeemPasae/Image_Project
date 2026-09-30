@@ -218,7 +218,9 @@ def generate_backend_report(output_dir):
         ("POST", "/api/v1/process/gesture", "ต้องมี", "จดจำท่าทางมือจากรูปภาพนิ่ง"),
         ("POST", "/api/v1/process/gesture/frame", "ต้องมี", "ตรวจจับท่าทางมือจากเว็บแคมแบบเรียลไทม์"),
         ("POST", "/api/v1/process/gesture/stop", "ต้องมี", "ปิดการใช้งานกล้องเว็บแคมและคืนหน่วยความจำ"),
-        ("POST", "/api/v1/process/remove-bg", "ต้องมี", "ตัดพื้นหลังภาพบุคคล (AI / GrabCut / แปรงเก็บ-ลบ)")
+        ("POST", "/api/v1/process/remove-bg", "ต้องมี", "ตัดพื้นหลังภาพบุคคล (AI / GrabCut / แปรงเก็บ-ลบ)"),
+        ("POST", "/api/v1/process/cartoonize", "ต้องมี", "แปลงภาพเป็นสไตล์การ์ตูน/อนิเมะ"),
+        ("POST", "/api/v1/process/cartoonize/:id", "ต้องมี", "นำภาพเดิมจากประวัติมาแปลงเป็นการ์ตูน")
     ]
     render_table(doc, api_headers, api_rows, [Inches(1.0), Inches(2.2), Inches(1.0), Inches(2.3)])
 
@@ -374,7 +376,9 @@ def generate_image_processing_report(output_dir):
         ("POST", "/api/v1/process/gesture", "image, num_hands, min_confidence", "JSON สรุปผลชื่อท่าทาง และความมั่นใจ"),
         ("POST", "/api/v1/process/gesture/frame", "image (frame), num_hands, min_confidence", "JSON โครงกระดูกมือ 21 จุดและท่าทางสำหรับเว็บแคม"),
         ("POST", "/api/v1/process/gesture/stop", "-", "JSON ยืนยันการปิดเซสชันและคืนหน่วยความจำ"),
-        ("POST", "/api/v1/process/remove-bg", "image, use_ai, rect, strokes, bg", "สตรีมภาพ PNG โปร่งใส (BGRA) หรือเติมสีพื้นใหม่")
+        ("POST", "/api/v1/process/remove-bg", "image, use_ai, rect, strokes, bg", "สตรีมภาพ PNG โปร่งใส (BGRA) หรือเติมสีพื้นใหม่"),
+        ("POST", "/api/v1/process/cartoonize", "image, num_colors, line_thickness, smoothness", "สตรีมภาพ PNG สไตล์การ์ตูน/อนิเมะ"),
+        ("POST", "/api/v1/process/cartoonize/:id", "num_colors, line_thickness, smoothness", "JSON ข้อมูลภาพการ์ตูนที่บันทึกใหม่ในประวัติ")
     ]
     render_table(doc, proc_headers, proc_rows, [Inches(0.9), Inches(2.2), Inches(1.8), Inches(1.6)])
 

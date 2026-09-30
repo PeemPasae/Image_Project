@@ -9,6 +9,7 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # นำเข้า Extensions และ Configurations
 from app.extensions import db
@@ -67,6 +68,10 @@ def create_app(test_config=None) -> Flask:
     app.register_blueprint(sd_bp, url_prefix="/api/v1")
     app.register_blueprint(history_bp, url_prefix="/api/v1")
     app.register_blueprint(process_bp, url_prefix="/api/v1")
+
+    # 7. ครอบ wsgi_app ด้วย ProxyFix เพื่อให้อ่านค่าจาก Nginx Reverse Proxy ถูกต้อง
+    #    (x_for=1, x_proto=1, x_host=1) ทำให้ request.remote_addr เป็น IP จริงของผู้ใช้
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # 8. ตรวจสอบและสร้างตารางฐานข้อมูลอัตโนมัติ (Auto Schema Migration)
     with app.app_context():

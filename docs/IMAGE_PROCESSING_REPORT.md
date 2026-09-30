@@ -20,11 +20,12 @@
 
 ```
 backend/app/services/image_filters/
-├── __init__.py          # ส่งออก process_bp Blueprint เพื่อลงทะเบียนเข้ากับ Flask App
-├── routes.py            # จุดรับคำขอ (API Endpoints), ตรวจสอบความถูกต้องของ Input, สตรีมภาพกลับ
+├── __init__.py          # ส่งออก process_bp Blueprint และฟังก์ชัน Image Filters
+├── routes.py            # จุดรับคำขอ (API Endpoints), ตรวจสอบ Input, สตรีมภาพ/บันทึกประวัติ
+├── remove_bg.py         # ระบบตัดพื้นหลังภาพบุคคลแบบ Hybrid (AI + GrabCut + Matting)
 ├── spot_blur.py         # ฟังก์ชันเบลอภาพเฉพาะจุดตามตำแหน่งวงกลม (Spot Blur Engine)
-├── gesture.py           # ระบบตรวจจับท่าทางมือจากภาพนิ่งและเว็บแคมแบบ Real-time (Gesture Engine)
-└── remove_bg.py         # ระบบตัดพื้นหลังภาพบุคคลแบบ Hybrid (AI + Interactive GrabCut + Matting)
+├── gesture.py           # ระบบตรวจจับท่าทางมือจากภาพนิ่งและเว็บแคม (Gesture Engine)
+└── cartoonize.py        # แปลงภาพสไตล์การ์ตูน/อนิเมะ (Anime / Comic Stylization)
 ```
 
 ---
@@ -200,6 +201,16 @@ $$I = \alpha F + (1 - \alpha) B \implies F = \frac{I - (1 - \alpha) B}{\alpha}$$
   - `strokes`: JSON Array ของเส้นแปรงที่ผู้ใช้ระบาย `[{"type": "keep"/"remove", "r": 12, "points": [[x,y], ...]}]`
   - `bg`: `"transparent"` หรือรหัสสี Hex เช่น `"#FFFFFF"`
 * **Response**: ข้อมูลไบนารีสตรีมภาพ PNG โปร่งใส 4 ช่องสี (BGRA) หรือภาพสีใหม่ 3 ช่องสี (BGR)
+
+### 6.6 `POST /api/v1/process/cartoonize` 🔒
+* **หน้าที่**: อัปโหลดรูปภาพใหม่เพื่อแปลงเป็นสไตล์ภาพการ์ตูน/อนิเมะ (Anime / Comic Stylization)
+* **Form Fields**: `image`, `num_colors` (2-32), `line_thickness` (1-5), `smoothness` (1-10)
+* **Response**: ข้อมูลไบนารีสตรีมภาพ PNG
+
+### 6.7 `POST /api/v1/process/cartoonize/:generation_id` 🔒
+* **หน้าที่**: ดึงภาพที่เคยสร้างไว้จากประวัติมาแปลงเป็นภาพการ์ตูน และบันทึกเป็นประวัติแบบที่ 2 (`category="image_filter"`, `action_type="cartoonize"`)
+* **JSON Body**: `{"num_colors": 8, "line_thickness": 2, "smoothness": 5}`
+* **Response**: JSON รายละเอียดภาพใหม่ที่บันทึกลงฐานข้อมูล
 
 ---
 

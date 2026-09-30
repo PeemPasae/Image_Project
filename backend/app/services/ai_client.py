@@ -27,7 +27,7 @@ def get_ai_server_url() -> str:
     
     :return: สตริง URL ของ AI Server เช่น 'http://172.20.56.221:8088'
     """
-    return os.getenv("AI_SERVER_URL", "http://172.20.56.221:8088").rstrip("/")
+    return os.getenv("AI_SERVER_URL", "http://172.20.57.0:8088").rstrip("/")
 
 
 # ==============================================================================
@@ -151,14 +151,14 @@ def generate_sd_image(payload: dict) -> tuple:
     with _waiting_counter_lock:
         _waiting_jobs_count += 1
 
-    # 3. รอเข้าคิวเพื่อขอสิทธิ์การใช้งาน GPU (รอได้สูงสุด 120 วินาที)
-    lock_acquired = _gpu_lock.acquire(blocking=True, timeout=120)
+    # 3. รอเข้าคิวเพื่อขอสิทธิ์การใช้งาน GPU (กำหนดไว้ 40 วินาที เพื่อให้รวมกับ HTTP Timeout 75s แล้วไม่เกิน 115s < Nginx 120s)
+    lock_acquired = _gpu_lock.acquire(blocking=True, timeout=40)
 
     # 4. เมื่อได้รับสิทธิ์หรือหลุดจากคิว ให้ลดจำนวนงานที่รอลง
     with _waiting_counter_lock:
         _waiting_jobs_count = max(0, _waiting_jobs_count - 1)
 
-    # หากรอคิวนานเกิน 120 วินาทีแล้วยังไม่ได้คิว
+    # หากรอคิวนานเกิน 40 วินาทีแล้วยังไม่ได้คิว ให้ตอบกลับ AI_SERVER_BUSY (409) ก่อน Nginx ตัด 504
     if not lock_acquired:
         raise AIServerBusyException("AI Server queue wait time exceeded (Server is busy)")
 

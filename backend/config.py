@@ -32,14 +32,22 @@ class Config:
     # --------------------------------------------------------------------------
     # 2. การตั้งค่า CORS (Cross-Origin Resource Sharing)
     # --------------------------------------------------------------------------
-    # รายการ Origins ที่อนุญาตให้ส่งคำขอมายัง Backend ได้ (รองรับทั้ง Localhost และทุก IP ในวง LAN)
-    CORS_ORIGINS = "*"
+    _cors_env = os.environ.get("CORS_ORIGINS")
+    CORS_ORIGINS = (
+        [o.strip() for o in _cors_env.split(",") if o.strip()]
+        if _cors_env
+        else [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "*",
+        ]
+    )
 
     # --------------------------------------------------------------------------
     # 3. การตั้งค่าการเชื่อมต่อ AI Server (Stable Diffusion WebUI / Forge)
     # --------------------------------------------------------------------------
     # URL สำหรับเรียกใช้งาน Stable Diffusion Web API
-    AI_SERVER_URL = os.environ.get("AI_SERVER_URL", "http://172.20.56.221:8088")
+    AI_SERVER_URL = os.environ.get("AI_SERVER_URL", "http://172.20.57.0:8088")
 
     # เวลาสูงสุดที่รอการประมวลผลภาพจาก AI Server (วินาที) หากเกินจะตัดเป็น Timeout
     AI_SERVER_TIMEOUT_SECONDS = 75

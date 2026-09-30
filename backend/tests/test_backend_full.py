@@ -15,6 +15,9 @@ import base64
 import pytest
 from unittest.mock import patch
 
+import cv2
+import numpy as np
+
 from app import create_app
 from app.extensions import db
 from app.models.user import User
@@ -173,7 +176,9 @@ def test_history_two_types(client):
     auth_header = {"Authorization": f"Bearer {token}"}
 
     # 1. สร้างภาพรูปแบบที่ 1 (Checkpoint)
-    fake_png = base64.b64encode(b"source_image_data").decode("utf-8")
+    fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    fake_png_bytes = cv2.imencode(".png", fake_img)[1].tobytes()
+    fake_png = base64.b64encode(fake_png_bytes).decode("utf-8")
     with patch("app.routes.sd.generate_sd_image", return_value=(fake_png, 3.5, 4.5)):
         gen1 = client.post("/api/v1/generate", 
             json={"prompt": "Cyberpunk city night", "steps": 25, "width": 512, "height": 512},
@@ -181,15 +186,14 @@ def test_history_two_types(client):
         ).get_json()
         gen1_id = gen1["data"]["generation_id"]
 
-    # 2. นำภาพมาผ่าน Sub-function Canny (รูปแบบที่ 2)
-    with patch("app.services.image_filters.routes.apply_canny", return_value=b"canny_filtered_image_data"):
-        gen2 = client.post(f"/api/v1/process/canny/{gen1_id}", 
-            json={"threshold1": 100, "threshold2": 200},
-            headers=auth_header
-        ).get_json()
-        assert gen2["success"] is True
-        assert gen2["data"]["category"] == "image_filter"
-        assert gen2["data"]["action_type"] == "canny"
+    # 2. นำภาพมาผ่าน Sub-function Cartoonize (รูปแบบที่ 2)
+    gen2 = client.post(f"/api/v1/process/cartoonize/{gen1_id}", 
+        json={"num_colors": 8, "line_thickness": 2, "smoothness": 5},
+        headers=auth_header
+    ).get_json()
+    assert gen2["success"] is True
+    assert gen2["data"]["category"] == "image_filter"
+    assert gen2["data"]["action_type"] == "cartoonize"
 
     # 3. ดึงประวัติทั้งหมด (ต้องมี 2 รายการ)
     res_all = client.get("/api/v1/history", headers=auth_header).get_json()
@@ -204,7 +208,7 @@ def test_history_two_types(client):
     res_filter = client.get("/api/v1/history?category=image_filter", headers=auth_header).get_json()
     assert res_filter["data"]["pagination"]["total"] == 1
     assert res_filter["data"]["history"][0]["category"] == "image_filter"
-    assert res_filter["data"]["history"][0]["action_type"] == "canny"
+    assert res_filter["data"]["history"][0]["action_type"] == "cartoonize"
 
 
 def test_time_estimation_endpoint(client):

@@ -276,6 +276,8 @@
 | **Image Processing** | `POST` | `/api/v1/process/gesture/frame` | 🔒 มี Token | ตรวจจับท่าทางมือจากเฟรมเว็บแคมแบบเรียลไทม์ |
 | **Image Processing** | `POST` | `/api/v1/process/gesture/stop` | 🔒 มี Token | ปิดการใช้งานกล้องและคืนหน่วยความจำเซสชัน |
 | **Image Processing** | `POST` | `/api/v1/process/remove-bg` | 🔒 มี Token | ลบพื้นหลังภาพบุคคล (AI / GrabCut / แปรงเก็บ-ลบ) |
+| **Image Processing** | `POST` | `/api/v1/process/cartoonize` | 🔒 มี Token | อัปโหลดรูปภาพเพื่อแปลงเป็นสไตล์การ์ตูน/อนิเมะ (Bilateral + K-Means + Edge) |
+| **Image Processing** | `POST` | `/api/v1/process/cartoonize/:id` | 🔒 มี Token | นำภาพเดิมจากประวัติมาแปลงเป็นสไตล์การ์ตูน |
 
 ---
 
