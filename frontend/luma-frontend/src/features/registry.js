@@ -8,12 +8,13 @@
 //   3. Add a client method for it in src/api/client.js (api.processXxx).
 //   4. Add its id to ACTIVE_FEATURE_IDS in src/features/active.js so it renders.
 import { createElement } from 'react'
-import { Focus, Palette, Aperture, Contrast, Hand } from 'lucide-react'
+import { Focus, Palette, Aperture, Contrast, Hand, Eraser } from 'lucide-react'
 import SpotBlurTool from '../components/features/SpotBlurTool'
 import CartoonizeTool from '../components/features/CartoonizeTool'
 import TiltShiftTool from '../components/features/TiltShiftTool'
 import HdrEnhancerTool from '../components/features/HdrEnhancerTool'
 import HandGestureTool from '../components/features/HandGestureTool'
+import RemoveBackgroundTool from '../components/features/RemoveBackgroundTool'
 
 export const FEATURE_REGISTRY = {
   'spot-blur': {
@@ -54,6 +55,14 @@ export const FEATURE_REGISTRY = {
     icon: createElement(Hand, { strokeWidth: 1.75 }),
     subtitle: 'Recognize a hand gesture in a photo.',
     component: HandGestureTool,
+    available: true,
+  },
+  'remove-background': {
+    id: 'remove-background',
+    title: 'Remove Background',
+    icon: createElement(Eraser, { strokeWidth: 1.75 }),
+    subtitle: 'Cut the background out of a photo.',
+    component: RemoveBackgroundTool,
     available: true,
   },
 }
