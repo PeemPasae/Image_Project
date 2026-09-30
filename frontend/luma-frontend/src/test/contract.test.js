@@ -26,6 +26,11 @@ function envelope(data) {
   return { data: { success: true, data } }
 }
 
+// client.js registers this once at import time, above — captured here (module
+// scope, before any beforeEach) since vi.clearAllMocks() below would otherwise
+// wipe mockClient.interceptors.response.use.mock.calls before the first test runs.
+const responseRejectedHandler = mockClient.interceptors.response.use.mock.calls[0]?.[1]
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
@@ -422,5 +427,150 @@ describe('processGesture contract', () => {
     await expect(api.processGesture(file)).rejects.toMatchObject({
       code: 'MODEL_UNAVAILABLE',
     })
+  })
+})
+
+describe('processRemoveBackground contract', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:mock-result')
+  })
+
+  it('posts multipart form with image/bg and returns a blob URL (not JSON)', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+
+    const url = await api.processRemoveBackground(file, { bg: '#FFFFFF' })
+
+    expect(url).toBe('blob:mock-result')
+    expect(URL.createObjectURL).toHaveBeenCalledWith(png)
+
+    const [path, form, config] = mockClient.post.mock.calls[0]
+    expect(path).toBe('/process/remove-bg')
+    expect(form).toBeInstanceOf(FormData)
+    expect(form.get('image')).toBeInstanceOf(File)
+    expect(form.get('bg')).toBe('#FFFFFF')
+    expect(config).toMatchObject({
+      responseType: 'blob',
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  })
+
+  it('defaults bg to "transparent" when not passed', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.png', { type: 'image/png' })
+
+    await api.processRemoveBackground(file)
+
+    const [, form] = mockClient.post.mock.calls[0]
+    expect(form.get('bg')).toBe('transparent')
+  })
+
+  it('sends rect/strokes as JSON strings and use_ai as "true"/"false" when provided', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+    const rect = [10, 20, 100, 80]
+    const strokes = [
+      { type: 'keep', r: 12, points: [[15, 25], [16, 26]] },
+      { type: 'remove', r: 8, points: [[50, 60]] },
+    ]
+
+    await api.processRemoveBackground(file, { rect, strokes, use_ai: false })
+
+    const [, form] = mockClient.post.mock.calls[0]
+    expect(form.get('rect')).toBe(JSON.stringify(rect))
+    expect(form.get('strokes')).toBe(JSON.stringify(strokes))
+    expect(form.get('use_ai')).toBe('false')
+  })
+
+  it('defaults use_ai to "true" and omits rect/strokes entirely (not the string "undefined") when neither is provided', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+
+    await api.processRemoveBackground(file)
+
+    const [, form] = mockClient.post.mock.calls[0]
+    expect(form.get('use_ai')).toBe('true')
+    expect(form.has('rect')).toBe(false)
+    expect(form.has('strokes')).toBe(false)
+  })
+
+  it('omits rect when null (AI-only after clicking "เริ่มใหม่") but still sends strokes if present', async () => {
+    const png = new Blob(['png-bytes'], { type: 'image/png' })
+    mockClient.post.mockResolvedValueOnce({ data: png })
+    const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
+    const strokes = [{ type: 'keep', r: 10, points: [[1, 2]] }]
+
+    await api.processRemoveBackground(file, { rect: null, strokes, use_ai: true })
+
+    const [, form] = mockClient.post.mock.calls[0]
+    expect(form.has('rect')).toBe(false)
+    expect(form.get('strokes')).toBe(JSON.stringify(strokes))
+  })
+
+  it('throws with .code parsed from a Blob error body (e.g. UNSUPPORTED_FILE_TYPE)', async () => {
+    const body = new Blob(
+      [JSON.stringify({ success: false, error: { code: 'UNSUPPORTED_FILE_TYPE', message: 'Only .jpg, .jpeg, .png, .webp are supported' } })],
+      { type: 'application/json' }
+    )
+    mockClient.post.mockRejectedValueOnce({ response: { data: body } })
+    const file = new File(['img'], 'photo.gif', { type: 'image/gif' })
+
+    await expect(api.processRemoveBackground(file)).rejects.toMatchObject({
+      code: 'UNSUPPORTED_FILE_TYPE',
+      message: 'Only .jpg, .jpeg, .png, .webp are supported',
+    })
+  })
+
+  it('throws with .code MODEL_UNAVAILABLE parsed from a Blob error body (HTTP 503)', async () => {
+    const body = new Blob(
+      [JSON.stringify({ success: false, error: { code: 'MODEL_UNAVAILABLE', message: 'Background model could not be downloaded' } })],
+      { type: 'application/json' }
+    )
+    mockClient.post.mockRejectedValueOnce({ response: { data: body } })
+    const file = new File(['img'], 'photo.png', { type: 'image/png' })
+
+    await expect(api.processRemoveBackground(file)).rejects.toMatchObject({
+      code: 'MODEL_UNAVAILABLE',
+    })
+  })
+})
+
+describe('response interceptor — UNAUTHORIZED on blob-body errors (bug fixed alongside processRemoveBackground)', () => {
+  beforeEach(() => {
+    // Already on /login -> the handler's redirect branch is a no-op, so jsdom
+    // (which has no real navigation) has nothing to complain about; the part
+    // under test here is the code-extraction + logout, not the redirect itself.
+    window.history.pushState({}, '', '/login')
+  })
+
+  it('reads the code out of a Blob error body and clears the session, not just plain-JSON error bodies', async () => {
+    localStorage.setItem('luma_token', 'abc.jwt')
+    localStorage.setItem('luma_user', JSON.stringify({ id: 1 }))
+
+    const body = new Blob(
+      [JSON.stringify({ success: false, error: { code: 'UNAUTHORIZED', message: 'Token has expired, please log in again' } })],
+      { type: 'application/json' }
+    )
+
+    await expect(responseRejectedHandler({ response: { data: body } })).rejects.toBeDefined()
+
+    expect(localStorage.getItem('luma_token')).toBeNull()
+    expect(localStorage.getItem('luma_user')).toBeNull()
+  })
+
+  it('still works for plain-JSON error bodies (non-blob requests)', async () => {
+    localStorage.setItem('luma_token', 'abc.jwt')
+    localStorage.setItem('luma_user', JSON.stringify({ id: 1 }))
+
+    await expect(
+      responseRejectedHandler({ response: { data: { error: { code: 'UNAUTHORIZED', message: 'Token has expired' } } } })
+    ).rejects.toBeDefined()
+
+    expect(localStorage.getItem('luma_token')).toBeNull()
+    expect(localStorage.getItem('luma_user')).toBeNull()
   })
 })

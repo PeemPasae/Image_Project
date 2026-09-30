@@ -29,12 +29,29 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+function readBlobText(blob) {
+  if (typeof blob.text === 'function') return blob.text()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(blob)
+  })
+}
+
 // Unwrap { success, data } / throw on { success:false, error } — single place every
 // page relies on so nobody has to re-implement envelope parsing per call.
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const code = error.response?.data?.error?.code
+  async (error) => {
+    let code = error.response?.data?.error?.code
+    // Endpoints using responseType:'blob' (spot-blur, cartoonize, tilt-shift,
+    // hdr-enhancer, remove-bg) get their error body back as a Blob too, so
+    // `.error.code` above is always undefined for them — read it out here as
+    // well, otherwise a 401 on any of those endpoints never triggers logout.
+    if (code === undefined && typeof Blob !== 'undefined' && error.response?.data instanceof Blob) {
+      try { code = JSON.parse(await readBlobText(error.response.data))?.error?.code } catch { /* not JSON */ }
+    }
     if (code === 'UNAUTHORIZED') {
       localStorage.removeItem('luma_token')
       localStorage.removeItem('luma_user')
@@ -61,16 +78,6 @@ async function request(promise) {
     wrapped.code = apiError?.code || (err.code === 'ECONNABORTED' ? 'AI_SERVER_TIMEOUT' : 'NETWORK_ERROR')
     throw wrapped
   }
-}
-
-function readBlobText(blob) {
-  if (typeof blob.text === 'function') return blob.text()
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(reader.error)
-    reader.readAsText(blob)
-  })
 }
 
 // Same normalized shape as request(), but with responseType 'blob' the error
@@ -226,6 +233,23 @@ export const api = {
     return request(client.post('/process/gesture', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }))
+  },
+
+  /**
+   * POST /process/remove-bg — multipart upload, binary PNG back (no envelope,
+   * transparent background unless `bg` is a hex color).
+   * `rect` is [x, y, w, h] and `strokes` is [{type,r,points:[[x,y],...]}, ...],
+   * both in the ORIGINAL image's pixel space — omitted entirely (not sent as
+   * the string "undefined") when not provided, matching the contract: no
+   * rect/strokes at all = pure AI cutout; either present = AI + GrabCut;
+   * use_ai=false = GrabCut only (backend requires rect in that case).
+   */
+  processRemoveBackground: (file, { bg = 'transparent', rect, strokes, use_ai = true } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    const fields = { bg, use_ai }
+    if (rect != null) fields.rect = JSON.stringify(rect)
+    if (strokes != null) fields.strokes = JSON.stringify(strokes)
+    return processImage('/process/remove-bg', file, fields)
   },
 }
 
