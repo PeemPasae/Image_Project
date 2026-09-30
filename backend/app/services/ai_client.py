@@ -2,9 +2,11 @@
 import threading
 # นำเข้า requests สำหรับส่ง HTTP Call ไปยัง AI Server
 import requests
+# นำเข้า os เพื่ออ่าน AI_SERVER_URL จาก .env
+import os
 
-# URL ของ AI Server อัปเดตตาม IP ใหม่: 172.20.56.221:8088
-AI_SERVER_URL = "http://172.20.56.221:8088"
+# URL ของ AI Server อ่านจาก backend/.env (AI_SERVER_URL) — เปลี่ยน IP แก้ที่ .env ที่เดียว
+AI_SERVER_URL = os.environ.get("AI_SERVER_URL", "http://172.20.56.221:8088").rstrip("/")
 
 # สร้าง Mutex Lock วัตถุส่วนกลางสำหรับเช็กว่ามี Request กำลังเจนรูปอยู่หรือไม่
 _ai_lock = threading.Lock()

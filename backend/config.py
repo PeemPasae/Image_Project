@@ -24,7 +24,7 @@ class Config:
     # spec ข้อ 6: CORS อนุญาตเฉพาะ origin ที่กำหนด
     CORS_ORIGINS = [
         "http://localhost:5173",
-        "http://172.20.56.225:5173",
+        "http://172.20.56.158:5173",
     ]
 
     # spec ข้อ 7: timeout ตอนเรียก AI Server

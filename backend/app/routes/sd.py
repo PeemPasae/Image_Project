@@ -6,15 +6,29 @@ from flask import Blueprint, request, send_file
 from app.middleware.jwt_auth import token_required
 from app.extensions import db
 from app.models.generation import Generation  # Import SQLAlchemy Model
-from app.services.ai_client import generate_sd_image, fetch_available_models
+from app.services.ai_client import generate_sd_image, fetch_available_models, AIServerErrorException
 from app.utils.error_codes import (
     success_response, error_response, VALIDATION_ERROR, 
-    GENERATION_NOT_FOUND, GENERATION_FAILED
+    GENERATION_NOT_FOUND, GENERATION_FAILED, AI_SERVER_ERROR
 )
 
 sd_bp = Blueprint("sd", __name__)
 UPLOAD_FOLDER = os.path.join(os.getcwd(), "app", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@sd_bp.route("/models", methods=["GET"])
+def get_models():
+    """GET /api/v1/models - รายชื่อ checkpoint จาก AI Server (ไม่ต้อง auth ตาม spec)"""
+    try:
+        models = fetch_available_models()
+    except AIServerErrorException as e:
+        return error_response(AI_SERVER_ERROR, str(e), 503)
+
+    # Frontend (Generate.jsx) อ่าน data.models[i].model_name
+    return success_response({
+        "models": [{"model_name": m["name"], "title": m["title"]} for m in models]
+    }, status_code=200)
+
 
 @sd_bp.route("/generate", methods=["POST"])
 @token_required
