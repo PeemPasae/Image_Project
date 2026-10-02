@@ -27,17 +27,11 @@ GESTURE_NAMES = {
     "ILoveYou": "I Love You",
 }
 
-# webcam ของ user ที่ไม่ส่งเฟรมมาเกินเวลานี้ ถือว่าปิดกล้องไปแล้ว คืนหน่วยความจำ
-SESSION_IDLE_SECONDS = 60
-
 # MediaPipe ใช้พร้อมกันหลาย thread ไม่ได้ แต่ Flask รับ request หลาย thread จึงต้องล็อก
-# แยก lock ของโหมดรูปกับโหมด webcam ไว้ จะได้ไม่ต้องรอกัน
 _model_lock = threading.Lock()
 _image_lock = threading.Lock()
-_video_lock = threading.Lock()
 
 _image_recognizers = {}  # (num_hands, min_confidence) -> recognizer ใช้ร่วมกันทุกคน
-_sessions = {}           # user_id -> recognizer โหมด VIDEO ของ user คนนั้น
 
 
 # ==============================================================================
@@ -129,63 +123,49 @@ def recognize_gesture(img, num_hands=2, min_confidence=0.5):
     return _format(result, inference_ms)
 
 
+
 # ==============================================================================
-# โหมด webcam (VIDEO)
+# [UNUSED BY FRONTEND] โหมด webcam (VIDEO) ย้ายมาไว้ด้านล่างสุด
+# เผื่อต้องการนำกลับมาเปิดใช้งานสตรีมมิ่งเว็บแคม (เพียงเอาเครื่องหมาย # ออก)
 # ==============================================================================
+# SESSION_IDLE_SECONDS = 60
+# _video_lock = threading.Lock()
+# _sessions = {}
 #
-# โหมด VIDEO จำตำแหน่งมือจากเฟรมก่อนไว้ ทำให้ไม่ต้องหามือใหม่ทุกเฟรม (เร็วกว่าและนิ่งกว่า)
-# แต่เพราะมัน "จำ" จึงแชร์ข้ามคนไม่ได้ ไม่งั้นมือของ user A จะไปปนกับเฟรมของ user B
-# -> แต่ละ user ต้องมี recognizer ของตัวเอง
-
-def _close_idle_sessions(now):
-    """ปิด recognizer ของคนที่เลิกใช้กล้องไปนานแล้ว (ต้องเรียกภายใน _video_lock)"""
-    for user_id in list(_sessions):
-        if now - _sessions[user_id]["last_used"] > SESSION_IDLE_SECONDS:
-            _sessions.pop(user_id)["recognizer"].close()
-
-
-def recognize_gesture_frame(img, user_id, num_hands=2, min_confidence=0.5):
-    """จดจำท่ามือจากเฟรม webcam ของ user คนหนึ่ง
-
-    img     : เฟรมภาพ (BGR)
-    user_id : เจ้าของกล้อง ใช้แยก recognizer ของแต่ละคน
-    """
-    mp_image = _to_mp_image(img)
-    key = (num_hands, round(min_confidence, 1))
-    now = time.monotonic()
-
-    with _video_lock:
-        _close_idle_sessions(now)
-
-        # 1) หา recognizer ของ user นี้ ถ้ายังไม่มีหรือเลื่อน slider เปลี่ยนค่า ให้สร้างใหม่
-        session = _sessions.get(user_id)
-        if session is None or session["key"] != key:
-            if session is not None:
-                session["recognizer"].close()
-            session = {
-                "key": key,
-                "recognizer": _create_recognizer(vision.RunningMode.VIDEO, *key),
-                "last_ts": 0,
-            }
-            _sessions[user_id] = session
-
-        # 2) โหมด VIDEO บังคับว่า timestamp ต้องเพิ่มขึ้นทุกเฟรม ใช้เวลาฝั่ง server
-        #    (+1 กันกรณีสองเฟรมมาใน ms เดียวกัน เช่นเปิดสองแท็บ)
-        timestamp_ms = max(session["last_ts"] + 1, int(now * 1000))
-        session["last_ts"] = timestamp_ms
-        session["last_used"] = now
-
-        # 3) ให้โมเดลทาย และจับเวลาเฉพาะช่วง inference
-        start = time.perf_counter()
-        result = session["recognizer"].recognize_for_video(mp_image, timestamp_ms)
-        inference_ms = (time.perf_counter() - start) * 1000
-
-    return _format(result, inference_ms)
-
-
-def close_gesture_session(user_id):
-    """ปิดกล้องแล้ว -> คืน recognizer ของ user นี้ทันที ไม่ต้องรอให้หมดเวลาเอง"""
-    with _video_lock:
-        session = _sessions.pop(user_id, None)
-    if session is not None:
-        session["recognizer"].close()
+# def _close_idle_sessions(now):
+#     """ปิด recognizer ของคนที่เลิกใช้กล้องไปนานแล้ว (ต้องเรียกภายใน _video_lock)"""
+#     for user_id in list(_sessions):
+#         if now - _sessions[user_id]["last_used"] > SESSION_IDLE_SECONDS:
+#             _sessions.pop(user_id)["recognizer"].close()
+#
+# def recognize_gesture_frame(img, user_id, num_hands=2, min_confidence=0.5):
+#     """จดจำท่ามือจากเฟรม webcam ของ user คนหนึ่ง"""
+#     mp_image = _to_mp_image(img)
+#     key = (num_hands, round(min_confidence, 1))
+#     now = time.monotonic()
+#     with _video_lock:
+#         _close_idle_sessions(now)
+#         session = _sessions.get(user_id)
+#         if session is None or session["key"] != key:
+#             if session is not None:
+#                 session["recognizer"].close()
+#             session = {
+#                 "key": key,
+#                 "recognizer": _create_recognizer(vision.RunningMode.VIDEO, *key),
+#                 "last_ts": 0,
+#             }
+#             _sessions[user_id] = session
+#         timestamp_ms = max(session["last_ts"] + 1, int(now * 1000))
+#         session["last_ts"] = timestamp_ms
+#         session["last_used"] = now
+#         start = time.perf_counter()
+#         result = session["recognizer"].recognize_for_video(mp_image, timestamp_ms)
+#         inference_ms = (time.perf_counter() - start) * 1000
+#     return _format(result, inference_ms)
+#
+# def close_gesture_session(user_id):
+#     """ปิดกล้องแล้ว -> คืน recognizer ของ user นี้ทันที"""
+#     with _video_lock:
+#         session = _sessions.pop(user_id, None)
+#     if session is not None:
+#         session["recognizer"].close()

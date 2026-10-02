@@ -16,9 +16,7 @@ from app.middleware.jwt_auth import token_required
 from app.extensions import db
 from app.models.generation import Generation
 from app.services.image_filters.spot_blur import spot_blur
-from app.services.image_filters.gesture import (
-    recognize_gesture, recognize_gesture_frame, close_gesture_session,
-)
+from app.services.image_filters.gesture import recognize_gesture
 from app.services.image_filters.remove_bg import remove_background
 from app.services.image_filters.cartoonize import cartoonize
 from app.services.image_filters.tilt_shift import tilt_shift
@@ -140,42 +138,6 @@ def process_gesture():
 
     return success_response(result)
 
-
-@process_bp.route("/process/gesture/frame", methods=["POST"])
-@token_required
-def process_gesture_frame():
-    """POST /api/v1/process/gesture/frame 🔒 จดจำท่ามือจากเฟรม webcam (เรียกซ้ำหลายครั้งต่อวินาที)"""
-    file = request.files.get("image")
-
-    # 1. เฟรมภาพ (มาจาก canvas.toBlob ของหน้าเว็บ จึงไม่ตรวจนามสกุลไฟล์ ใช้ decode ตัดสินแทน)
-    if not file:
-        return error_response(VALIDATION_ERROR, "image frame is required", 400)
-
-    # 2. พารามิเตอร์
-    params = _read_gesture_params(request.form)
-    if params is None:
-        return error_response(VALIDATION_ERROR, GESTURE_PARAMS_ERROR, 400)
-
-    # 3. decode เฟรม
-    img = _decode_image(file)
-    if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the frame", 400)
-
-    # 4. จดจำท่ามือด้วย recognizer ของ user คนนี้ (แยกกันต่อคน)
-    try:
-        result = recognize_gesture_frame(img, request.user_id, *params)
-    except OSError:
-        return error_response(MODEL_UNAVAILABLE, MODEL_ERROR, 503)
-
-    return success_response(result)
-
-
-@process_bp.route("/process/gesture/stop", methods=["POST"])
-@token_required
-def process_gesture_stop():
-    """POST /api/v1/process/gesture/stop 🔒 ปิดกล้องแล้ว คืน recognizer ของ user นี้"""
-    close_gesture_session(request.user_id)
-    return success_response({"message": "Gesture session closed"})
 
 
 # ==============================================================================
@@ -329,48 +291,6 @@ def process_cartoonize():
     return send_file(BytesIO(png), mimetype="image/png")
 
 
-@process_bp.route("/process/cartoonize/<int:generation_id>", methods=["POST"])
-@token_required
-def process_cartoonize_generation(generation_id: int):
-    """POST /api/v1/process/cartoonize/:generation_id 🔒 ดึงภาพเดิมจากประวัติมาแปลงเป็นการ์ตูนและบันทึกเป็นประวัติแบบที่ 2"""
-    source_gen = Generation.query.filter_by(id=generation_id, user_id=request.user_id).first()
-    if not source_gen:
-        return error_response(GENERATION_NOT_FOUND, "Source image not found or access denied", 404)
-    if not source_gen.image_data:
-        return error_response(IMAGE_NOT_FOUND, "Source image binary data is missing", 404)
-
-    body = request.get_json(silent=True) or {}
-    try:
-        num_colors = int(body.get("num_colors", 8))
-        line_thickness = int(body.get("line_thickness", 2))
-        smoothness = int(body.get("smoothness", 5))
-    except (ValueError, TypeError):
-        num_colors, line_thickness, smoothness = 8, 2, 5
-
-    img = cv2.imdecode(np.frombuffer(source_gen.image_data, np.uint8), cv2.IMREAD_COLOR)
-    if img is None:
-        return error_response(INVALID_IMAGE, "Source image could not be decoded", 400)
-
-    try:
-        result = cartoonize(img, num_colors=num_colors, line_thickness=line_thickness, smoothness=smoothness)
-    except Exception as e:
-        return error_response(GENERATION_FAILED, f"Cartoonize failed: {str(e)}", 500)
-
-    png_bytes = cv2.imencode(".png", result)[1].tobytes()
-    new_gen = Generation(
-        user_id=request.user_id,
-        category="image_filter",
-        action_type="cartoonize",
-        prompt=f"Cartoonize filter applied to Generation #{generation_id}",
-        params=json.dumps({"num_colors": num_colors, "line_thickness": line_thickness, "smoothness": smoothness}),
-        source_image_id=generation_id,
-        image_data=png_bytes,
-    )
-    db.session.add(new_gen)
-    db.session.commit()
-
-    return success_response(new_gen.to_dict(), 200)
-
 
 # ==============================================================================
 # Tilt-Shift & HDR Enhancer Endpoints
@@ -485,4 +405,74 @@ def process_hdr_enhancer():
 
     png = cv2.imencode(".png", result)[1].tobytes()
     return send_file(BytesIO(png), mimetype="image/png")
+
+
+# ==============================================================================
+# [UNUSED BY FRONTEND] ย้ายส่วนที่ Frontend ไม่ได้เรียกใช้มาไว้ด้านล่างสุด
+# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
+# ==============================================================================
+# @process_bp.route("/process/gesture/frame", methods=["POST"])
+# @token_required
+# def process_gesture_frame():
+#     """POST /api/v1/process/gesture/frame 🔒 จดจำท่ามือจากเฟรม webcam"""
+#     file = request.files.get("image")
+#     if not file:
+#         return error_response(VALIDATION_ERROR, "image frame is required", 400)
+#     params = _read_gesture_params(request.form)
+#     if params is None:
+#         return error_response(VALIDATION_ERROR, GESTURE_PARAMS_ERROR, 400)
+#     img = _decode_image(file)
+#     if img is None:
+#         return error_response(INVALID_IMAGE, "Unable to decode the frame", 400)
+#     try:
+#         result = recognize_gesture_frame(img, request.user_id, *params)
+#     except OSError:
+#         return error_response(MODEL_UNAVAILABLE, MODEL_ERROR, 503)
+#     return success_response(result)
+#
+#
+# @process_bp.route("/process/gesture/stop", methods=["POST"])
+# @token_required
+# def process_gesture_stop():
+#     """POST /api/v1/process/gesture/stop 🔒 ปิดกล้องแล้ว คืน recognizer ของ user นี้"""
+#     close_gesture_session(request.user_id)
+#     return success_response({"message": "Gesture session closed"})
+#
+#
+# @process_bp.route("/process/cartoonize/<int:generation_id>", methods=["POST"])
+# @token_required
+# def process_cartoonize_generation(generation_id: int):
+#     """POST /api/v1/process/cartoonize/:generation_id 🔒 ดึงภาพเดิมจากประวัติมาแปลงเป็นการ์ตูน"""
+#     source_gen = Generation.query.filter_by(id=generation_id, user_id=request.user_id).first()
+#     if not source_gen:
+#         return error_response(GENERATION_NOT_FOUND, "Source image not found or access denied", 404)
+#     if not source_gen.image_data:
+#         return error_response(IMAGE_NOT_FOUND, "Source image binary data is missing", 404)
+#     body = request.get_json(silent=True) or {}
+#     try:
+#         num_colors = int(body.get("num_colors", 8))
+#         line_thickness = int(body.get("line_thickness", 2))
+#         smoothness = int(body.get("smoothness", 5))
+#     except (ValueError, TypeError):
+#         num_colors, line_thickness, smoothness = 8, 2, 5
+#     img = cv2.imdecode(np.frombuffer(source_gen.image_data, np.uint8), cv2.IMREAD_COLOR)
+#     if img is None:
+#         return error_response(INVALID_IMAGE, "Source image could not be decoded", 400)
+#     try:
+#         result = cartoonize(img, num_colors=num_colors, line_thickness=line_thickness, smoothness=smoothness)
+#     except Exception as e:
+#         return error_response(GENERATION_FAILED, f"Cartoonize failed: {str(e)}", 500)
+#     png_bytes = cv2.imencode(".png", result)[1].tobytes()
+#     new_gen = Generation(
+#         user_id=request.user_id,
+#         category="image_filter",
+#         action_type="cartoonize",
+#         prompt=f"Cartoonize filter applied to Generation #{generation_id}",
+#         params=json.dumps({"num_colors": num_colors, "line_thickness": line_thickness, "smoothness": smoothness}),
+#         source_image_id=generation_id,
+#         image_data=png_bytes,
+#     )
+#     db.session.add(new_gen)
+#     db.session.commit()
+#     return success_response(new_gen.to_dict(), 200)
 

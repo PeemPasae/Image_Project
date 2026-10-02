@@ -63,29 +63,6 @@ def get_models():
         return error_response(AI_SERVER_ERROR, f"Unexpected error: {str(exc)}", 500)
 
 
-@sd_bp.route("/estimate", methods=["GET", "POST"])
-def estimate_time():
-    """
-    GET / POST /api/v1/estimate
-    เส้นทางสำหรับคำนวณและส่งค่าเวลาโดยประมาณที่ต้องใช้ในการสร้างภาพ
-    คำนวณจากความละเอียดภาพ (Width, Height), จำนวน Steps, และจำนวนคิวที่กำลังรอ
-    """
-    # ดึงค่าพารามิเตอร์จาก JSON หรือ Query Parameters
-    if request.method == "POST":
-        data = request.get_json() or {}
-    else:
-        data = request.args
-
-    width = int(data.get("width", 512))
-    height = int(data.get("height", 512))
-    steps = int(data.get("steps", 20))
-
-    # เรียกใช้ฟังก์ชันคำนวณเวลาโดยประมาณ
-    estimate_result = calculate_estimated_time(width=width, height=height, steps=steps)
-
-    # ส่งคืนผลลัพธ์การประเมินเวลา
-    return success_response(estimate_result, status_code=200)
-
 
 @sd_bp.route("/generate", methods=["POST"])
 @token_required
@@ -269,3 +246,25 @@ def stream_image(gen_id: int):
         as_attachment=False,
         download_name=f"luma_image_{gen_id}.png"
     )
+
+
+# ==============================================================================
+# [UNUSED BY FRONTEND] ย้ายส่วนที่ Frontend ไม่ได้เรียกใช้มาไว้ด้านล่างสุด
+# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
+# ==============================================================================
+# @sd_bp.route("/estimate", methods=["GET", "POST"])
+# def estimate_time():
+#     """
+#     GET / POST /api/v1/estimate
+#     เส้นทางสำหรับคำนวณและส่งค่าเวลาโดยประมาณที่ต้องใช้ในการสร้างภาพ
+#     Frontend ไม่ได้เรียกใช้งาน (หน้า Generate เรียก /generate ตรงๆ)
+#     """
+#     if request.method == "POST":
+#         data = request.get_json() or {}
+#     else:
+#         data = request.args
+#     width = int(data.get("width", 512))
+#     height = int(data.get("height", 512))
+#     steps = int(data.get("steps", 20))
+#     estimate_result = calculate_estimated_time(width=width, height=height, steps=steps)
+#     return success_response(estimate_result, status_code=200)

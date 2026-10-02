@@ -162,70 +162,29 @@ def test_user_isolation_and_idor_protection(client):
     assert len(res_b_history.get_json()["data"]["history"]) == 0
 
 
-def test_history_two_types(client):
+def test_history_pagination(client):
     """
-    ทดสอบระบบประวัติการสร้างภาพ 2 รูปแบบ:
-    - รูปแบบที่ 1 (Checkpoint Generation)
-    - รูปแบบที่ 2 (Sub-Function Filter)
-    - การกรองแยกตามหมวดหมู่ category
+    ทดสอบระบบประวัติการสร้างภาพตาม FRONTEND_REQUIREMENTS.md:
+    - ดึงรายการประวัติพร้อม pagination (page, limit)
+    - ส่งกลับค่าครบถ้วนสำหรับ frontend
     """
-    # สมัครและล็อกอิน
     client.post("/api/v1/register", json={"email": "artist@luma.dev", "password": "password123"})
     login = client.post("/api/v1/login", json={"email": "artist@luma.dev", "password": "password123"}).get_json()
     token = login["data"]["access_token"]
     auth_header = {"Authorization": f"Bearer {token}"}
 
-    # 1. สร้างภาพรูปแบบที่ 1 (Checkpoint)
-    fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
-    fake_png_bytes = cv2.imencode(".png", fake_img)[1].tobytes()
-    fake_png = base64.b64encode(fake_png_bytes).decode("utf-8")
-    with patch("app.routes.sd.generate_sd_image", return_value=(fake_png, 3.5, 4.5)):
-        gen1 = client.post("/api/v1/generate", 
-            json={"prompt": "Cyberpunk city night", "steps": 25, "width": 512, "height": 512},
-            headers=auth_header
-        ).get_json()
-        gen1_id = gen1["data"]["generation_id"]
+    # สร้างภาพ 2 รายการ
+    fake_png = base64.b64encode(b"fake_image_bytes").decode("utf-8")
+    with patch("app.routes.sd.generate_sd_image", return_value=(fake_png, 2.0, 3.0)):
+        client.post("/api/v1/generate", json={"prompt": "Image 1", "steps": 20, "width": 512, "height": 512}, headers=auth_header)
+        client.post("/api/v1/generate", json={"prompt": "Image 2", "steps": 20, "width": 512, "height": 512}, headers=auth_header)
 
-    # 2. นำภาพมาผ่าน Sub-function Cartoonize (รูปแบบที่ 2)
-    gen2 = client.post(f"/api/v1/process/cartoonize/{gen1_id}", 
-        json={"num_colors": 8, "line_thickness": 2, "smoothness": 5},
-        headers=auth_header
-    ).get_json()
-    assert gen2["success"] is True
-    assert gen2["data"]["category"] == "image_filter"
-    assert gen2["data"]["action_type"] == "cartoonize"
-
-    # 3. ดึงประวัติทั้งหมด (ต้องมี 2 รายการ)
-    res_all = client.get("/api/v1/history", headers=auth_header).get_json()
-    assert res_all["data"]["pagination"]["total"] == 2
-
-    # 4. กรองเฉพาะแบบที่ 1 (sd_generate)
-    res_sd = client.get("/api/v1/history?category=sd_generate", headers=auth_header).get_json()
-    assert res_sd["data"]["pagination"]["total"] == 1
-    assert res_sd["data"]["history"][0]["category"] == "sd_generate"
-
-    # 5. กรองเฉพาะแบบที่ 2 (image_filter)
-    res_filter = client.get("/api/v1/history?category=image_filter", headers=auth_header).get_json()
-    assert res_filter["data"]["pagination"]["total"] == 1
-    assert res_filter["data"]["history"][0]["category"] == "image_filter"
-    assert res_filter["data"]["history"][0]["action_type"] == "cartoonize"
-
-
-def test_time_estimation_endpoint(client):
-    """
-    ทดสอบระบบประเมินเวลา (Time Estimation):
-    - เรียก Endpoint /api/v1/estimate เพื่อดูเวลาคำนวณล่วงหน้า
-    """
-    res = client.post("/api/v1/estimate", json={
-        "width": 512,
-        "height": 512,
-        "steps": 20
-    })
-    assert res.status_code == 200
-    data = res.get_json()["data"]
-    assert "estimated_generation_seconds" in data
-    assert "total_estimated_seconds" in data
-    assert data["total_estimated_seconds"] >= 2.0
+    # ดึงประวัติแบบ pagination
+    res = client.get("/api/v1/history?page=1&limit=10", headers=auth_header).get_json()
+    assert res["success"] is True
+    assert res["data"]["pagination"]["total"] == 2
+    assert len(res["data"]["history"]) == 2
+    assert res["data"]["history"][0]["prompt"] in ["Image 1", "Image 2"]
 
 
 def test_concurrent_generation_simulation():
@@ -329,6 +288,40 @@ def test_generation_type_display_name():
 
     gen_gest = Generation(category="image_filter", action_type="gesture")
     assert "Hand Gesture" in gen_gest.get_type_display_name()
+
+
+def test_get_profile_contract(client):
+    """ทดสอบ GET /api/v1/profile ตามสัญญาที่ Profile.jsx อ่านจริง"""
+    client.post("/api/v1/register", json={"email": "profiler@luma.dev", "password": "password123"})
+    login = client.post("/api/v1/login", json={"email": "profiler@luma.dev", "password": "password123"}).get_json()
+    token = login["data"]["access_token"]
+    auth_header = {"Authorization": f"Bearer {token}"}
+
+    # สร้าง 1 ภาพ
+    fake_png = base64.b64encode(b"fake_image_bytes").decode("utf-8")
+    with patch("app.routes.sd.generate_sd_image", return_value=(fake_png, 1.5, 2.0)):
+        client.post("/api/v1/generate", json={"prompt": "Profile test image", "steps": 20, "width": 512, "height": 512}, headers=auth_header)
+
+    res = client.get("/api/v1/profile", headers=auth_header)
+    assert res.status_code == 200
+    data = res.get_json()["data"]
+    assert data["email"] == "profiler@luma.dev"
+    assert "id" in data
+    assert "created_at" in data
+    assert data["generation_count"] == 1
+
+
+
+# ==============================================================================
+# [DISABLED TESTS] การทดสอบสำหรับ Endpoint ที่ไม่ได้ใช้งานโดย Frontend
+# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
+# ==============================================================================
+# def test_time_estimation_endpoint(client):
+#     res = client.post("/api/v1/estimate", json={"width": 512, "height": 512, "steps": 20})
+#     assert res.status_code == 200
+#     data = res.get_json()["data"]
+#     assert "total_estimated_seconds" in data
+
 
 
 

@@ -37,26 +37,27 @@ def get_profile():
     if not current_user:
         return error_response(UNAUTHORIZED, "User account not found", 401)
 
-    # 2. นับจำนวนภาพทั้งหมดที่สร้างโดยผู้ใช้คนนี้
+    # 2. นับจำนวนภาพทั้งหมดที่สร้างโดยผู้ใช้คนนี้ (Frontend อ่านเฉพาะ generation_count)
     total_generations = Generation.query.filter_by(user_id=current_user.id).count()
 
-    # 3. นับจำนวนภาพแยกตามประเภท (แบบที่ 1 AI Checkpoint vs แบบที่ 2 Sub-functions)
-    checkpoint_count = Generation.query.filter_by(
-        user_id=current_user.id, 
-        category="sd_generate"
-    ).count()
-    
-    filter_count = Generation.query.filter_by(
-        user_id=current_user.id, 
-        category="image_filter"
-    ).count()
-
-    # 4. ส่งข้อมูลโปรไฟล์และสถิติกลับไปยัง Frontend ตามมาตรฐาน LUMA
+    # 3. ส่งข้อมูลโปรไฟล์และสถิติกลับไปยัง Frontend ตามสเปก FRONTEND_REQUIREMENTS.md
     return success_response({
         "id": current_user.id,
         "email": current_user.email,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "generation_count": total_generations,
-        "checkpoint_count": checkpoint_count,
-        "filter_count": filter_count,
     }, status_code=200)
+
+
+# ==============================================================================
+# [UNUSED BY FRONTEND] การนับแยกประเภทภาพ (Frontend แสดงเฉพาะ generation_count รวม)
+# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
+# ==============================================================================
+# checkpoint_count = Generation.query.filter_by(
+#     user_id=current_user.id, 
+#     category="sd_generate"
+# ).count()
+# filter_count = Generation.query.filter_by(
+#     user_id=current_user.id, 
+#     category="image_filter"
+# ).count()
