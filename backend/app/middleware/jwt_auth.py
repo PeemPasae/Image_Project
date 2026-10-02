@@ -6,7 +6,7 @@
 
 import os
 from functools import wraps
-from flask import request
+from flask import request, current_app, has_app_context
 import jwt
 
 # นำเข้าฟังก์ชันตอบกลับข้อผิดพลาดและ Error Codes มาตรฐาน
@@ -15,11 +15,15 @@ from app.utils.error_codes import error_response, UNAUTHORIZED, INTERNAL_SERVER_
 
 def get_jwt_secret() -> str:
     """
-    ฟังก์ชันสำหรับดึง JWT Secret Key จากตัวแปรสภาพแวดล้อม (.env)
+    ฟังก์ชันสำหรับดึง JWT Secret Key จาก Flask App Config หรือตัวแปรสภาพแวดล้อม (.env)
     หากไม่พบการตั้งค่าใน Environment จะใช้ค่าเริ่มต้นสำหรับพัฒนา
     
     :return: ข้อความ Secret Key สำหรับเข้ารหัส/ถอดรหัส Token
     """
+    # ตรวจสอบค่าจาก Flask App Config ก่อน (รองรับกรณีรัน Test หรือ Override ผ่าน Config)
+    if has_app_context() and current_app.config.get("SECRET_KEY"):
+        return current_app.config["SECRET_KEY"]
+
     # ตรวจสอบตัวแปร JWT_SECRET_KEY หรือ JWT_SECRET จาก .env
     secret = os.getenv("JWT_SECRET_KEY") or os.getenv("JWT_SECRET")
     if not secret:

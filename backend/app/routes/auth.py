@@ -7,9 +7,10 @@
 import re
 import datetime
 import jwt
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
+from config import Config
 
 # นำเข้าส่วนประกอบของ Database และ Model
 from app.extensions import db
@@ -150,9 +151,12 @@ def login():
             401
         )
 
-    # 5. สร้าง JWT Access Token ที่มีอายุ 24 ชั่วโมง (86,400 วินาที)
+    # 5. สร้าง JWT Access Token ที่มีอายุตามค่าคอนฟิก (ค่าเริ่มต้น 24 ชั่วโมง)
     try:
-        expiration_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
+        expires_delta = current_app.config.get("JWT_EXPIRES_IN") or getattr(Config, "JWT_EXPIRES_IN", datetime.timedelta(hours=24))
+        expiration_time = datetime.datetime.now(datetime.timezone.utc) + expires_delta
+        expires_seconds = int(expires_delta.total_seconds())
+
         token_payload = {
             "user_id": target_user.id,
             "email": target_user.email,
@@ -171,6 +175,6 @@ def login():
     return success_response({
         "access_token": token,
         "token_type": "Bearer",
-        "expires_in": 86400,
+        "expires_in": expires_seconds,
         "user": target_user.to_dict()
     }, status_code=200)

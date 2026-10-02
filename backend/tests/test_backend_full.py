@@ -277,3 +277,58 @@ def test_concurrent_generation_simulation():
     assert len(execution_order) == 3
 
 
+def test_generate_string_parameters_and_type_coercion(client):
+    """
+    ทดสอบการส่งตัวเลขในรูป string (เช่น "512", "20", "7.5") มายัง /generate
+    ระบบต้องแปลงค่าอัตโนมัติ ไม่โยน 500 TypeError
+    """
+    client.post("/api/v1/register", json={"email": "type_tester@luma.dev", "password": "password123"})
+    login = client.post("/api/v1/login", json={"email": "type_tester@luma.dev", "password": "password123"}).get_json()
+    token = login["data"]["access_token"]
+
+    fake_b64 = base64.b64encode(b"dummy_png").decode("utf-8")
+    with patch("app.routes.sd.generate_sd_image", return_value=(fake_b64, 1.2, 2.5)):
+        res = client.post(
+            "/api/v1/generate",
+            json={"prompt": "A test prompt", "width": "512", "height": "512", "steps": "25", "cfg_scale": "7.5"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert res.status_code == 201
+        data = res.get_json()
+        assert data["success"] is True
+
+        # ทดสอบค่าที่ไม่ใช่ตัวเลข (ต้องได้ 400 VALIDATION_ERROR ไม่ใช่ 500)
+        res_bad = client.post(
+            "/api/v1/generate",
+            json={"prompt": "A test prompt", "steps": "not_a_number"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert res_bad.status_code == 400
+        assert res_bad.get_json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_generation_type_display_name():
+    """ทดสอบฟังก์ชัน get_type_display_name สำหรับทุกฟิลเตอร์"""
+    gen_sd = Generation(category="sd_generate", action_type="txt2img")
+    assert "Stable Diffusion" in gen_sd.get_type_display_name()
+
+    gen_cart = Generation(category="image_filter", action_type="cartoonize")
+    assert "Cartoonize" in gen_cart.get_type_display_name()
+
+    gen_tilt = Generation(category="image_filter", action_type="tilt_shift")
+    assert "Tilt-Shift" in gen_tilt.get_type_display_name()
+
+    gen_hdr = Generation(category="image_filter", action_type="hdr_enhancer")
+    assert "HDR" in gen_hdr.get_type_display_name()
+
+    gen_spot = Generation(category="image_filter", action_type="spot_blur")
+    assert "Spot Blur" in gen_spot.get_type_display_name()
+
+    gen_bg = Generation(category="image_filter", action_type="remove_bg")
+    assert "Remove Background" in gen_bg.get_type_display_name()
+
+    gen_gest = Generation(category="image_filter", action_type="gesture")
+    assert "Hand Gesture" in gen_gest.get_type_display_name()
+
+
+

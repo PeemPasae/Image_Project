@@ -125,8 +125,19 @@ def generate_image():
             400
         )
 
-    width = data.get("width", 512)
-    height = data.get("height", 512)
+    try:
+        width = int(data.get("width", 512))
+        height = int(data.get("height", 512))
+        steps = int(data.get("steps", 20))
+        cfg_scale = float(data.get("cfg_scale", 7.0))
+        seed = int(data.get("seed", -1))
+    except (ValueError, TypeError):
+        return error_response(
+            VALIDATION_ERROR, 
+            "Invalid numeric parameters: width, height, steps, cfg_scale, and seed must be valid numbers", 
+            400
+        )
+
     if width not in [512, 768, 1024] or height not in [512, 768, 1024]:
         return error_response(
             VALIDATION_ERROR, 
@@ -134,7 +145,6 @@ def generate_image():
             400
         )
 
-    steps = data.get("steps", 20)
     if not (1 <= steps <= 50):
         return error_response(
             VALIDATION_ERROR, 
@@ -142,7 +152,6 @@ def generate_image():
             400
         )
 
-    cfg_scale = data.get("cfg_scale", 7.0)
     if not (1.0 <= cfg_scale <= 20.0):
         return error_response(
             VALIDATION_ERROR, 
@@ -152,11 +161,24 @@ def generate_image():
 
     sampler = data.get("sampler") or data.get("sampler_name") or "Euler a"
     checkpoint = data.get("checkpoint", "")
-    seed = data.get("seed", -1)
+
+    # รวมค่าพารามิเตอร์ที่ผ่าน Type Conversion แล้ว
+    clean_payload = dict(data)
+    clean_payload.update({
+        "prompt": prompt,
+        "negative_prompt": negative_prompt,
+        "width": width,
+        "height": height,
+        "steps": steps,
+        "cfg_scale": cfg_scale,
+        "sampler": sampler,
+        "checkpoint": checkpoint,
+        "seed": seed,
+    })
 
     try:
         # 3. ส่งคำสั่งไปยัง AI Server ผ่านระบบ Concurrency Queue
-        base64_image, actual_duration, estimated_duration = generate_sd_image(data)
+        base64_image, actual_duration, estimated_duration = generate_sd_image(clean_payload)
 
         # 4. ถอดรหัสข้อความ Base64 ให้เป็น Binary Bytes เพื่อจัดเก็บลงฐานข้อมูล
         image_bytes = base64.b64decode(base64_image)

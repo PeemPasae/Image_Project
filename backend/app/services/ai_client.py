@@ -9,6 +9,8 @@ import os
 import time
 import threading
 import requests
+from flask import current_app, has_app_context
+from config import Config
 
 # ==============================================================================
 # ตัวแปรระดับส่วนกลางสำหรับการจัดการ Concurrency Lock และ Queue
@@ -23,11 +25,20 @@ _waiting_jobs_count = 0
 
 def get_ai_server_url() -> str:
     """
-    ฟังก์ชันดึง Base URL ของ AI Server จาก Environment Variables (.env)
+    ฟังก์ชันดึง Base URL ของ AI Server จาก Flask App Config หรือ Environment Variables (.env)
     
-    :return: สตริง URL ของ AI Server เช่น 'http://172.20.56.221:8088'
+    :return: สตริง URL ของ AI Server เช่น 'http://172.20.57.0:8088'
     """
-    return os.getenv("AI_SERVER_URL", "http://172.20.57.0:8088").rstrip("/")
+    if has_app_context() and current_app.config.get("AI_SERVER_URL"):
+        return str(current_app.config["AI_SERVER_URL"]).rstrip("/")
+    return (os.getenv("AI_SERVER_URL") or getattr(Config, "AI_SERVER_URL", "http://172.20.57.0:8088")).rstrip("/")
+
+
+def get_ai_server_timeout() -> int:
+    """ดึงค่า Timeout ของ AI Server จาก Config (ค่าเริ่มต้น 75 วินาที)"""
+    if has_app_context() and current_app.config.get("AI_SERVER_TIMEOUT_SECONDS"):
+        return int(current_app.config["AI_SERVER_TIMEOUT_SECONDS"])
+    return int(getattr(Config, "AI_SERVER_TIMEOUT_SECONDS", 75))
 
 
 # ==============================================================================
@@ -64,14 +75,22 @@ def calculate_estimated_time(width: int = 512, height: int = 512, steps: int = 2
     :param steps: จำนวน Sampling Steps
     :return: Dictionary สรุปเวลาโดยประมาณและสถานะคิว
     """
-    # 1. กำหนดอัตราเวลาเฉลี่ยต่อ Step ของภาพขนาด 512x512 (~0.15 วินาทีบน GPU ทั่วไป)
-    seconds_per_step = 0.15
+    # 1. กำหนดอัตราเวลาเฉลี่ยต่อ Step และเวลา Overhead ขั้นต่ำจาก Config
+    if has_app_context() and current_app.config.get("ESTIMATED_SECONDS_PER_STEP"):
+        seconds_per_step = float(current_app.config["ESTIMATED_SECONDS_PER_STEP"])
+    else:
+        seconds_per_step = float(getattr(Config, "ESTIMATED_SECONDS_PER_STEP", 0.15))
+
+    if has_app_context() and current_app.config.get("ESTIMATED_BASE_OVERHEAD_SECONDS"):
+        base_overhead = float(current_app.config["ESTIMATED_BASE_OVERHEAD_SECONDS"])
+    else:
+        base_overhead = float(getattr(Config, "ESTIMATED_BASE_OVERHEAD_SECONDS", 1.5))
     
     # 2. ปัจจัยตัวคูณตามขนาดความละเอียดของภาพ
     resolution_factor = (width * height) / (512.0 * 512.0)
     
     # 3. เวลาประมวลผลของภาพนี้เอง (Base Generation Time)
-    base_generation_seconds = round(max(2.0, steps * seconds_per_step * resolution_factor), 1)
+    base_generation_seconds = round(max(base_overhead, steps * seconds_per_step * resolution_factor), 1)
     
     # 4. ดึงจำนวนงานที่กำลังรอคิวอยู่ในระบบ
     with _waiting_counter_lock:
@@ -185,11 +204,12 @@ def generate_sd_image(payload: dict) -> tuple:
                 "sd_model_checkpoint": checkpoint_name
             }
 
-        # 7. ส่ง HTTP POST Request ไปยัง AI Server (จำกัดเวลาประมวลผลไว้ที่ 75 วินาที)
+        # 7. ส่ง HTTP POST Request ไปยัง AI Server
+        timeout_seconds = get_ai_server_timeout()
         response = requests.post(
             f"{server_url}/sdapi/v1/txt2img",
             json=sd_payload,
-            timeout=75
+            timeout=timeout_seconds
         )
 
         # 8. ตรวจสอบผลลัพธ์จาก AI Server
@@ -208,8 +228,8 @@ def generate_sd_image(payload: dict) -> tuple:
         raise AIServerErrorException(f"AI Server returned status code {response.status_code}")
 
     except requests.exceptions.Timeout:
-        # กรณี AI Server ใช้เวลาเจนภาพนานเกิน 75 วินาที
-        raise AIServerTimeoutException("AI Server timed out after 75 seconds")
+        # กรณี AI Server ใช้เวลาเจนภาพนานเกินกำหนด
+        raise AIServerTimeoutException(f"AI Server timed out after {get_ai_server_timeout()} seconds")
     except requests.exceptions.RequestException as e:
         # กรณีเกิดปัญหาเครือข่ายเชื่อมต่อไม่ได้
         raise AIServerErrorException(f"AI Server communication error: {str(e)}")

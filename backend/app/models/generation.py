@@ -14,7 +14,7 @@ class Generation(db.Model):
     คลาสโมเดล Generation สำหรับแมปกับตาราง 'generations' ในฐานข้อมูล SQLite
     ทำหน้าที่เก็บประวัติรูปภาพทั้ง 2 รูปแบบอย่างเป็นระเบียบ:
     - รูปแบบที่ 1 (Checkpoint): ภาพที่สร้างผ่าน AI Stable Diffusion (txt2img)
-    - รูปแบบที่ 2 (Sub-Functions): ภาพที่นำไปผ่านฟังก์ชันแต่งภาพย่อย (Canny, Blur, Gaussian Blur, Custom)
+    - รูปแบบที่ 2 (Sub-Functions): ภาพที่นำไปผ่านฟังก์ชันแต่งภาพย่อย (Cartoonize, Spot Blur, Tilt-Shift, HDR Enhancer, Remove BG)
     """
     # กำหนดชื่อตารางในฐานข้อมูลให้ตรงกับ schema.sql
     __tablename__ = "generations"
@@ -37,7 +37,7 @@ class Generation(db.Model):
     category = db.Column(db.String(50), nullable=False, default="sd_generate", index=True)
 
     # 4. ฟังก์ชันการทำงานที่ใช้ (Action Type):
-    #    เช่น 'txt2img', 'canny', 'blur', 'gaussian_blur', 'custom_filter'
+    #    เช่น 'txt2img', 'cartoonize', 'spot_blur', 'tilt_shift', 'hdr_enhancer', 'remove_bg'
     action_type = db.Column(db.String(50), nullable=False, default="txt2img")
 
     # 5. พารามิเตอร์สำหรับ AI Stable Diffusion (รูปแบบที่ 1)
@@ -51,7 +51,7 @@ class Generation(db.Model):
     cfg_scale = db.Column(db.Float, nullable=True, default=7.0)
     seed = db.Column(db.BigInteger, nullable=True, default=-1)
 
-    # 6. พารามิเตอร์เพิ่มเติมในรูป JSON String (เช่น threshold สำหรับ canny, kernel_size สำหรับ blur)
+    # 6. พารามิเตอร์เพิ่มเติมในรูป JSON String (เช่น num_colors, blur_strength, circles)
     params = db.Column(db.Text, nullable=True, default="{}")
 
     # 7. ไอดีของภาพต้นฉบับ (กรณีเป็นภาพรูปแบบที่ 2 ที่นำภาพเดิมมาแต่งต่อ)
@@ -89,12 +89,14 @@ class Generation(db.Model):
             return "Checkpoint Generation (Stable Diffusion)"
         elif self.category == "image_filter":
             filter_names = {
-                "canny": "Sub-Function: Canny Edge Detection",
-                "blur": "Sub-Function: Average Blur",
-                "gaussian_blur": "Sub-Function: Gaussian Blur",
-                "custom_filter": "Sub-Function: Custom Filter",
+                "cartoonize": "Sub-Function: Cartoonize (Anime Style)",
+                "spot_blur": "Sub-Function: Spot Blur",
+                "tilt_shift": "Sub-Function: Tilt-Shift Miniature",
+                "hdr_enhancer": "Sub-Function: HDR Enhancer",
+                "remove_bg": "Sub-Function: Remove Background",
+                "gesture": "Sub-Function: Hand Gesture Recognition",
             }
-            return filter_names.get(self.action_type, f"Sub-Function ({self.action_type})")
+            return filter_names.get(self.action_type, f"Sub-Function: {self.action_type.replace('_', ' ').title()}")
         return "Image Generation"
 
     def to_dict(self) -> dict:
