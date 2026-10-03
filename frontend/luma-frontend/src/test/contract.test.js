@@ -21,6 +21,7 @@ vi.mock('axios', () => ({
 }))
 
 import { api } from '../api/client'
+import { loginErrorMessage } from '../api/errorMessages'
 
 function envelope(data) {
   return { data: { success: true, data } }
@@ -52,6 +53,19 @@ describe('login contract', () => {
     await expect(api.login('a@a.com', 'wrong')).rejects.toMatchObject({
       code: 'INVALID_CREDENTIALS',
     })
+  })
+
+  it('Login shows the Thai message for INVALID_CREDENTIALS, raw err.message for other codes', async () => {
+    mockClient.post.mockRejectedValueOnce({
+      response: { data: { error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' } } },
+    })
+    const err = await api.login('a@a.com', 'wrong').catch((e) => e)
+    expect(loginErrorMessage(err)).toBe('อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง')
+
+    mockClient.post.mockRejectedValueOnce({ message: 'Network Error' })
+    const netErr = await api.login('a@a.com', 'x').catch((e) => e)
+    expect(netErr.code).toBe('NETWORK_ERROR')
+    expect(loginErrorMessage(netErr)).toBe('Network Error')
   })
 })
 
