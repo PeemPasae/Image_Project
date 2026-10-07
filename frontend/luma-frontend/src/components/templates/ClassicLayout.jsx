@@ -1,10 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import MockModeBanner from '../MockModeBanner'
-import { NAV_ITEMS } from './navItems'
+import { visibleNavItems } from './navItems'
 
 export default function ClassicLayout() {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
 
   return (
     <div className="app-shell">
@@ -14,7 +14,7 @@ export default function ClassicLayout() {
           <div className="brand-name">LUMA</div>
         </div>
         <ul className="nav-list">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems(user).map((item) => (
             <li key={item.to}>
               <NavLink to={item.to} end={item.end} className={({ isActive }) => (isActive ? 'active' : '')}>
                 {item.label}

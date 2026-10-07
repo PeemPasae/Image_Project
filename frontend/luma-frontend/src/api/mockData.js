@@ -30,7 +30,32 @@ function placeholderImage(seedText) {
   return `data:image/svg+xml;base64,${btoa(svg)}`
 }
 
-export const MOCK_USER = { id: 1, email: 'preview@luma.dev' }
+// role: 'admin' only exists here so the admin page is browsable in mock mode.
+export const MOCK_USER = { id: 1, email: 'preview@luma.dev', role: 'admin' }
+
+// Fake user list for the admin page. Deleting removes from this in-memory list
+// for the rest of the session (a page reload resets it).
+const INITIAL_ADMIN_USERS = [
+  { id: 1, email: 'preview@luma.dev', created_at: '2026-08-20T10:00:00', generation_count: 3 },
+  { id: 2, email: 'somchai@example.com', created_at: '2026-08-22T09:15:00', generation_count: 12 },
+  { id: 3, email: 'nattaya@example.com', created_at: '2026-08-25T13:40:00', generation_count: 0 },
+  { id: 4, email: 'preecha@example.com', created_at: '2026-09-01T18:05:00', generation_count: 27 },
+  { id: 5, email: 'malee@example.com', created_at: '2026-09-03T11:30:00', generation_count: 5 },
+  { id: 6, email: 'anan@example.com', created_at: '2026-09-10T08:00:00', generation_count: 1 },
+]
+let mockAdminUsers = INITIAL_ADMIN_USERS.map((u) => ({ ...u }))
+
+export function listMockAdminUsers() {
+  return mockAdminUsers.map((u) => ({ ...u }))
+}
+
+export function deleteMockAdminUser(id) {
+  mockAdminUsers = mockAdminUsers.filter((u) => String(u.id) !== String(id))
+}
+
+export function resetMockAdminUsers() {
+  mockAdminUsers = INITIAL_ADMIN_USERS.map((u) => ({ ...u }))
+}
 
 export const MOCK_MODELS = [
   { title: 'anypastel', model_name: 'anypastel' },

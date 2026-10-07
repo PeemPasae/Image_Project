@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import MockModeBanner from '../MockModeBanner'
 import NavIcon from '../NavIcon'
-import { NAV_ITEMS } from './navItems'
+import { visibleNavItems } from './navItems'
 
 function initialOf(email) {
   return (email || '?').trim().charAt(0).toUpperCase()
@@ -23,7 +23,7 @@ export default function SoftLayout() {
 
         <nav aria-label="Main">
           <ul className="soft-nav">
-            {NAV_ITEMS.map((item) => (
+            {visibleNavItems(user).map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}

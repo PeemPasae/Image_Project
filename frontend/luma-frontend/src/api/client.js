@@ -1,7 +1,7 @@
 import axios from 'axios'
 import {
   MOCK_USER, MOCK_MODELS, MOCK_GENERATIONS, MOCK_PROFILE, MOCK_GESTURE_RESULT,
-  mockImageUrlFor, delay,
+  mockImageUrlFor, delay, listMockAdminUsers, deleteMockAdminUser,
 } from './mockData'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'
@@ -160,6 +160,21 @@ export const api = {
   getProfile: () => {
     if (MOCK_MODE) return delay().then(() => MOCK_PROFILE)
     return request(client.get('/profile'))
+  },
+
+  // ASSUMED CONTRACT — not yet confirmed with the backend (no admin endpoints exist yet).
+  //   GET    /admin/users     -> data.users[]: { id, email, created_at, generation_count }
+  //   DELETE /admin/users/:id -> response body is not read
+  //   Non-admin callers get 403 with error code FORBIDDEN.
+  // When the backend ships these, only the two functions below need to change.
+  getAdminUsers: () => {
+    if (MOCK_MODE) return delay().then(() => ({ users: listMockAdminUsers() }))
+    return request(client.get('/admin/users'))
+  },
+
+  deleteAdminUser: (id) => {
+    if (MOCK_MODE) return delay().then(() => { deleteMockAdminUser(id) })
+    return request(client.delete(`/admin/users/${id}`)).then(() => undefined)
   },
 
   /** Fetches an authenticated image as a Blob (plain <img src> can't send headers). */
