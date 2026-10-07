@@ -10,9 +10,11 @@ import { ThemeProvider } from './context/ThemeContext'
 import { LayoutProvider } from './context/LayoutContext'
 import { ToastProvider } from './context/ToastContext'
 import ToastContainer from './components/Toast'
+import ErrorBoundary from './components/ErrorBoundary'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <ErrorBoundary>
     <ThemeProvider>
       <LayoutProvider>
         <ToastProvider>
@@ -21,5 +23,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </ToastProvider>
       </LayoutProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 )
