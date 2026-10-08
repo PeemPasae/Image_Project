@@ -60,3 +60,23 @@ class Config:
 
     # เวลา Overhead คงที่ขั้นต่ำสำหรับการเตรียม Model และจัดสรรหน่วยความจำ GPU (หน่วย: วินาที)
     ESTIMATED_BASE_OVERHEAD_SECONDS = 1.5
+
+    # --------------------------------------------------------------------------
+    # 5. การตั้งค่าการอัปโหลดไฟล์และความปลอดภัย (Upload & File Security)
+    # --------------------------------------------------------------------------
+    # จำกัดขนาดไฟล์อัปโหลดสูงสุด 16 MB ป้องกัน DoS และปัญหา Out-of-Memory (OOM)
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+
+    # เส้นทางโฟลเดอร์สำหรับจัดเก็บไฟล์ภาพที่สร้างและประมวลผล (Disk Storage)
+    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "uploads"
+    )
+
+    # --------------------------------------------------------------------------
+    # 6. การตั้งค่าระบบบันทึกเหตุการณ์ (Centralized Logging Configuration)
+    # --------------------------------------------------------------------------
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_FILE = os.environ.get(
+        "LOG_FILE", 
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "luma_backend.log")
+    )

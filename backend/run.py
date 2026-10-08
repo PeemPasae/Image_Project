@@ -25,14 +25,23 @@ if __name__ == "__main__":
 
     # ปิด Debug Mode เพื่อความปลอดภัย (ห้ามเปิด Werkzeug debugger เมื่อเปิดรับทราฟฟิกข้าม LAN)
     debug = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1")
-    
+
+    # ตรวจสอบสถานะไฟล์โมเดล AI ล่วงหน้า
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    model1 = os.path.join(backend_dir, "models", "selfie_multiclass_256x256.tflite")
+    model2 = os.path.join(backend_dir, "models", "gesture_recognizer.task")
+    models_ready = os.path.isfile(model1) and os.path.isfile(model2)
+
     # 3. แสดงข้อความแจ้งเตือนสถานะการเริ่มทำงานของเซิร์ฟเวอร์
-    print("=" * 65)
+    print("=" * 70)
     print(f"[*] LUMA Backend API Server is running on: http://{host}:{port}")
-    print(f"[*] Debug Mode:      {'ON (Development only)' if debug else 'OFF (Production / Behind Proxy)'}")
-    print(f"[*] Local Access:    http://127.0.0.1:{port}/api/v1")
-    print(f"[*] Network Access:  Ready to receive requests from Nginx Gateway ({host}:{port})")
-    print("=" * 65)
+    print(f"[*] Debug Mode:       {'ON (Development only)' if debug else 'OFF (Production / Behind Proxy)'}")
+    print(f"[*] Local Access:     http://127.0.0.1:{port}/api/v1")
+    print(f"[*] Health Check:     http://127.0.0.1:{port}/api/v1/health")
+    print(f"[*] Disk Storage:     {app.config.get('UPLOAD_FOLDER', 'backend/uploads')}")
+    print(f"[*] AI Models Status: {'[READY] All models present' if models_ready else '[!] Missing models! Run python backend/scripts/download_models.py'}")
+    print(f"[*] Network Access:   Ready to receive requests from Nginx Gateway ({host}:{port})")
+    print("=" * 70)
     
     # 4. สั่งเริ่มทำงานบน Host '0.0.0.0' เพื่อรับการเชื่อมต่อจาก Nginx ที่อยู่คนละเครื่อง
     app.run(host=host, port=port, debug=debug)

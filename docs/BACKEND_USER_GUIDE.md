@@ -61,11 +61,29 @@ JWT_SECRET_KEY=luma_super_secret_jwt_key_2026
 
 # ที่อยู่ IP และพอร์ตของ AI GPU Server (Stable Diffusion WebUI / Forge)
 AI_SERVER_URL=http://172.20.57.0:8088
+
+# โฟลเดอร์สำหรับจัดเก็บไฟล์ภาพ (Disk-Backed Storage)
+UPLOAD_FOLDER=uploads
+
+# ระดับการบันทึก Log (DEBUG, INFO, WARNING, ERROR)
+LOG_LEVEL=INFO
 ```
 
 ---
 
-## 4. การเริ่มต้นฐานข้อมูล (Database Initialization)
+## 4. การเตรียมโมเดล AI ล่วงหน้า (Pre-download AI Models)
+
+เพื่อป้องกันปัญหา Cold Start หรือ Request Timeout ขณะที่ผู้ใช้เริ่มใช้งาน ให้รันสคริปต์ดาวน์โหลดโมเดล MediaPipe ล่วงหน้า:
+```powershell
+python scripts/download_models.py
+```
+สคริปต์จะตรวจสอบความสมบูรณ์ของไฟล์และดาวน์โหลด:
+1. `models/selfie_multiclass_256x256.tflite` (~16 MB)
+2. `models/gesture_recognizer.task` (~8 MB)
+
+---
+
+## 5. การเริ่มต้นฐานข้อมูล (Database Initialization)
 
 ระบบ Backend มีระบบ **Auto-Migration** ที่จะสร้างตารางและอัปเดตโครงสร้างคอลัมน์ใน `database/database.db` ให้อัตโนมัติเมื่อสตาร์ทเซิร์ฟเวอร์ครั้งแรก
 
@@ -81,62 +99,83 @@ python ../database/clear.py
 
 ---
 
-## 5. การเริ่มรันเซิร์ฟเวอร์ (Starting the Server)
+## 6. การเริ่มรันเซิร์ฟเวอร์ (Starting the Server)
 
-### รันผ่านไฟล์ Entry Point:
+### 6.1 รันสำหรับ Development:
 ```powershell
 python run.py
 ```
 
 ผลลัพธ์บนคอนโซลจะแสดงดังนี้:
 ```text
-=================================================================
+======================================================================
 [*] LUMA Backend API Server is running on: http://0.0.0.0:5000
-[*] Debug Mode:      OFF (Production / Behind Proxy)
-[*] Local Access:    http://127.0.0.1:5000/api/v1
-[*] Network Access:  Ready to receive requests from Nginx Gateway (0.0.0.0:5000)
-=================================================================
+[*] Debug Mode:       OFF (Production / Behind Proxy)
+[*] Local Access:     http://127.0.0.1:5000/api/v1
+[*] Health Check:     http://127.0.0.1:5000/api/v1/health
+[*] Disk Storage:     backend/uploads
+[*] AI Models Status: [READY] All models present
+[*] Network Access:   Ready to receive requests from Nginx Gateway (0.0.0.0:5000)
+======================================================================
 ```
 
-> **หมายเหตุ:** ในการใช้งานจริง แนะนำให้รัน Backend ซ่อนอยู่หลัง **Nginx Reverse Proxy** โดยเซิร์ฟเวอร์ถูกตั้งค่า `ProxyFix(x_for=1, x_proto=1, x_host=1)` ไว้เรียบร้อยแล้วเพื่ออ่าน IP จริงของผู้ใช้งาน
+### 6.2 รันสำหรับ Production (Gunicorn on Linux / Docker):
+```bash
+gunicorn -c gunicorn_conf.py run:app
+```
+> **คำแนะนำด้านสถาปัตยกรรม:** คอนฟิกูเรชันกำหนด `workers = 1` และ `threads = 8` เพื่อรักษาความปลอดภัยของ Mutex Lock บน GPU ให้ทำงานร่วมกันได้อย่างสมบูรณ์
 
 ---
 
-## 6. การรันชุดทดสอบอัตโนมัติ (Automated Testing)
+## 7. การรันชุดทดสอบอัตโนมัติ (Automated Testing)
 
 รันชุดทดสอบครอบคลุมทุกระบบด้วย `pytest`:
 ```powershell
-# ตั้งค่า PYTHONPATH ไปยังโฟลเดอร์ backend
-$env:PYTHONPATH="backend"
-
-# รันชุดทดสอบทั้งหมด
-python -m pytest backend/tests -v
+# รันชุดทดสอบทั้งหมดภายในโฟลเดอร์ backend
+python -m pytest tests -v
 ```
 
 ผลการทดสอบที่คาดหวัง:
 ```text
-backend/tests/test_backend_full.py::test_register_and_duplicate_check PASSED
-backend/tests/test_backend_full.py::test_login_and_jwt PASSED
-backend/tests/test_backend_full.py::test_user_isolation_and_idor_protection PASSED
-backend/tests/test_backend_full.py::test_history_pagination PASSED
-backend/tests/test_backend_full.py::test_concurrent_generation_simulation PASSED
-backend/tests/test_backend_full.py::test_generate_string_parameters_and_type_coercion PASSED
-backend/tests/test_backend_full.py::test_generation_type_display_name PASSED
-backend/tests/test_backend_full.py::test_get_profile_contract PASSED
-backend/tests/test_image_filters_suite.py::test_cartoonize_algorithm PASSED
-backend/tests/test_image_filters_suite.py::test_spot_blur_algorithm PASSED
-backend/tests/test_image_filters_suite.py::test_cartoonize_upload_endpoint PASSED
+tests/test_backend_full.py::test_register_and_duplicate_check PASSED
+tests/test_backend_full.py::test_login_and_jwt PASSED
+tests/test_backend_full.py::test_user_isolation_and_idor_protection PASSED
+tests/test_backend_full.py::test_history_pagination PASSED
+tests/test_backend_full.py::test_concurrent_generation_simulation PASSED
+tests/test_backend_full.py::test_generate_string_parameters_and_type_coercion PASSED
+tests/test_backend_full.py::test_generation_type_display_name PASSED
+tests/test_backend_full.py::test_get_profile_contract PASSED
+tests/test_backend_full.py::test_health_check_endpoint PASSED
+tests/test_backend_full.py::test_disk_storage_and_streaming PASSED
+tests/test_image_filters_suite.py::test_cartoonize_algorithm PASSED
+tests/test_image_filters_suite.py::test_spot_blur_algorithm PASSED
+tests/test_image_filters_suite.py::test_cartoonize_upload_endpoint PASSED
 
-============================= 11 passed in 4.35s =============================
+============================= 13 passed in 4.77s =============================
 ```
 
 ---
 
-## 7. เอกสารอ้างอิง API (API Reference)
+## 8. เอกสารอ้างอิง API (API Reference)
 
 Base URL ของระบบ: `http://localhost:5000/api/v1`
 
-### 7.1 ระบบสมาชิก (Authentication)
+### 8.0 ตรวจสอบสถานะระบบ (Health Check)
+- **Method:** `GET`
+- **Path:** `/health`
+- **การตอบกลับ:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "status": "healthy",
+      "database": "connected",
+      "ai_server_url": "http://172.20.57.0:8088"
+    }
+  }
+  ```
+
+### 8.1 ระบบสมาชิก (Authentication)
 
 #### 1. สมัครสมาชิก
 - **Method:** `POST`

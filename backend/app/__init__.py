@@ -12,8 +12,48 @@ from dotenv import load_dotenv
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # นำเข้า Extensions และ Configurations
+import logging
+from logging.handlers import RotatingFileHandler
 from app.extensions import db
 from config import Config
+
+
+def _setup_logging(app: Flask) -> None:
+    """
+    ตั้งค่าระบบ Centralized Logging บันทึกทั้ง Console และ Log File แบบหมุนเวียน (Rotating)
+    """
+    log_level = getattr(logging, str(app.config.get("LOG_LEVEL", "INFO")).upper(), logging.INFO)
+    app.logger.setLevel(log_level)
+
+    log_format = logging.Formatter(
+        "[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    # Console Handler
+    if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(log_format)
+        console_handler.setLevel(log_level)
+        app.logger.addHandler(console_handler)
+
+    # File Handler (ถ้าไม่ใช่ Testing Mode)
+    if not app.config.get("TESTING"):
+        log_file_path = app.config.get("LOG_FILE")
+        if log_file_path:
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(log_file_path)), exist_ok=True)
+                file_handler = RotatingFileHandler(
+                    log_file_path, 
+                    maxBytes=5 * 1024 * 1024, # 5 MB ต่อไฟล์
+                    backupCount=3, 
+                    encoding="utf-8"
+                )
+                file_handler.setFormatter(log_format)
+                file_handler.setLevel(log_level)
+                app.logger.addHandler(file_handler)
+            except Exception as e:
+                app.logger.warning("Failed to initialize rotating file logger: %s", str(e))
 
 
 def create_app(test_config=None) -> Flask:
@@ -54,6 +94,14 @@ def create_app(test_config=None) -> Flask:
 
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # 5.1 ตรวจสอบและสร้างโฟลเดอร์สำหรับจัดเก็บไฟล์ภาพ (Disk Uploads Storage)
+    upload_dir = app.config.get("UPLOAD_FOLDER")
+    if upload_dir:
+        os.makedirs(os.path.join(upload_dir, "generations"), exist_ok=True)
+
+    # 5.2 ตั้งค่าระบบ Centralized Logging
+    _setup_logging(app)
+
     # 6. เชื่อมต่อ SQLAlchemy Database Extension เข้ากับ Flask App
     db.init_app(app)
 
@@ -68,6 +116,27 @@ def create_app(test_config=None) -> Flask:
     app.register_blueprint(sd_bp, url_prefix="/api/v1")
     app.register_blueprint(history_bp, url_prefix="/api/v1")
     app.register_blueprint(process_bp, url_prefix="/api/v1")
+
+    # 6.1 เส้นทางตรวจสอบสถานะเซิร์ฟเวอร์ (Health Check Endpoint)
+    from app.utils.error_codes import success_response, error_response
+    @app.route("/api/v1/health", methods=["GET"])
+    def health_check():
+        """GET /api/v1/health ตรวจสอบความพร้อมทำงานของระบบ Backend"""
+        return success_response({
+            "status": "healthy",
+            "database": "connected",
+            "ai_server_url": app.config.get("AI_SERVER_URL"),
+        }, status_code=200)
+
+    # 6.2 ตัวดักจับข้อผิดพลาดขนาดไฟล์เกินกำหนด (413 Payload Too Large)
+    from werkzeug.exceptions import RequestEntityTooLarge, HTTPException
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(exc):
+        return error_response(
+            "FILE_TOO_LARGE",
+            "Uploaded file exceeds the maximum allowed limit of 16 MB",
+            413
+        )
 
     # 7. ครอบ wsgi_app ด้วย ProxyFix เพื่อให้อ่านค่าจาก Nginx Reverse Proxy ถูกต้อง
     #    (x_for=1, x_proto=1, x_host=1) ทำให้ request.remote_addr เป็น IP จริงของผู้ใช้

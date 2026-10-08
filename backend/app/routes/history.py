@@ -5,6 +5,7 @@
 # เกี่ยวข้องกับหน้าเว็บ: หน้า History (ประวัติทั้งหมด), หน้ารายละเอียดภาพ, หน้า Home (แสดงประวัติย่อ)
 # ==============================================================================
 
+import os
 from flask import Blueprint, request
 
 # นำเข้าองค์ประกอบของ Database, Models, Middleware และ Error Codes
@@ -119,11 +120,18 @@ def delete_history(generation_id: int):
         )
 
     try:
-        # 3. ลบข้อมูลออกจากฐานข้อมูล SQLite
+        # 3. ลบไฟล์ภาพออกจาก Disk Storage หากมี
+        if target_gen.image_path and os.path.isfile(target_gen.image_path):
+            try:
+                os.remove(target_gen.image_path)
+            except Exception:
+                pass
+
+        # 4. ลบข้อมูลออกจากฐานข้อมูล SQLite
         db.session.delete(target_gen)
         db.session.commit()
         
-        # 4. ส่งผลการลบสำเร็จกลับไปยัง Frontend
+        # 5. ส่งผลการลบสำเร็จกลับไปยัง Frontend
         return success_response(
             {"message": "Generation deleted successfully"}, 
             status_code=200

@@ -7,10 +7,13 @@
 
 import os
 import time
+import logging
 import threading
 import requests
 from flask import current_app, has_app_context
 from config import Config
+
+logger = logging.getLogger("luma.ai_client")
 
 # ==============================================================================
 # ตัวแปรระดับส่วนกลางสำหรับการจัดการ Concurrency Lock และ Queue
@@ -169,6 +172,9 @@ def generate_sd_image(payload: dict) -> tuple:
     # 2. บันทึกเพิ่มจำนวนคิวงานที่กำลังรอในระบบ
     with _waiting_counter_lock:
         _waiting_jobs_count += 1
+        current_queue_pos = _waiting_jobs_count
+
+    logger.info("New generation request queued (Position: %d, Estimated: %.1fs)", current_queue_pos, estimated_duration)
 
     # 3. รอเข้าคิวเพื่อขอสิทธิ์การใช้งาน GPU (กำหนดไว้ 40 วินาที เพื่อให้รวมกับ HTTP Timeout 75s แล้วไม่เกิน 115s < Nginx 120s)
     lock_acquired = _gpu_lock.acquire(blocking=True, timeout=40)
@@ -179,7 +185,10 @@ def generate_sd_image(payload: dict) -> tuple:
 
     # หากรอคิวนานเกิน 40 วินาทีแล้วยังไม่ได้คิว ให้ตอบกลับ AI_SERVER_BUSY (409) ก่อน Nginx ตัด 504
     if not lock_acquired:
+        logger.warning("Generation request timed out waiting for GPU lock (Server Busy)")
         raise AIServerBusyException("AI Server queue wait time exceeded (Server is busy)")
+
+    logger.info("Acquired GPU lock. Sending txt2img request to AI Server: %s", server_url)
 
     # 5. เริ่มจับเวลาการประมวลผลจริง
     start_time = time.time()
@@ -220,19 +229,25 @@ def generate_sd_image(payload: dict) -> tuple:
             if images_list and len(images_list) > 0:
                 # คำนวณเวลาที่ใช้ไปจริง (หน่วย: วินาที)
                 actual_duration = round(time.time() - start_time, 2)
+                logger.info("Image generated successfully in %.2fs (Estimated was: %.1fs)", actual_duration, estimated_duration)
                 # ส่งคืน Base64 ของภาพแรก, เวลาที่ใช้จริง, และเวลาประเมิน
                 return images_list[0], actual_duration, estimated_duration
                 
+            logger.error("AI Server returned HTTP 200 but image data array was empty")
             raise AIServerErrorException("AI Server returned empty image data")
 
+        logger.error("AI Server returned unexpected HTTP status %d", response.status_code)
         raise AIServerErrorException(f"AI Server returned status code {response.status_code}")
 
     except requests.exceptions.Timeout:
+        logger.error("AI Server request timed out after %d seconds", get_ai_server_timeout())
         # กรณี AI Server ใช้เวลาเจนภาพนานเกินกำหนด
         raise AIServerTimeoutException(f"AI Server timed out after {get_ai_server_timeout()} seconds")
     except requests.exceptions.RequestException as e:
+        logger.error("Network communication error with AI Server: %s", str(e))
         # กรณีเกิดปัญหาเครือข่ายเชื่อมต่อไม่ได้
         raise AIServerErrorException(f"AI Server communication error: {str(e)}")
     finally:
         # 9. ปลดปล่อย Lock บน GPU ทุกครั้ง เพื่อให้คำขอในคิวถัดไปเริ่มทำงานต่อได้ทันที
         _gpu_lock.release()
+        logger.debug("GPU lock released")

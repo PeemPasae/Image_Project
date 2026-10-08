@@ -5,10 +5,11 @@
 # เกี่ยวข้องกับหน้าเว็บ: หน้า Generate (สร้างภาพ), หน้า Result (ดูผลลัพธ์), หน้า Home (ดึงโมเดล)
 # ==============================================================================
 
+import os
 import json
 import base64
 from io import BytesIO
-from flask import Blueprint, request, send_file
+from flask import Blueprint, request, send_file, current_app
 
 # นำเข้าองค์ประกอบของ Database, Models, และ Middleware
 from app.extensions import db
@@ -182,6 +183,20 @@ def generate_image():
         db.session.add(new_generation)
         db.session.commit()
 
+        # 6.1 บันทึกไฟล์ภาพลงใน Disk Storage (uploads/generations/{id}.png) เพื่อประสิทธิภาพการดึงข้อมูล
+        upload_folder = current_app.config.get("UPLOAD_FOLDER")
+        if upload_folder:
+            gen_dir = os.path.join(upload_folder, "generations")
+            os.makedirs(gen_dir, exist_ok=True)
+            disk_path = os.path.join(gen_dir, f"{new_generation.id}.png")
+            try:
+                with open(disk_path, "wb") as img_file:
+                    img_file.write(image_bytes)
+                new_generation.image_path = disk_path
+                db.session.commit()
+            except Exception as io_err:
+                current_app.logger.warning("Failed to save image to disk storage: %s", str(io_err))
+
         # 7. ตอบกลับผลลัพธ์ตามมาตรฐาน LUMA Contract พร้อมเวลาประมาณและเวลาจริง
         return success_response({
             "generation_id": new_generation.id,
@@ -216,6 +231,7 @@ def stream_image(gen_id: int):
     🛡️ ระบบป้องกันการข้ามสิทธิ์และ IDOR (Anti-Hopping & Ownership Protection):
     - ค้นหารูปภาพโดยระบุทั้ง id และ user_id จาก Token เสมอ
     - หากผู้ใช้พยายามเปิดดูภาพของคนอื่น ระบบจะมองไม่เห็นภาพนั้น และตอบกลับ 404 ทันที
+    ⚡ ประสิทธิภาพสูง: สตรีมตรงจากไฟล์ Disk ก่อน หากไม่มีจึงดึงจาก Database BLOB
     """
     # 1. ค้นหารูปภาพโดยกรองเฉพาะภาพที่เป็นของผู้ใช้คนนี้เท่านั้น
     record = Generation.query.filter_by(
@@ -231,20 +247,29 @@ def stream_image(gen_id: int):
             404
         )
 
-    # 3. หากข้อมูลรูปภาพในฐานข้อมูลว่างเปล่า
-    if not record.image_data:
-        return error_response(
-            IMAGE_NOT_FOUND, 
-            "Image binary data is missing in database", 
-            404
+    # 3. หากมีไฟล์บน Disk Storage ให้ Stream ตรงจากไฟล์ (ใช้ OS sendfile เร็วกว่าและประหยัด RAM)
+    if record.image_path and os.path.isfile(record.image_path):
+        return send_file(
+            record.image_path,
+            mimetype="image/png",
+            as_attachment=False,
+            download_name=f"luma_image_{gen_id}.png"
         )
 
-    # 4. ส่งข้อมูลรูปภาพ Binary กลับไปในรูปแบบ Content-Type: image/png
-    return send_file(
-        BytesIO(record.image_data),
-        mimetype="image/png",
-        as_attachment=False,
-        download_name=f"luma_image_{gen_id}.png"
+    # 4. หากไม่มีไฟล์บน Disk ให้ดึงข้อมูลสำรองจาก image_data ใน Database
+    if record.image_data:
+        return send_file(
+            BytesIO(record.image_data),
+            mimetype="image/png",
+            as_attachment=False,
+            download_name=f"luma_image_{gen_id}.png"
+        )
+
+    # 5. หากไม่มีทั้งสองแห่ง
+    return error_response(
+        IMAGE_NOT_FOUND, 
+        "Image binary data is missing in database or storage", 
+        404
     )
 
 

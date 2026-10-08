@@ -103,9 +103,11 @@
 
 ---
 
-## 5. ผลการทดสอบ (Test Verification)
+---
 
-ชุดทดสอบอัตโนมัติทั้งหมดใน [`backend/tests/`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/tests) ได้รับการปรับปรุงและผ่านการทดสอบ 100%:
+## 5. ผลการทดสอบระบบ (Automated Test Verification)
+
+ชุดทดสอบอัตโนมัติทั้งหมดใน [`backend/tests/`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/tests) ได้รับการทดสอบผ่าน 100%:
 - ทดสอบการสมัครสมาชิกและป้องกันอีเมลซ้ำ (`EMAIL_EXISTS`)
 - ทดสอบระบบล็อกอินและการออก JWT Token
 - ทดสอบระบบคุ้มครองสิทธิ์ IDOR & User Isolation
@@ -114,7 +116,36 @@
 - ทดสอบ Concurrency Queue ของ AI Server ภายใต้การจำลอง Thread พร้อมกัน
 - ทดสอบ Image Processing Algorithms (Spot Blur, Cartoonize)
 - ทดสอบสัญญา API ของหน้า Profile (`generation_count`, `email`, `id`)
+- ทดสอบ Health Check Endpoint (`GET /api/v1/health`)
+- ทดสอบ Disk Storage & Image Streaming จากฮาร์ดดิสก์จริง
 
 ```text
-============================= 11 passed in 4.35s =============================
+============================= 13 passed in 4.77s =============================
 ```
+
+---
+
+## 6. การยกระดับสู่สถาปัตยกรรมระดับ Production (Senior Architecture Upgrades)
+
+จากการวิเคราะห์เชิงลึกโดยทีม Senior Engineer ได้มีการยกระดับสถาปัตยกรรมเพิ่มอีก 6 ด้านหลักเพื่อความเสถียรและความปลอดภัยสูงสุด:
+
+1. **การป้องกัน DoS และ Memory Crash (Anti-DoS / Anti-OOM):**
+   - กำหนดค่า `MAX_CONTENT_LENGTH = 16 * 1024 * 1024` (16 MB) ใน `config.py`
+   - เพิ่ม Global Error Handler สำหรับ `RequestEntityTooLarge` (HTTP 413) ตอบกลับเป็น Envelope Error `FILE_TOO_LARGE` ป้องกันการส่งไฟล์ขนาดยักษ์มาบอมบ์ RAM เซิร์ฟเวอร์
+2. **ระบบจัดเก็บภาพแบบ Hybrid Disk Storage (Disk-Backed Storage):**
+   - เมื่อสร้างภาพสำเร็จ ระบบจะบันทึกไฟล์ภาพแบบ PNG ลงฮาร์ดดิสก์ในโฟลเดอร์ `backend/uploads/generations/{id}.png` ทันที และเก็บ Path ไว้ในฐานข้อมูล
+   - Endpoint `GET /api/v1/images/:id` จะอ่านตรงจาก Disk Storage ด้วยฟังก์ชัน `send_file()` ซึ่งใช้คำสั่งระดับ Kernel (OS `sendfile`) เร็วกว่าและไม่โหลดก้อนไบนารีขึ้น RAM
+   - มีระบบ Fallback กลับไปยังฐานข้อมูล SQLite หากไฟล์ในดิสก์สูญหาย เพื่อความเข้ากันได้แบบ 100%
+   - เมื่อผู้ใช้ลบภาพใน `/history/:id` ระบบจะสั่งลบไฟล์ภาพบนดิสก์ด้วยโดยอัตโนมัติ เพื่อป้องกันไฟล์ขยะคั่งค้าง
+3. **ระบบตัดปัญหา Cold Start ของ AI Model (Pre-download Script):**
+   - สร้างสคริปต์ [`backend/scripts/download_models.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/scripts/download_models.py) สำหรับดาวน์โหลดโมเดล MediaPipe ล่วงหน้า
+   - ช่วยแก้ปัญหาคำขอค้างหรือหลุด Timeout จากการดาวน์โหลดไฟล์ขนาดใหญ่กลาง Request ของผู้ใช้
+4. **ระบบบันทึกเหตุการณ์แบบรวมศูนย์ (Centralized Rotating Logging):**
+   - บันทึกการทำงานแบบ Real-time ทั้ง Console และไฟล์หมุนเวียน `backend/logs/luma_backend.log` (ขนาดสูงสุด 5 MB x 3 ไฟล์สำรอง)
+   - บันทึกระยะเวลาการต่อคิว GPU, ระยะเวลาการเจนภาพจริง, และ Exception Stacktrace อย่างละเอียด
+5. **คอนฟิกูเรชัน Production WSGI (Gunicorn Concurrency Strategy):**
+   - สร้างไฟล์ [`backend/gunicorn_conf.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/gunicorn_conf.py) สำหรับ Production บน Linux / Docker
+   - กำหนดกลยุทธ์ `workers = 1` และ `threads = 8` เพื่อรักษาความถูกต้องของ Mutex Lock บน GPU ไม่ให้หลุดเมื่อรันหลายโปรเซส
+6. **Health Check & Observability:**
+   - เพิ่ม Endpoint `GET /api/v1/health` สำหรับใช้ร่วมกับ Load Balancer หรือ Monitoring Tools เพื่อตรวจสอบสถานะของเซิร์ฟเวอร์, ฐานข้อมูล, และการตั้งค่า AI Server
+

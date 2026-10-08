@@ -135,6 +135,7 @@
 | `EMAIL_EXISTS` | 409 | อีเมลนี้ถูกลงทะเบียนในระบบไปแล้ว |
 | `AI_SERVER_BUSY` | 409 | คิวประมวลผลบนการ์ดจอเต็ม |
 | `UNSUPPORTED_FILE_TYPE`| 415 | ไฟล์ที่อัปโหลดไม่ใช่นามสกุล .jpg, .jpeg, .png, หรือ .webp |
+| `FILE_TOO_LARGE` | 413 | ไฟล์ที่อัปโหลดมีขนาดเกินขีดจำกัดสูงสุด 16 MB |
 | `GENERATION_FAILED` | 500 | กระบวนการสร้างหรือประมวลผลรูปภาพล้มเหลว |
 | `INTERNAL_SERVER_ERROR`| 500 | เกิดข้อผิดพลาดที่ไม่คาดคิดภายในระบบ Backend |
 | `AI_SERVER_ERROR` | 502/503 | ไม่สามารถเชื่อมต่อกับ AI GPU Server ได้ |
@@ -143,9 +144,14 @@
 
 ---
 
-## 7. เสถียรภาพและการรองรับการใช้งานระดับ Production
+## 7. เสถียรภาพและการรองรับการใช้งานระดับ Production (Production Readiness)
 
 1. **Auto Schema Migration:** ระบบตรวจสอบคอลัมน์ในตาราง SQLite อัตโนมัติเมื่อเริ่มระบบ หากขาดคอลัมน์ใดจะสร้างให้ทันทีโดยไม่ทำให้ข้อมูลเดิมสูญหาย
-2. **Reverse Proxy Ready:** ครอบ WSGI App ด้วย `ProxyFix` เพื่อให้ Backend รับค่า Client IP จริงผ่าน Nginx ได้อย่างแม่นยำ
-3. **Windows UTF-8 Support:** ตั้งค่า Console Output เป็น UTF-8 ป้องกันปัญหาฟอนต์ภาษาไทยเพี้ยนบนระบบปฏิบัติการ Windows
-4. **Automated Test Coverage:** มีชุดทดสอบอัตโนมัติครอบคลุม API และอัลกอริทึมหลักทั้งหมดด้วย Pytest (ผ่าน 100%)
+2. **Hybrid Disk-Backed Storage:** จัดเก็บไฟล์ภาพแยกบนฮาร์ดดิสก์ (`uploads/generations/{id}.png`) และสตรีมตรงผ่านคำสั่ง Kernel OS `sendfile` ลดการกิน RAM และป้องกันขนาดไฟล์ฐานข้อมูล SQLite บวมเกินควบคุม
+3. **Anti-DoS / Payload Limit:** ควบคุมขนาดไฟล์อัปโหลดสูงสุด 16 MB ด้วย `MAX_CONTENT_LENGTH` พร้อม Error Handler `FILE_TOO_LARGE` (HTTP 413) ป้องกันการโจมตีทำให้เกิด Out-of-Memory (OOM)
+4. **Pre-download AI Models:** มีสคริปต์ `scripts/download_models.py` สำหรับเตรียมโมเดล MediaPipe ล่วงหน้า ขจัดปัญหา Cold Start และ Network Timeout กลาง Request ของผู้ใช้
+5. **Centralized Rotating Logger:** ระบบบันทึก Log หมุนเวียนลงไฟล์ `logs/luma_backend.log` (5 MB x 3 ไฟล์) และแสดงผลบน Console แบบ Real-time บันทึกเวลาคิว GPU และ Exception Stacktrace ครบถ้วน
+6. **Production WSGI Ready (Gunicorn):** มีไฟล์ `gunicorn_conf.py` กำหนดค่า `workers = 1` และ `threads = 8` รักษาความปลอดภัยของ Mutex Lock บน GPU สำหรับเซิร์ฟเวอร์แบบ Single Node
+7. **Health Check & Monitoring:** มี Endpoint `GET /api/v1/health` สำหรับให้ Docker, Kubernetes หรือ Load Balancer ตรวจสอบความพร้อมทำงาน
+8. **Reverse Proxy Ready:** ครอบ WSGI App ด้วย `ProxyFix` เพื่อให้ Backend รับค่า Client IP จริงผ่าน Nginx ได้อย่างแม่นยำ
+9. **Automated Test Suite:** มีชุดทดสอบอัตโนมัติ 13 ชุดครอบคลุมทุกระบบหลักบน In-Memory Database (ผ่าน 100%)

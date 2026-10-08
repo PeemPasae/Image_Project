@@ -311,6 +311,38 @@ def test_get_profile_contract(client):
     assert data["generation_count"] == 1
 
 
+def test_health_check_endpoint(client):
+    """ทดสอบ GET /api/v1/health ตรวจสอบสถานะความพร้อมของระบบ"""
+    res = client.get("/api/v1/health")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["success"] is True
+    assert data["data"]["status"] == "healthy"
+    assert data["data"]["database"] == "connected"
+
+
+def test_disk_storage_and_streaming(client):
+    """ทดสอบการบันทึกภาพลง Disk และการ Stream ตรงจาก Disk File"""
+    client.post("/api/v1/register", json={"email": "disktest@luma.dev", "password": "password123"})
+    login = client.post("/api/v1/login", json={"email": "disktest@luma.dev", "password": "password123"}).get_json()
+    token = login["data"]["access_token"]
+    auth_header = {"Authorization": f"Bearer {token}"}
+
+    fake_png = base64.b64encode(b"disk_stream_sample_bytes").decode("utf-8")
+    with patch("app.routes.sd.generate_sd_image", return_value=(fake_png, 1.2, 2.0)):
+        res = client.post("/api/v1/generate", json={"prompt": "Disk stream test", "steps": 20, "width": 512, "height": 512}, headers=auth_header)
+        assert res.status_code == 201
+        gen_id = res.get_json()["data"]["generation_id"]
+
+    # ตรวจสอบการ Stream กลับมา
+    img_res = client.get(f"/api/v1/images/{gen_id}", headers=auth_header)
+    assert img_res.status_code == 200
+    assert img_res.data == b"disk_stream_sample_bytes"
+
+    # ตรวจสอบการลบและเคลียร์ไฟล์
+    del_res = client.delete(f"/api/v1/history/{gen_id}", headers=auth_header)
+    assert del_res.status_code == 200
+
 
 # ==============================================================================
 # [DISABLED TESTS] การทดสอบสำหรับ Endpoint ที่ไม่ได้ใช้งานโดย Frontend
