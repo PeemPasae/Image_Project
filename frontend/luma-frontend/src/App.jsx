@@ -11,6 +11,7 @@ import Result from './pages/Result'
 import History from './pages/History'
 import Profile from './pages/Profile'
 import Setting from './pages/Setting'
+import Admin from './pages/Admin'
 
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="/history" element={<History />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/setting" element={<Setting />} />
+              <Route path="/admin" element={<Admin />} />
             </Route>
           </Route>
 

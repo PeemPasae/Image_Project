@@ -588,3 +588,26 @@ describe('response interceptor — UNAUTHORIZED on blob-body errors (bug fixed a
     expect(localStorage.getItem('luma_user')).toBeNull()
   })
 })
+
+describe('admin users contract (assumed — not yet confirmed with backend)', () => {
+  it('getAdminUsers unwraps data.users', async () => {
+    const users = [{ id: 2, email: 'b@b.com', created_at: '2026-08-22T09:15:00', generation_count: 4 }]
+    mockClient.get.mockResolvedValueOnce(envelope({ users }))
+    const data = await api.getAdminUsers()
+    expect(mockClient.get).toHaveBeenCalledWith('/admin/users')
+    expect(data.users).toEqual(users)
+  })
+
+  it('deleteAdminUser calls DELETE /admin/users/:id', async () => {
+    mockClient.delete.mockResolvedValueOnce({ data: {} })
+    await expect(api.deleteAdminUser(7)).resolves.toBeUndefined()
+    expect(mockClient.delete).toHaveBeenCalledWith('/admin/users/7')
+  })
+
+  it('surfaces a 403 as an Error with code FORBIDDEN', async () => {
+    mockClient.get.mockRejectedValueOnce({
+      response: { status: 403, data: { error: { code: 'FORBIDDEN', message: 'Admin only' } } },
+    })
+    await expect(api.getAdminUsers()).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
+})
