@@ -4,7 +4,11 @@ import {
   mockImageUrlFor, delay,
 } from './mockData'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'
+const defaultBaseUrl = typeof window !== 'undefined' && window.location.hostname
+  ? `http://${window.location.hostname}:5000/api/v1`
+  : 'http://localhost:5000/api/v1'
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl
 const DEFAULT_TIMEOUT = 20000
 // /generate can take 10-60s+ on the AI server — give it real headroom (locked: 90s)
 export const GENERATE_TIMEOUT = 90000
