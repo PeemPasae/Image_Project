@@ -42,63 +42,77 @@ export default function Setting() {
     <div>
       <div className="page-header">
         <h1>Setting</h1>
-        <p>Stored locally in this browser — no server sync in V1.</p>
+        <p>Appearance is applied immediately. Generation defaults are stored locally in this browser.</p>
       </div>
 
-      <form onSubmit={handleSave} className="two-col">
-        <div className="card">
-          <div style={{ fontWeight: 700, marginBottom: 14 }}>Appearance</div>
+      {/* ===== Appearance ===== */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, marginBottom: 14 }}>Appearance</div>
+        <div className="theme-grid">
+          {themes.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`theme-swatch ${t.id === themeId ? 'selected' : ''}`}
+              onClick={() => setThemeId(t.id)}
+              style={{ borderColor: t.id === themeId ? t.colors.accent1 : undefined }}
+            >
+              <div className="theme-swatch-preview" style={{ background: t.colors.bg, borderColor: t.colors.border }}>
+                <div className="theme-swatch-bar" style={{ background: t.colors.gradient }} />
+                <div className="theme-swatch-card" style={{ background: t.colors.surfaceSolid, borderColor: t.colors.border }} />
+                {t.id === themeId && (
+                  <div className="theme-swatch-check" style={{ background: t.colors.accent1 }}>✓</div>
+                )}
+              </div>
+              <div className="theme-swatch-label">{t.label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ===== Generation Defaults ===== */}
+      <form onSubmit={handleSave} className="card" style={{ marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, marginBottom: 14 }}>Generation Defaults</div>
+        <div className="field-row">
           <div className="field">
-            <label htmlFor="appearance">Theme</label>
-            <select id="appearance" value={themeId} onChange={(e) => setThemeId(e.target.value)}>
-              {themes.map((theme) => (
-                <option key={theme.id} value={theme.id}>{theme.label}</option>
-              ))}
+            <label htmlFor="defaultWidth">Default Width</label>
+            <select id="defaultWidth" value={settings.defaultWidth} onChange={(e) => update('defaultWidth', Number(e.target.value))}>
+              {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-
-          <div style={{ fontWeight: 700, margin: '20px 0 14px' }}>Generation Defaults</div>
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="defaultWidth">Default Width</label>
-              <select id="defaultWidth" value={settings.defaultWidth} onChange={(e) => update('defaultWidth', Number(e.target.value))}>
-                {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="defaultHeight">Default Height</label>
-              <select id="defaultHeight" value={settings.defaultHeight} onChange={(e) => update('defaultHeight', Number(e.target.value))}>
-                {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="defaultSteps">Default Steps</label>
-              <input id="defaultSteps" type="number" min={1} max={50} value={settings.defaultSteps} onChange={(e) => update('defaultSteps', Number(e.target.value))} />
-            </div>
-            <div className="field">
-              <label htmlFor="defaultCfgScale">Default CFG Scale</label>
-              <input id="defaultCfgScale" type="number" min={1} max={20} step={0.5} value={settings.defaultCfgScale} onChange={(e) => update('defaultCfgScale', Number(e.target.value))} />
-            </div>
-          </div>
           <div className="field">
-            <label htmlFor="defaultSampler">Default Sampler</label>
-            <select id="defaultSampler" value={settings.defaultSampler} onChange={(e) => update('defaultSampler', e.target.value)}>
-              {SAMPLERS.map((s) => <option key={s} value={s}>{s}</option>)}
+            <label htmlFor="defaultHeight">Default Height</label>
+            <select id="defaultHeight" value={settings.defaultHeight} onChange={(e) => update('defaultHeight', Number(e.target.value))}>
+              {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-          </div>
-
-          <div className="action-row">
-            <button className="btn btn-primary" type="submit">{saved ? 'Saved ✓' : 'Save Settings'}</button>
           </div>
         </div>
-
-        <div className="card">
-          <div style={{ fontWeight: 700, marginBottom: 14 }}>Account</div>
-          <button type="button" className="btn btn-danger" onClick={logout}>Logout</button>
+        <div className="field-row">
+          <div className="field">
+            <label htmlFor="defaultSteps">Default Steps</label>
+            <input id="defaultSteps" type="number" min={1} max={50} value={settings.defaultSteps} onChange={(e) => update('defaultSteps', Number(e.target.value))} />
+          </div>
+          <div className="field">
+            <label htmlFor="defaultCfgScale">Default CFG Scale</label>
+            <input id="defaultCfgScale" type="number" min={1} max={20} step={0.5} value={settings.defaultCfgScale} onChange={(e) => update('defaultCfgScale', Number(e.target.value))} />
+          </div>
+        </div>
+        <div className="field" style={{ maxWidth: 280 }}>
+          <label htmlFor="defaultSampler">Default Sampler</label>
+          <select id="defaultSampler" value={settings.defaultSampler} onChange={(e) => update('defaultSampler', e.target.value)}>
+            {SAMPLERS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="action-row">
+          <button className="btn btn-primary" type="submit">{saved ? 'Saved ✓' : 'Save Defaults'}</button>
         </div>
       </form>
+
+      {/* ===== Account ===== */}
+      <div className="card">
+        <div style={{ fontWeight: 700, marginBottom: 14 }}>Account</div>
+        <button type="button" className="btn btn-danger" onClick={logout}>Logout</button>
+      </div>
     </div>
   )
 }
