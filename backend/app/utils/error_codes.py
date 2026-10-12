@@ -12,6 +12,9 @@ from flask import jsonify
 VALIDATION_ERROR = "VALIDATION_ERROR"            # HTTP 400: ข้อมูลที่ส่งมาไม่ถูกต้องตามเงื่อนไข (Validation ไม่ผ่าน)
 INVALID_CREDENTIALS = "INVALID_CREDENTIALS"      # HTTP 401: อีเมลหรือรหัสผ่านไม่ถูกต้อง
 UNAUTHORIZED = "UNAUTHORIZED"                    # HTTP 401: ไม่มีสิทธิ์เข้าถึง หรือ JWT Token ไม่ถูกต้อง/หมดอายุ
+FORBIDDEN = "FORBIDDEN"                          # HTTP 403: สิทธิ์การเข้าถึงไม่เพียงพอ (ต้องการสิทธิ์ admin)
+USER_NOT_FOUND = "USER_NOT_FOUND"                # HTTP 404: ไม่พบบัญชีผู้ใช้งานที่ระบุ
+CANNOT_DELETE_SELF = "CANNOT_DELETE_SELF"        # HTTP 400: ผู้ดูแลระบบไม่สามารถลบบัญชีของตนเองได้
 EMAIL_EXISTS = "EMAIL_EXISTS"                    # HTTP 409: อีเมลหรือชื่อผู้ใช้นี้ถูกลงทะเบียนในระบบแล้ว (ตรวจชื่อซ้ำ)
 GENERATION_NOT_FOUND = "GENERATION_NOT_FOUND"    # HTTP 404: ไม่พบข้อมูลรายการสร้างภาพตาม :id ที่ระบุ
 IMAGE_NOT_FOUND = "IMAGE_NOT_FOUND"              # HTTP 404: ไม่พบไฟล์ข้อมูลรูปภาพไบนารีในระบบ

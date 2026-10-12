@@ -25,10 +25,13 @@ class User(db.Model):
     # 3. รหัสผ่านที่ผ่านการเข้ารหัสแฮช (Password Hash) ห้ามเก็บเป็น Plain Text เพื่อความปลอดภัย
     password_hash = db.Column(db.String(255), nullable=False)
 
-    # 4. วันและเวลาที่ลงทะเบียนเข้าสู่ระบบ (ค่าเริ่มต้นเป็นวันเวลาปัจจุบัน UTC)
+    # 4. สิทธิ์การใช้งานของผู้ใช้ ('user' หรือ 'admin')
+    role = db.Column(db.String(20), nullable=False, default="user")
+
+    # 5. วันและเวลาที่ลงทะเบียนเข้าสู่ระบบ (ค่าเริ่มต้นเป็นวันเวลาปัจจุบัน UTC)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
-    # 5. ความสัมพันธ์แบบ 1 ต่อ กลุ่ม (1:N) ไปยังตาราง generations
+    # 6. ความสัมพันธ์แบบ 1 ต่อ กลุ่ม (1:N) ไปยังตาราง generations
     #    เมื่อ User ถูกลบ ข้อมูลการสร้างภาพทั้งหมดของ User นั้นจะถูกลบตามไปด้วย (Cascade Delete)
     generations = db.relationship(
         "Generation", 
@@ -48,5 +51,6 @@ class User(db.Model):
         return {
             "id": self.id,
             "email": self.email,
+            "role": self.role or "user",
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

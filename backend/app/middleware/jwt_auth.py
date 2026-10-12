@@ -10,7 +10,7 @@ from flask import request, current_app, has_app_context
 import jwt
 
 # นำเข้าฟังก์ชันตอบกลับข้อผิดพลาดและ Error Codes มาตรฐาน
-from app.utils.error_codes import error_response, UNAUTHORIZED, INTERNAL_SERVER_ERROR
+from app.utils.error_codes import error_response, UNAUTHORIZED, INTERNAL_SERVER_ERROR, FORBIDDEN
 
 
 def get_jwt_secret() -> str:
@@ -90,6 +90,33 @@ def token_required(f):
             return error_response(INTERNAL_SERVER_ERROR, f"Authentication error: {str(e)}", 500)
 
         # 4. เมื่อผ่านการตรวจสอบสิทธิ์ครบถ้วน ให้ส่งต่อไปยังฟังก์ชัน Route หลัก
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def admin_required(f):
+    """
+    Decorator สำหรับคุ้มครอง API Endpoints สำหรับผู้ดูแลระบบ (Admin Only)
+    ทำงานร่วมกับ @token_required:
+    1. ผ่านการยืนยันตัวตน JWT Token ก่อน
+    2. ค้นหา User จากฐานข้อมูล และตรวจสอบว่า role เป็น 'admin' หรือไม่
+    3. หากไม่ใช่ admin ให้ตอบกลับ HTTP 403 FORBIDDEN ทันที (ไม่ใช่ 401)
+    """
+    @wraps(f)
+    @token_required
+    def decorated(*args, **kwargs):
+        from app.extensions import db
+        from app.models.user import User
+
+        current_user = db.session.get(User, request.user_id)
+        if not current_user:
+            return error_response(UNAUTHORIZED, "User account not found", 401)
+
+        if getattr(current_user, "role", "user") != "admin":
+            return error_response(FORBIDDEN, "Admin privileges required", 403)
+
+        request.admin_user = current_user
         return f(*args, **kwargs)
 
     return decorated

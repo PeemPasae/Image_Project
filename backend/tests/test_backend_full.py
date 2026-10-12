@@ -344,6 +344,97 @@ def test_disk_storage_and_streaming(client):
     assert del_res.status_code == 200
 
 
+def test_auth_and_profile_return_role(client):
+    """ทดสอบว่า login และ profile ส่งฟิลด์ role กลับมาอย่างถูกต้อง"""
+    client.post("/api/v1/register", json={"email": "roleuser@luma.dev", "password": "password123"})
+    login_res = client.post("/api/v1/login", json={"email": "roleuser@luma.dev", "password": "password123"})
+    assert login_res.status_code == 200
+    user_info = login_res.get_json()["data"]["user"]
+    assert user_info["role"] == "user"
+
+    token = login_res.get_json()["data"]["access_token"]
+    profile_res = client.get("/api/v1/profile", headers={"Authorization": f"Bearer {token}"})
+    assert profile_res.status_code == 200
+    prof_data = profile_res.get_json()["data"]
+    assert prof_data["role"] == "user"
+
+
+def test_admin_endpoints_and_permissions(client):
+    """ทดสอบการเข้าถึง Admin endpoints สิทธิ์ 403 Forbidden และการดึงข้อมูล/ลบผู้ใช้"""
+    # 1. สมัคร User ปกติ 2 บัญชี และ Admin 1 บัญชี
+    client.post("/api/v1/register", json={"email": "regular1@luma.dev", "password": "password123"})
+    client.post("/api/v1/register", json={"email": "regular2@luma.dev", "password": "password123"})
+    client.post("/api/v1/register", json={"email": "adminuser@luma.dev", "password": "password123"})
+
+    # ตั้งสิทธิ์ admin ให้ adminuser@luma.dev ใน DB
+    with client.application.app_context():
+        from app.models.user import User
+        from app.extensions import db
+        admin_rec = User.query.filter_by(email="adminuser@luma.dev").first()
+        admin_rec.role = "admin"
+        db.session.commit()
+        admin_id = admin_rec.id
+
+        reg2_rec = User.query.filter_by(email="regular2@luma.dev").first()
+        reg2_id = reg2_rec.id
+
+    # Token ของ Regular User
+    reg_login = client.post("/api/v1/login", json={"email": "regular1@luma.dev", "password": "password123"}).get_json()
+    reg_token = reg_login["data"]["access_token"]
+    reg_header = {"Authorization": f"Bearer {reg_token}"}
+
+    # Token ของ Admin
+    admin_login = client.post("/api/v1/login", json={"email": "adminuser@luma.dev", "password": "password123"}).get_json()
+    assert admin_login["data"]["user"]["role"] == "admin"
+    admin_token = admin_login["data"]["access_token"]
+    admin_header = {"Authorization": f"Bearer {admin_token}"}
+
+    # 2. ทดสอบ GET /api/v1/admin/users
+    # 2.1 ไม่ส่ง Token -> 401
+    assert client.get("/api/v1/admin/users").status_code == 401
+
+    # 2.2 ส่ง Token ของ Regular User -> ต้องตอบ 403 (ไม่ใช่ 401)
+    res_403 = client.get("/api/v1/admin/users", headers=reg_header)
+    assert res_403.status_code == 403
+    assert res_403.get_json()["error"]["code"] == "FORBIDDEN"
+
+    # 2.3 ส่ง Token ของ Admin -> 200 OK และตรวจสอบ Field ที่ Frontend ต้องการ
+    res_admin = client.get("/api/v1/admin/users", headers=admin_header)
+    assert res_admin.status_code == 200
+    admin_data = res_admin.get_json()["data"]
+    assert "users" in admin_data
+    assert len(admin_data["users"]) >= 3
+    first_u = admin_data["users"][0]
+    assert "id" in first_u
+    assert "email" in first_u
+    assert "role" in first_u
+    assert "created_at" in first_u
+    assert "generation_count" in first_u
+
+    # 3. ทดสอบ DELETE /api/v1/admin/users/:id
+    # 3.1 Regular User พยายามลบ -> 403
+    del_403 = client.delete(f"/api/v1/admin/users/{reg2_id}", headers=reg_header)
+    assert del_403.status_code == 403
+
+    # 3.2 Admin พยายามลบบัญชีตัวเอง -> 400 CANNOT_DELETE_SELF
+    del_self = client.delete(f"/api/v1/admin/users/{admin_id}", headers=admin_header)
+    assert del_self.status_code == 400
+    assert del_self.get_json()["error"]["code"] == "CANNOT_DELETE_SELF"
+
+    # 3.3 Admin ลบบัญชีที่ไม่มีอยู่จริง -> 404
+    del_nonexist = client.delete("/api/v1/admin/users/99999", headers=admin_header)
+    assert del_nonexist.status_code == 404
+
+    # 3.4 Admin ลบ regular2 สำเร็จ -> 200
+    del_success = client.delete(f"/api/v1/admin/users/{reg2_id}", headers=admin_header)
+    assert del_success.status_code == 200
+    assert del_success.get_json()["data"]["deleted_user_id"] == reg2_id
+
+    # ยืนยันว่า user ถูกลบออกจาก database แล้ว
+    with client.application.app_context():
+        assert db.session.get(User, reg2_id) is None
+
+
 # ==============================================================================
 # [DISABLED TESTS] การทดสอบสำหรับ Endpoint ที่ไม่ได้ใช้งานโดย Frontend
 # เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)

@@ -109,19 +109,29 @@ def create_app(test_config=None) -> Flask:
     from app.routes.profile import profile_bp
     from app.routes.sd import sd_bp
     from app.routes.history import history_bp
+    from app.routes.admin import admin_bp
     from app.services.image_filters import process_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/v1")
     app.register_blueprint(profile_bp, url_prefix="/api/v1")
     app.register_blueprint(sd_bp, url_prefix="/api/v1")
     app.register_blueprint(history_bp, url_prefix="/api/v1")
+    app.register_blueprint(admin_bp, url_prefix="/api/v1/admin")
     app.register_blueprint(process_bp, url_prefix="/api/v1")
+
+    # URL Aliases สำหรับรองรับคำขอทั้งที่มีและไม่มีคำนำหน้า /api/v1
+    # ป้องกัน 404 กรณี Frontend ยิงตรงไปที่ /register, /login, /models, /profile ฯลฯ
+    app.register_blueprint(auth_bp, url_prefix="", name="auth_alias")
+    app.register_blueprint(profile_bp, url_prefix="", name="profile_alias")
+    app.register_blueprint(sd_bp, url_prefix="", name="sd_alias")
+    app.register_blueprint(history_bp, url_prefix="", name="history_alias")
 
     # 6.1 เส้นทางตรวจสอบสถานะเซิร์ฟเวอร์ (Health Check Endpoint)
     from app.utils.error_codes import success_response, error_response
+    @app.route("/health", methods=["GET"])
     @app.route("/api/v1/health", methods=["GET"])
     def health_check():
-        """GET /api/v1/health ตรวจสอบความพร้อมทำงานของระบบ Backend"""
+        """GET /health หรือ /api/v1/health ตรวจสอบความพร้อมทำงานของระบบ Backend"""
         return success_response({
             "status": "healthy",
             "database": "connected",
@@ -150,9 +160,16 @@ def create_app(test_config=None) -> Flask:
         # สร้างตารางที่ยังไม่มีในฐานข้อมูล
         db.create_all()
 
-        # ตรวจสอบโครงสร้างคอลัมน์ในตาราง generations เพื่อความเข้ากันได้ 100%
+        # ตรวจสอบโครงสร้างคอลัมน์ในตารางเพื่อความเข้ากันได้ 100%
         try:
             inspector = db.inspect(db.engine)
+            
+            # 8.1 อัปเดตตาราง users หากยังไม่มีคอลัมน์ role
+            existing_user_columns = {col["name"] for col in inspector.get_columns("users")}
+            if "role" not in existing_user_columns:
+                db.session.execute(db.text("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'"))
+
+            # 8.2 อัปเดตตาราง generations
             existing_columns = {col["name"] for col in inspector.get_columns("generations")}
 
             # รายการคำสั่ง SQL สำหรับเพิ่มคอลัมน์ที่จำเป็นหากยังไม่มี

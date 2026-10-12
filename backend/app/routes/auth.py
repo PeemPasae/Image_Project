@@ -89,6 +89,7 @@ def register():
     new_user = User(
         email=email,
         password_hash=generate_password_hash(password),
+        role="user",
     )
 
     # 6. เพิ่มข้อมูลลงใน Session ของ Database
@@ -160,6 +161,7 @@ def login():
         token_payload = {
             "user_id": target_user.id,
             "email": target_user.email,
+            "role": target_user.role or "user",
             "exp": expiration_time
         }
         # เข้ารหัส Token ด้วย Secret Key และ Algorithm HS256

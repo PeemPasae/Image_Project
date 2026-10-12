@@ -351,6 +351,7 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
     "data": {
       "id": 1,
       "email": "user@example.com",
+      "role": "admin",
       "created_at": "2026-10-02T09:00:00",
       "generation_count": 1
     }
@@ -371,6 +372,61 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
 | `POST /process/hdr-enhancer` | `image` (file), `clahe_clip_limit` (1.0-5.0), `clahe_grid_size` (2-16), `detail_strength` (0.0-3.0), `color_balance` ("true"/"false") | Binary PNG |
 | `POST /process/gesture` | `image` (file), `num_hands` (1-4), `min_confidence` (0.1-1.0) | JSON Gesture Result |
 | `POST /process/remove-bg` | `image` (file), `use_ai` ("true"/"false"), `bg` ("transparent" หรือ "#HEX"), `rect` (JSON `[x,y,w,h]`), `strokes` (JSON `[{type, r, points}]`) | Binary PNG |
+
+---
+
+### 7.5 ระบบผู้ดูแลระบบ (Admin Management) 🔒
+
+ทุก Endpoint ในส่วนนี้ต้องแนบ Header: `Authorization: Bearer <access_token>` ของบัญชีที่มี `role = "admin"`
+(หากไม่ใช่ admin จะได้รับ HTTP 403 `FORBIDDEN`)
+
+#### 1. ดึงรายชื่อผู้ใช้ทั้งหมด
+- **Method:** `GET`
+- **Path:** `/admin/users`
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "users": [
+        {
+          "id": 1,
+          "email": "admin@luma.dev",
+          "role": "admin",
+          "created_at": "2026-09-21T10:10:38.978400",
+          "generation_count": 5
+        },
+        {
+          "id": 2,
+          "email": "user@luma.dev",
+          "role": "user",
+          "created_at": "2026-09-29T15:14:45.035625",
+          "generation_count": 0
+        }
+      ],
+      "total_users": 2
+    }
+  }
+  ```
+
+#### 2. ลบบัญชีผู้ใช้ (พร้อมลบรูปภาพและประวัติทั้งหมด)
+- **Method:** `DELETE`
+- **Path:** `/admin/users/:id`
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "User and all associated generations and image files deleted successfully",
+      "deleted_user_id": 2,
+      "deleted_generations_count": 3,
+      "deleted_disk_files_count": 3
+    }
+  }
+  ```
+- **ข้อกำหนดความปลอดภัย:**
+  - ห้ามแอดมินลบบัญชีของตัวเอง จะได้ **HTTP 400** (`CANNOT_DELETE_SELF`)
+  - หากไม่ใช่แอดมิน จะได้ **HTTP 403** (`FORBIDDEN`)
 
 ---
 

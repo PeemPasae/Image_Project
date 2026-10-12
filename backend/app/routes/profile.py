@@ -44,6 +44,7 @@ def get_profile():
     return success_response({
         "id": current_user.id,
         "email": current_user.email,
+        "role": current_user.role or "user",
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "generation_count": total_generations,
     }, status_code=200)

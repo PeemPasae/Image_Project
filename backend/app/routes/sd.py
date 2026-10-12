@@ -53,14 +53,14 @@ def get_models():
         return "", 200
 
     try:
-        # เรียก Service ดึงรายชื่อโมเดลจาก AI Server
+        # เรียก Service ดึงรายชื่อโมเดลจาก AI Server โดยตรง
         models_list = fetch_available_models()
         return success_response({"models": models_list}, status_code=200)
+    except AIServerTimeoutException as exc:
+        return error_response(AI_SERVER_TIMEOUT, str(exc), 504)
     except AIServerErrorException as exc:
-        # กรณี AI Server ตอบกลับข้อผิดพลาด
         return error_response(AI_SERVER_ERROR, str(exc), 503)
     except Exception as exc:
-        # ข้อผิดพลาดที่ไม่คาดคิด
         return error_response(AI_SERVER_ERROR, f"Unexpected error: {str(exc)}", 500)
 
 

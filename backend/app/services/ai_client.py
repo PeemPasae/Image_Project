@@ -119,10 +119,16 @@ def calculate_estimated_time(width: int = 512, height: int = 512, steps: int = 2
 def fetch_available_models() -> list:
     """
     ฟังก์ชันดึงรายชื่อโมเดล Checkpoints ทั้งหมดจาก Stable Diffusion AI Server
-    ยิงคำขอแบบ GET ไปที่ /sdapi/v1/sd-models
+    ยิงคำขอแบบ GET ไปที่ /sdapi/v1/sd-models โดยตรงจาก AI Server เท่านั้น (ไม่มีการสร้างโมเดลสำรอง)
     
     :return: รายการโมเดลในรูปแบบ [{'title': '...', 'model_name': '...'}]
     """
+    # --------------------------------------------------------------------------
+    # [FALLBACK MOCK] หากต้องการบังคับส่งโมเดลจำลองกลับไปให้ Frontend ทันที (ไม่ต้องต่อ AI Server):
+    # ปลดเครื่องหมาย # ที่บรรทัดด้านล่างนี้:
+    #return [{"title": "v1-5-pruned-emaonly.safetensors", "model_name": "v1-5-pruned-emaonly"}]
+    # --------------------------------------------------------------------------
+
     server_url = get_ai_server_url()
     try:
         # ยิงคำขอไปยัง AI Server ด้วย Timeout 10 วินาที
@@ -131,18 +137,30 @@ def fetch_available_models() -> list:
         # หาก AI Server ตอบกลับ HTTP 200 OK
         if response.status_code == 200:
             models_data = response.json()
-            # จัดรูปแบบให้อยู่ในโครงสร้างมาตรฐาน LUMA
-            return [
-                {
-                    "title": m.get("title") or m.get("model_name", "unknown"),
-                    "model_name": m.get("model_name") or m.get("title", "unknown")
-                }
-                for m in models_data
-            ]
+            if isinstance(models_data, list):
+                models_list = [
+                    {
+                        "title": m.get("title") or m.get("model_name", "unknown"),
+                        "model_name": m.get("model_name") or m.get("title", "unknown")
+                    }
+                    for m in models_data
+                ]
+                logger.info("Successfully fetched %d models directly from AI Server: %s", len(models_list), server_url)
+                return models_list
+
+            raise AIServerErrorException("AI Server returned unexpected data format for models")
+
         # กรณี AI Server ตอบสถานะข้อผิดพลาด
         raise AIServerErrorException(f"AI Server returned status code {response.status_code}")
         
+    except requests.exceptions.Timeout:
+        # [FALLBACK ON TIMEOUT] ปลด # ด้านล่างหากต้องการส่งโมเดลสำรองเมื่อ AI Server Timeout:
+        # return [{"title": "v1-5-pruned-emaonly.safetensors", "model_name": "v1-5-pruned-emaonly"}]
+        raise AIServerTimeoutException(f"Connection to AI Server timed out at {server_url}")
+
     except requests.exceptions.RequestException as e:
+        # [FALLBACK ON ERROR] ปลด # ด้านล่างหากต้องการส่งโมเดลสำรองเมื่อต่อเน็ต AI Server ไม่ติด:
+        # return [{"title": "v1-5-pruned-emaonly.safetensors", "model_name": "v1-5-pruned-emaonly"}]
         # ปัญหาการเชื่อมต่อเครือข่ายไปยัง AI Server
         raise AIServerErrorException(f"Cannot connect to AI Server at {server_url}: {str(e)}")
 
