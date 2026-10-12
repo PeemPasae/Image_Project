@@ -1,14 +1,10 @@
 import axios from 'axios'
 import {
-  MOCK_USER, MOCK_MODELS, MOCK_GENERATIONS, MOCK_PROFILE,
-  mockImageUrlFor, delay,
+  MOCK_USER, MOCK_MODELS, MOCK_GENERATIONS, MOCK_PROFILE, MOCK_GESTURE_RESULT,
+  mockImageUrlFor, delay, listMockAdminUsers, deleteMockAdminUser,
 } from './mockData'
 
-const defaultBaseUrl = typeof window !== 'undefined' && window.location.hostname
-  ? `http://${window.location.hostname}:5000/api/v1`
-  : 'http://localhost:5000/api/v1'
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const DEFAULT_TIMEOUT = 20000
 // /generate can take 10-60s+ on the AI server — give it real headroom (locked: 90s)
 export const GENERATE_TIMEOUT = 90000
@@ -33,12 +29,29 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+function readBlobText(blob) {
+  if (typeof blob.text === 'function') return blob.text()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(blob)
+  })
+}
+
 // Unwrap { success, data } / throw on { success:false, error } — single place every
 // page relies on so nobody has to re-implement envelope parsing per call.
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const code = error.response?.data?.error?.code
+  async (error) => {
+    let code = error.response?.data?.error?.code
+    // Endpoints using responseType:'blob' (spot-blur, cartoonize, tilt-shift,
+    // hdr-enhancer, remove-bg) get their error body back as a Blob too, so
+    // `.error.code` above is always undefined for them — read it out here as
+    // well, otherwise a 401 on any of those endpoints never triggers logout.
+    if (code === undefined && typeof Blob !== 'undefined' && error.response?.data instanceof Blob) {
+      try { code = JSON.parse(await readBlobText(error.response.data))?.error?.code } catch { /* not JSON */ }
+    }
     if (code === 'UNAUTHORIZED') {
       localStorage.removeItem('luma_token')
       localStorage.removeItem('luma_user')
@@ -65,6 +78,32 @@ async function request(promise) {
     wrapped.code = apiError?.code || (err.code === 'ECONNABORTED' ? 'AI_SERVER_TIMEOUT' : 'NETWORK_ERROR')
     throw wrapped
   }
+}
+
+// Same normalized shape as request(), but with responseType 'blob' the error
+// body arrives as a Blob, so parse the JSON envelope out of it first.
+async function wrapBlobError(err) {
+  let apiError = err.response?.data?.error
+  const body = err.response?.data
+  if (!apiError && typeof Blob !== 'undefined' && body instanceof Blob) {
+    try { apiError = JSON.parse(await readBlobText(body))?.error } catch { /* not JSON */ }
+  }
+  const wrapped = new Error(apiError?.message || err.message || 'Something went wrong')
+  wrapped.code = apiError?.code || (err.code === 'ECONNABORTED' ? 'AI_SERVER_TIMEOUT' : 'NETWORK_ERROR')
+  throw wrapped
+}
+
+// Shared by the /process/* image filters below (everything but spot-blur,
+// which has its own `circles` payload shape): multipart upload of `image`
+// plus flat form fields, binary PNG back (no envelope).
+function processImage(path, file, fields) {
+  const form = new FormData()
+  form.append('image', file)
+  for (const [key, value] of Object.entries(fields)) form.append(key, String(value))
+  return client.post(path, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob',
+  }).then((res) => URL.createObjectURL(res.data)).catch(wrapBlobError)
 }
 
 export const api = {
@@ -123,6 +162,21 @@ export const api = {
     return request(client.get('/profile'))
   },
 
+  // ASSUMED CONTRACT — not yet confirmed with the backend (no admin endpoints exist yet).
+  //   GET    /admin/users     -> data.users[]: { id, email, created_at, generation_count }
+  //   DELETE /admin/users/:id -> response body is not read
+  //   Non-admin callers get 403 with error code FORBIDDEN.
+  // When the backend ships these, only the two functions below need to change.
+  getAdminUsers: () => {
+    if (MOCK_MODE) return delay().then(() => ({ users: listMockAdminUsers() }))
+    return request(client.get('/admin/users'))
+  },
+
+  deleteAdminUser: (id) => {
+    if (MOCK_MODE) return delay().then(() => { deleteMockAdminUser(id) })
+    return request(client.delete(`/admin/users/${id}`)).then(() => undefined)
+  },
+
   /** Fetches an authenticated image as a Blob (plain <img src> can't send headers). */
   getImageBlob: (imageUrl) => {
     if (MOCK_MODE) {
@@ -131,6 +185,86 @@ export const api = {
     }
     return client.get(imageUrl, { baseURL: BASE_URL.replace(/\/api\/v1$/, ''), responseType: 'blob' })
       .then((res) => URL.createObjectURL(res.data))
+  },
+
+  /**
+   * POST /process/spot-blur — multipart upload, binary PNG back (no envelope).
+   * `circles` is [[x, y, radius], ...] in the ORIGINAL image's pixel space.
+   */
+  processSpotBlur: (file, circles, strength, soft = true) => {
+    if (MOCK_MODE) {
+      // Mock: just hand back the original image, no real processing.
+      return delay(800).then(() => URL.createObjectURL(file))
+    }
+    const form = new FormData()
+    form.append('image', file)
+    form.append('circles', JSON.stringify(circles))
+    form.append('strength', strength)
+    form.append('soft', String(soft))
+    return client.post('/process/spot-blur', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      responseType: 'blob',
+    }).then((res) => URL.createObjectURL(res.data)).catch(wrapBlobError)
+  },
+
+  /** POST /process/cartoonize — multipart upload, binary PNG back (no envelope). */
+  processCartoonize: (file, { num_colors = 8, line_thickness = 2, smoothness = 5 } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    return processImage('/process/cartoonize', file, { num_colors, line_thickness, smoothness })
+  },
+
+  /** POST /process/tilt-shift — multipart upload, binary PNG back (no envelope). */
+  processTiltShift: (file, {
+    focus_position = 0.5, focus_width = 0.2, blur_strength = 15,
+    saturation_boost = 1.4, contrast_boost = 1.2,
+  } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    return processImage('/process/tilt-shift', file, {
+      focus_position, focus_width, blur_strength, saturation_boost, contrast_boost,
+    })
+  },
+
+  /** POST /process/hdr-enhancer — multipart upload, binary PNG back (no envelope). */
+  processHdrEnhancer: (file, {
+    clahe_clip_limit = 3.0, clahe_grid_size = 8, detail_strength = 1.5, color_balance = true,
+  } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    return processImage('/process/hdr-enhancer', file, {
+      clahe_clip_limit, clahe_grid_size, detail_strength, color_balance,
+    })
+  },
+
+  /**
+   * POST /process/gesture — multipart upload, JSON result through the normal
+   * {success,data} envelope (unlike the other /process/* filters, this one
+   * does NOT return an image — no blob/responseType here).
+   */
+  processGesture: (file, { num_hands = 2, min_confidence = 0.5 } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => MOCK_GESTURE_RESULT)
+    const form = new FormData()
+    form.append('image', file)
+    form.append('num_hands', String(num_hands))
+    form.append('min_confidence', String(min_confidence))
+    return request(client.post('/process/gesture', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }))
+  },
+
+  /**
+   * POST /process/remove-bg — multipart upload, binary PNG back (no envelope,
+   * transparent background unless `bg` is a hex color).
+   * `rect` is [x, y, w, h] and `strokes` is [{type,r,points:[[x,y],...]}, ...],
+   * both in the ORIGINAL image's pixel space — omitted entirely (not sent as
+   * the string "undefined") when not provided, matching the contract: no
+   * rect/strokes at all = pure AI cutout; either present = AI + GrabCut;
+   * use_ai=false = GrabCut only (backend requires rect in that case).
+   */
+  processRemoveBackground: (file, { bg = 'transparent', rect, strokes, use_ai = true } = {}) => {
+    if (MOCK_MODE) return delay(800).then(() => URL.createObjectURL(file))
+    const fields = { bg, use_ai }
+    if (rect != null) fields.rect = JSON.stringify(rect)
+    if (strokes != null) fields.strokes = JSON.stringify(strokes)
+    return processImage('/process/remove-bg', file, fields)
   },
 }
 
