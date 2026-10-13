@@ -16,7 +16,9 @@ class Generation(db.Model):
     - รูปแบบที่ 1 (Checkpoint): ภาพที่สร้างผ่าน AI Stable Diffusion (txt2img)
     - รูปแบบที่ 2 (Sub-Functions): ภาพที่นำไปผ่านฟังก์ชันแต่งภาพย่อย (Cartoonize, Spot Blur, Tilt-Shift, HDR Enhancer, Remove BG)
     """
-    # กำหนดชื่อตารางในฐานข้อมูลให้ตรงกับ schema.sql
+    # ชื่อตารางในฐานข้อมูล
+    # [แก้] คลาสนี้คือ "ที่เดียว" ที่กำหนดโครงตาราง generations (เดิมเขียนซ้ำใน schema.sql ซึ่งลบไปแล้ว)
+    #       ตารางถูกสร้างจากคลาสนี้ด้วย db.create_all() ใน app/__init__.py และ database/init_db.py
     __tablename__ = "generations"
 
     # 1. รหัสภาพ (Primary Key) เพิ่มขึ้นอัตโนมัติ (Auto Increment)
