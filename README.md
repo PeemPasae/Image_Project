@@ -254,7 +254,7 @@ npm test                    # Vitest
 |---|---|
 | ประตูเดียว | ผู้ใช้เข้าได้แค่ `:80` — Flask, Vite, SD WebUI ห้ามเข้าตรง |
 | จำกัด API | ผ่านเฉพาะ `/api/v1/*` · path อื่นใต้ `/api/` ตอบ 404 |
-| Rate limit | login / register 10 ครั้ง/นาที · API อื่น 120 ครั้ง/นาที ต่อ IP → `429` |
+| Rate limit | login / register 10 ครั้ง/นาที · รูปภาพ 600 ครั้ง/นาที · API อื่น 120 ครั้ง/นาที ต่อ IP → `429` |
 | Upload | `client_max_body_size 16m` ให้ตรงกับ Backend |
 | Security | ซ่อนเวอร์ชัน nginx, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, กันเข้าไฟล์ `.env/.db/.py/...` |
 | Performance | gzip, cache `/assets/` 1 ปี (ไฟล์ Vite มี hash) |
@@ -358,7 +358,7 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | `password` | ≥ 8 ตัวอักษร |
 | upload | .jpg .jpeg .png .webp, ≤ 16 MB |
 
-**Timeout:** Backend → AI Server 75s · Frontend → `/generate` 90s · Nginx → Backend 120s · รอคิว GPU สูงสุด 40s
+**Timeout:** Backend → AI Server 75s · รอคิว GPU สูงสุด 40s · Nginx → Backend 120s · Frontend → `/generate` 125s, `/process/*` 120s
 
 | HTTP | Error Code |
 |---|---|

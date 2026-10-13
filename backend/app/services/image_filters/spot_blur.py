@@ -23,6 +23,9 @@ def spot_blur(img, circles, strength=10, soft=True):
     # 3) ทำขอบ mask ให้นุ่ม รอยต่อระหว่างส่วนที่เบลอกับไม่เบลอจะได้ไม่เป็นเส้นแข็ง
     if soft and circles:
         edge = int(max(r for _, _, r in circles) * 0.5) * 2 + 1
+        # [แก้บัค] จำกัดขนาดขอบนุ่มไม่เกิน 151 px
+        # เดิมรัศมีใหญ่มาก ๆ ทำให้ kernel ใหญ่เป็นแสน CPU ค้างหลายนาที หรือ OpenCV crash จน backend ดับ
+        edge = min(edge, 151)
         mask = cv2.GaussianBlur(mask, (edge, edge), 0)
 
     # 4) ผสมภาพ: ตรงไหน mask = 1 ใช้ภาพเบลอ, mask = 0 ใช้ภาพเดิม, ค่ากลาง ๆ ผสมกัน

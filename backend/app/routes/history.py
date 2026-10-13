@@ -39,6 +39,8 @@ def get_history():
     # 1. รับค่า Query Parameters จาก URL (Frontend ส่งเฉพาะ page, limit)
     page = request.args.get("page", default=1, type=int)
     limit = request.args.get("limit", default=20, type=int)
+    # [แก้บัค] จำกัดไม่เกิน 100 รายการต่อหน้า (เดิมขอทีละ 100000 รายการได้)
+    limit = max(1, min(limit, 100))
 
     # 2. สร้าง Base Query ที่กรองเฉพาะข้อมูลของผู้ใช้ปัจจุบันเท่านั้น (User Isolation)
     query = Generation.query.filter_by(user_id=request.user_id)

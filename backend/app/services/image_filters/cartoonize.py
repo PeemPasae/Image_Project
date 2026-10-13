@@ -32,7 +32,9 @@ def cartoonize(
     pixels = np.float32(color.reshape((-1, 3)))
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 0.001)
     k = max(2, min(32, int(num_colors)))
-    _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    # [แก้บัค] รัน K-Means 1 รอบ (attempts=1) แทน 10 รอบ
+    # เดิมรูปมือถือ 12 MP ใช้เวลา ~68 วินาที (หน้าเว็บรอไม่ไหว) ตอนนี้เหลือ ~10 วินาที ผลลัพธ์แทบไม่ต่าง
+    _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 1, cv2.KMEANS_RANDOM_CENTERS)
     quantized = np.uint8(centers)[labels.flatten()].reshape(img.shape)
 
     # 3. สกัดเส้นโครงร่างหมึก (Cartoon Ink Outlines)

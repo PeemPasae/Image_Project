@@ -9,6 +9,7 @@ import datetime
 import jwt
 from flask import Blueprint, request, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from config import Config
 
@@ -56,8 +57,9 @@ def register():
     """
     # 1. ดึงข้อมูล JSON Payload จากคำขอ
     data = request.get_json() or {}
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
+    # [แก้บัค] แปลง email เป็นตัวพิมพ์เล็กเสมอ (A@x.com กับ a@x.com คือคนเดียวกัน)
+    email = str(data.get("email") or "").strip().lower()
+    password = str(data.get("password") or "")
 
     # 2. ตรวจสอบความถูกต้องของอีเมล (ห้ามว่าง และรูปแบบต้องถูกต้อง)
     if not email or not is_valid_email(email):
@@ -76,7 +78,8 @@ def register():
         )
 
     # 4. ตรวจสอบว่าอีเมลนี้มีผู้ใช้งานลงทะเบียนไว้แล้วหรือไม่ (ป้องกันชื่อซ้ำ)
-    existing_user = User.query.filter_by(email=email).first()
+    #    เทียบแบบไม่สนตัวพิมพ์ใหญ่/เล็ก เผื่อบัญชีเก่าที่สมัครไว้ด้วยตัวพิมพ์ใหญ่
+    existing_user = User.query.filter(func.lower(User.email) == email).first()
     if existing_user:
         # หากมีอยู่แล้ว ให้ตอบกลับ Error Code: EMAIL_EXISTS พร้อม HTTP 409 Conflict
         return error_response(
@@ -129,8 +132,9 @@ def login():
     """
     # 1. ดึงข้อมูล JSON Payload
     data = request.get_json() or {}
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
+    # [แก้บัค] email ตัวพิมพ์เล็กเสมอ เหมือนตอนสมัคร
+    email = str(data.get("email") or "").strip().lower()
+    password = str(data.get("password") or "")
 
     # 2. ตรวจสอบว่ากรอกข้อมูลครบถ้วนหรือไม่
     if not email or not password:
@@ -141,7 +145,7 @@ def login():
         )
 
     # 3. ค้นหาผู้ใช้งานจากฐานข้อมูลด้วย Email
-    target_user = User.query.filter_by(email=email).first()
+    target_user = User.query.filter(func.lower(User.email) == email).first()
 
     # 4. ตรวจสอบว่าพบผู้ใช้หรือไม่ และรหัสผ่านตรงกับ Hash หรือไม่
     if not target_user or not check_password_hash(target_user.password_hash, password):
