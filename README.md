@@ -119,8 +119,7 @@ Image_Project/
 │   │   └── utils/error_codes.py    # success / error envelope + error codes
 │   └── tests/                      # test_backend_full.py, test_image_filters_suite.py
 ├── database/                       # (ภีม)
-│   ├── schema.sql                  # DDL: users + generations + index
-│   ├── init_db.py                  # สร้าง DB จาก schema.sql
+│   ├── init_db.py                  # สร้างตารางจากโมเดลใน backend/app/models (สำรอง .bak ก่อน ข้อมูลเดิมไม่หาย)
 │   ├── clear.py                    # ล้างข้อมูล (เลือกเก็บบาง user_id ได้)
 │   └── Test1..3_*.py               # สคริปต์ทดสอบ insert / select
 ├── frontend/
@@ -341,7 +340,8 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | `image_data` / `image_path` | ไบต์ PNG ในฐานข้อมูล + ไฟล์สำเนาบนดิสก์ (`backend/uploads/generations/`) |
 | `created_at` | |
 
-> Backend เพิ่มคอลัมน์ที่ขาดให้อัตโนมัติตอนสตาร์ท จึงใช้กับฐานข้อมูลเก่าได้โดยข้อมูลไม่หาย
+> โครงตารางกำหนดไว้ที่เดียวคือ `backend/app/models/` (`user.py`, `generation.py`) Backend สร้างตาราง + เพิ่มคอลัมน์ที่ขาดให้อัตโนมัติตอนสตาร์ท จึงใช้กับฐานข้อมูลเก่าได้โดยข้อมูลไม่หาย
+> อยากสร้างตารางล่วงหน้าโดยไม่เปิด backend: `python database/init_db.py` (ใช้ Python ตัวเดียวกับ backend)
 
 ---
 
