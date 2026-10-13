@@ -166,14 +166,14 @@
             if (!username || !password) return showModal('แจ้งเตือน', 'กรุณากรอก Username และ Password', false);
 
             try {
-                const res = await fetch(`${API_BASE}/api/register`, {
+                const res = await fetch(`${API_BASE}/api/v1/register`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username, password})
+                    body: JSON.stringify({email: username, password})
                 });
                 const data = await res.json();
 
-                if (data.status === 'success') {
+                if (data.success) {
                     document.getElementById('reg-username').value = '';
                     document.getElementById('reg-password').value = '';
                     showModal('🎉 สำเร็จ!', 'สมัครสมาชิกเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ', true, () => {
@@ -193,16 +193,19 @@
             if (!username || !password) return showModal('แจ้งเตือน', 'กรุณากรอก Username และ Password', false);
 
             try {
-                const res = await fetch(`${API_BASE}/api/login`, {
+                const res = await fetch(`${API_BASE}/api/v1/login`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username, password})
+                    body: JSON.stringify({email: username, password})
                 });
                 const data = await res.json();
 
-                if(data.status === 'success') {
-                    currentUser = data.user;
-                    document.getElementById('user-display').innerText = currentUser.username;
+                if(data.success) {
+                    currentUser = {
+                        ...data.data.user,
+                        access_token: data.data.access_token
+                    };
+                    document.getElementById('user-display').innerText = currentUser.email;
                     navTo('page-welcome');
                     loadModels();
                 } else { 
@@ -222,11 +225,11 @@
 
         async function loadModels() {
             try {
-                const res = await fetch(`${API_BASE}/api/models`);
+                const res = await fetch(`${API_BASE}/api/v1/models`);
                 const data = await res.json();
-                if(data.status === 'success') {
+                if(data.success) {
                     const select = document.getElementById('checkpoint-select');
-                    select.innerHTML = data.models.map(m => `<option value="${m}">${m}</option>`).join('');
+                    select.innerHTML = data.data.models.map(m => `<option value="${m.model_name}">${m.title}</option>`).join('');
                 }
             } catch (err) {
                 console.error("Failed to load models", err);
@@ -242,9 +245,12 @@
             const [width, height] = document.getElementById('size-select').value.split('x').map(Number);
 
             try {
-                const res = await fetch(`${API_BASE}/api/generate`, {
+                const res = await fetch(`${API_BASE}/api/v1/generate`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.access_token}`
+                    },
                     body: JSON.stringify({
                         user_id: currentUser.id,
                         prompt: document.getElementById('prompt').value,
@@ -258,9 +264,9 @@
                     })
                 });
                 const data = await res.json();
-                if(data.status === 'success') {
+                if(data.success) {
                     status.innerText = "สร้างสำเร็จ!";
-                    img.src = data.image;
+                    img.src = data.data.image;
                     img.style.display = "block";
                 } else { 
                     status.innerText = "เกิดข้อผิดพลาด: " + data.message; 

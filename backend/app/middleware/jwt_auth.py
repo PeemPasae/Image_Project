@@ -1,63 +1,122 @@
-# นำเข้าโมดูล os สำหรับอ่านค่าตัวแปรสภาพแวดล้อม (Environment Variables) จากระบบ
+# ==============================================================================
+# ชื่อไฟล์: backend/app/middleware/jwt_auth.py
+# หน้าที่: มิดเดิลแวร์สำหรับตรวจสอบความถูกต้องของ JWT Token และป้องกันการเข้าถึงโดยไม่ได้รับอนุญาต (Anti-Hopping)
+# เกี่ยวข้องกับหน้าเว็บ: ทุกหน้าที่มีการป้องกันสิทธิ์ (Generate, History, Profile, Result, Image View)
+# ==============================================================================
+
 import os
-# นำเข้า wraps จาก functools เพื่อใช้ในการสร้าง Decorator โดยไม่เสียข้อมูล Metadata ของฟังก์ชันเดิม
 from functools import wraps
-# นำเข้า request จาก flask เพื่อใช้ดึงข้อมูล Request Header ที่ส่งมาจาก Client
-from flask import request
-# นำเข้าไลบรารี PyJWT สำหรับใช้ถอดรหัสและตรวจสอบความถูกต้องของ JWT Token
+from flask import request, current_app, has_app_context
 import jwt
-# นำเข้าตัวช่วยตอบกลับข้อผิดพลาด และ Error Code Constants
-from app.utils.error_codes import error_response, UNAUTHORIZED, INTERNAL_SERVER_ERROR
+
+# นำเข้าฟังก์ชันตอบกลับข้อผิดพลาดและ Error Codes มาตรฐาน
+from app.utils.error_codes import error_response, UNAUTHORIZED, INTERNAL_SERVER_ERROR, FORBIDDEN
 
 
-def get_jwt_secret():
-    """ฟังก์ชันสำหรับดึง Secret Key จากไฟล์ .env"""
-    # อ่านค่า JWT_SECRET_KEY จากตัวแปรสภาพแวดล้อม
-    secret = os.getenv("JWT_SECRET_KEY")
-    # ถ้าหาค่า JWT_SECRET_KEY ไม่เจอ ให้หยุดการทำงานและโยน Exception ทันที
+def get_jwt_secret() -> str:
+    """
+    ฟังก์ชันสำหรับดึง JWT Secret Key จาก Flask App Config หรือตัวแปรสภาพแวดล้อม (.env)
+    หากไม่พบการตั้งค่าใน Environment จะใช้ค่าเริ่มต้นสำหรับพัฒนา
+    
+    :return: ข้อความ Secret Key สำหรับเข้ารหัส/ถอดรหัส Token
+    """
+    # ตรวจสอบค่าจาก Flask App Config ก่อน (รองรับกรณีรัน Test หรือ Override ผ่าน Config)
+    if has_app_context() and current_app.config.get("SECRET_KEY"):
+        return current_app.config["SECRET_KEY"]
+
+    # ตรวจสอบตัวแปร JWT_SECRET_KEY หรือ JWT_SECRET จาก .env
+    secret = os.getenv("JWT_SECRET_KEY") or os.getenv("JWT_SECRET")
     if not secret:
-        raise RuntimeError("JWT_SECRET_KEY is not configured in .env")
-    # คืนค่า secret key กลับไป
+        # กำหนดค่าสำรองสำหรับใช้งานในสภาพแวดล้อม Development
+        secret = "luma_default_jwt_secret_key_2026"
     return secret
 
 
 def token_required(f):
-    """Decorator สำหรับตรวจสอบความถูกต้องของ JWT Token ก่อนอนุญาตให้เข้าถึง Endpoint"""
+    """
+    Decorator สำหรับคุ้มครอง API Endpoints ที่ต้องผ่านการยืนยันตัวตน (Protected Routes)
+    ทำหน้าที่:
+    1. ตรวจสอบว่ามี Header 'Authorization: Bearer <token>' แนบมาหรือไม่
+    2. ตรวจสอบลายเซ็นและความถูกต้องของ Token (HS256)
+    3. ตรวจสอบอายุของ Token (ไม่เกิน 24 ชั่วโมง)
+    4. สกัด 'user_id' และ 'email' จาก Token แล้วนำไปเก็บไว้ใน 'request.user_id' และ 'request.user_email'
+    5. ป้องกันไม่ให้ผู้ใช้ที่ไม่ล็อกอิน หรือมี Token ไม่ถูกต้อง กระโดดเข้ามาเรียกใช้ API ได้
+    
+    :param f: ฟังก์ชัน Controller ของ Endpoint ที่ถูกตกแต่ง
+    :return: ฟังก์ชันที่ผ่านการตรวจสอบความปลอดภัยแล้ว
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
-        # ดึงค่าจาก HTTP Header ชื่อ Authorization
+        # 1. ดึงค่า Header "Authorization" จากคำขอที่ส่งมาจาก Frontend
         auth_header = request.headers.get("Authorization")
-        # ถ้าไม่มี Authorization header ส่งมาด้วย ให้ตอบกลับ error 401 UNAUTHORIZED
         if not auth_header:
+            # หากไม่มี Header ให้ตอบกลับ 401 UNAUTHORIZED ทันที
             return error_response(UNAUTHORIZED, "Authorization header is missing", 401)
 
-        # แยกข้อความใน Header ด้วยช่องว่าง (คาดหวังรูปแบบ: "Bearer <token>")
+        # 2. แยกข้อความใน Header ออกเป็นส่วน (คาดหวังรูปแบบ: "Bearer <token_string>")
         parts = auth_header.split()
-        # ถ้าความยาวไม่เท่ากับ 2 หรือคำแรกไม่ใช่ "Bearer" ให้ตอบกลับ error 401
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            return error_response(UNAUTHORIZED, "Invalid Authorization header format. Must be 'Bearer <token>'", 401)
+            # หากรูปแบบไม่ใช่ "Bearer <token>" ให้ปฏิเสธคำขอ
+            return error_response(
+                UNAUTHORIZED, 
+                "Invalid Authorization header format. Must be 'Bearer <token>'", 
+                401
+            )
 
-        # แยกเอาเฉพาะตัวสตริง Token ที่อยู่ตำแหน่งที่ 2
+        # ดึงสตริง Token ออกมาใช้งาน
         token = parts[1]
-        try:
-            # ถอดรหัสและตรวจสอบ Token ด้วย Secret Key และอัลกอริทึม HS256
-            payload = jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
-            # เมื่อ Token ถูกต้อง ให้นำ user_id จาก payload ไปฝากไว้ที่ request object เพื่อใช้ใน Endpoint ถัดไป
-            request.user_id = payload.get("user_id")
-            # ฝาก email ไว้ที่ request object ด้วย
-            request.user_email = payload.get("email")
-        except jwt.ExpiredSignatureError:
-            # ถ้า Token หมดอายุ ให้ตอบกลับ error 401
-            return error_response(UNAUTHORIZED, "Token has expired", 401)
-        except jwt.InvalidTokenError:
-            # ถ้า Token รูปแบบไม่ถูกต้อง หรือถูกแก้ไข ให้ตอบกลับ error 401
-            return error_response(UNAUTHORIZED, "Invalid token", 401)
-        except Exception as e:
-            # หากเกิดข้อผิดพลาดอื่นๆ ให้ตอบกลับ error 500
-            return error_response(INTERNAL_SERVER_ERROR, str(e), 500)
 
-        # หากผ่านการตรวจสอบ ให้รันฟังก์ชันของ Endpoint ต่อไป
+        # 3. ถอดรหัสและตรวจสอบความถูกต้องของ Token
+        try:
+            # ตรวจสอบความถูกต้องด้วย Secret Key และ Algorithm HS256
+            payload = jwt.decode(token, get_jwt_secret(), algorithms=["HS256"])
+            
+            # ดึง user_id และ email ออกมาจาก Payload
+            request.user_id = payload.get("user_id")
+            request.user_email = payload.get("email")
+
+            # ตรวจสอบว่าใน Payload มี user_id หรือไม่
+            if not request.user_id:
+                return error_response(UNAUTHORIZED, "Token payload is missing user_id", 401)
+
+        except jwt.ExpiredSignatureError:
+            # กรณี Token หมดอายุ (เกิน 24 ชั่วโมง)
+            return error_response(UNAUTHORIZED, "Token has expired, please log in again", 401)
+        except jwt.InvalidTokenError:
+            # กรณี Token ผิดรูปแบบ หรือถูกดัดแปลงแก้ไข
+            return error_response(UNAUTHORIZED, "Invalid token signature", 401)
+        except Exception as e:
+            # กรณีเกิดข้อผิดพลาดอื่นๆ ที่ไม่คาดคิด
+            return error_response(INTERNAL_SERVER_ERROR, f"Authentication error: {str(e)}", 500)
+
+        # 4. เมื่อผ่านการตรวจสอบสิทธิ์ครบถ้วน ให้ส่งต่อไปยังฟังก์ชัน Route หลัก
         return f(*args, **kwargs)
 
-    # คืนค่าฟังก์ชันที่ถูกครอบไว้
+    return decorated
+
+
+def admin_required(f):
+    """
+    Decorator สำหรับคุ้มครอง API Endpoints สำหรับผู้ดูแลระบบ (Admin Only)
+    ทำงานร่วมกับ @token_required:
+    1. ผ่านการยืนยันตัวตน JWT Token ก่อน
+    2. ค้นหา User จากฐานข้อมูล และตรวจสอบว่า role เป็น 'admin' หรือไม่
+    3. หากไม่ใช่ admin ให้ตอบกลับ HTTP 403 FORBIDDEN ทันที (ไม่ใช่ 401)
+    """
+    @wraps(f)
+    @token_required
+    def decorated(*args, **kwargs):
+        from app.extensions import db
+        from app.models.user import User
+
+        current_user = db.session.get(User, request.user_id)
+        if not current_user:
+            return error_response(UNAUTHORIZED, "User account not found", 401)
+
+        if getattr(current_user, "role", "user") != "admin":
+            return error_response(FORBIDDEN, "Admin privileges required", 403)
+
+        request.admin_user = current_user
+        return f(*args, **kwargs)
+
     return decorated

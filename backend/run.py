@@ -1,10 +1,47 @@
-# นำเข้าฟังก์ชัน create_app จากโมดูล app
+# ==============================================================================
+# ชื่อไฟล์: backend/run.py
+# หน้าที่: จุดเริ่มต้นการทำงานของระบบ Backend (Application Entry Point)
+# สถาปัตยกรรม: รันบน "เครื่อง Backend แยกต่างหาก" เพื่อรอรับคำขอจาก Nginx Gateway
+# ==============================================================================
+
+import os
+import sys
 from app import create_app
 
-# สร้าง App Instance
+# รองรับการแสดงผลข้อความภาษาไทย/UTF-8 บน Windows Console ป้องกันปัญหาฟอนต์เพี้ยน
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# 1. สร้าง Flask Application Instance ผ่าน Factory Function
 app = create_app()
 
-# คำสั่งสั่งรันโปรเจกต์
 if __name__ == "__main__":
-    # รันบน host 0.0.0.0 เพื่อเปิดรับ request จาก Frontend IP 172.20.56.225 ที่พอร์ต 5000
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # 2. อ่านค่า host และ port จากตัวแปรสภาพแวดล้อม (.env) หรือใช้ค่าเริ่มต้น
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5000))
+
+    # ปิด Debug Mode เพื่อความปลอดภัย (ห้ามเปิด Werkzeug debugger เมื่อเปิดรับทราฟฟิกข้าม LAN)
+    debug = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1")
+
+    # ตรวจสอบสถานะไฟล์โมเดล AI ล่วงหน้า
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    model1 = os.path.join(backend_dir, "models", "selfie_multiclass_256x256.tflite")
+    model2 = os.path.join(backend_dir, "models", "gesture_recognizer.task")
+    models_ready = os.path.isfile(model1) and os.path.isfile(model2)
+
+    # 3. แสดงข้อความแจ้งเตือนสถานะการเริ่มทำงานของเซิร์ฟเวอร์
+    print("=" * 70)
+    print(f"[*] LUMA Backend API Server is running on: http://{host}:{port}")
+    print(f"[*] Debug Mode:       {'ON (Development only)' if debug else 'OFF (Production / Behind Proxy)'}")
+    print(f"[*] Local Access:     http://127.0.0.1:{port}/api/v1")
+    print(f"[*] Health Check:     http://127.0.0.1:{port}/api/v1/health")
+    print(f"[*] Disk Storage:     {app.config.get('UPLOAD_FOLDER', 'backend/uploads')}")
+    print(f"[*] AI Models Status: {'[READY] All models present' if models_ready else '[!] Missing models! Run python backend/scripts/download_models.py'}")
+    print(f"[*] Network Access:   Ready to receive requests from Nginx Gateway ({host}:{port})")
+    print("=" * 70)
+    
+    # 4. สั่งเริ่มทำงานบน Host '0.0.0.0' เพื่อรับการเชื่อมต่อจาก Nginx ที่อยู่คนละเครื่อง
+    app.run(host=host, port=port, debug=debug)

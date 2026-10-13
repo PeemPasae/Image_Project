@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
+import { RECOMMENDED_SIZES, isRecommendedSize } from '../utils/modelSizes'
 
 const SAMPLERS = ['DPM++ 2M Karras', 'Euler a', 'Euler']
 const SIZES = [512, 768, 1024]
@@ -9,8 +10,8 @@ const DEFAULTS = {
   prompt: '',
   negative_prompt: '',
   checkpoint: '',
-  width: 512,
-  height: 512,
+  width: RECOMMENDED_SIZES[0][0],
+  height: RECOMMENDED_SIZES[0][1],
   steps: 20,
   cfg_scale: 7,
   sampler: 'DPM++ 2M Karras',
@@ -130,6 +131,11 @@ export default function Generate() {
               </select>
             </div>
           </div>
+          {!isRecommendedSize(form.width, form.height) && (
+            <p className="setting-hint" role="note" style={{ marginTop: -6, marginBottom: 14 }}>
+              ขนาดที่แนะนำสำหรับโมเดลนี้คือ 512×1024 หรือ 1024×512 การใช้ขนาดอื่นอาจทำให้ภาพเพี้ยนและใช้เวลานานขึ้น
+            </p>
+          )}
 
           <div className="field-row">
             <div className="field">

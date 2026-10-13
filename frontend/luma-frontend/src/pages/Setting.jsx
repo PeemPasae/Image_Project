@@ -1,30 +1,25 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useLayoutTemplate } from '../context/LayoutContext'
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../utils/settingsStorage'
 
 const SAMPLERS = ['DPM++ 2M Karras', 'Euler a', 'Euler']
 const SIZES = [512, 768, 1024]
-const STORAGE_KEY = 'luma_settings'
-
-const DEFAULT_SETTINGS = {
-  defaultModel: '',
-  defaultWidth: 512,
-  defaultHeight: 512,
-  defaultSteps: 20,
-  defaultCfgScale: 7,
-  defaultSampler: 'DPM++ 2M Karras',
-}
+// Hidden because the Generate page does not read these defaults yet.
+// Set to true to bring the section back (code, storage helper and tests are kept).
+const SHOW_GENERATION_DEFAULTS = false
 
 export default function Setting() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const { themeId, setThemeId, themes } = useTheme()
+  const { templateId, setTemplateId, templates } = useLayoutTemplate()
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) })
-  }, [])
+    setSettings(loadSettings(user))
+  }, [user])
 
   function update(key, value) {
     setSettings((s) => ({ ...s, [key]: value }))
@@ -33,7 +28,7 @@ export default function Setting() {
 
   function handleSave(e) {
     e.preventDefault()
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    saveSettings(user, settings)
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
   }
@@ -42,17 +37,18 @@ export default function Setting() {
     <div>
       <div className="page-header">
         <h1>Setting</h1>
-        <p>Appearance is applied immediately. Generation defaults are stored locally in this browser.</p>
+        <p>Appearance is applied immediately.{SHOW_GENERATION_DEFAULTS && ' Generation defaults are stored locally in this browser.'}</p>
       </div>
 
       {/* ===== Appearance ===== */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 14 }}>Appearance</div>
-        <div className="theme-grid">
+        <div className={`theme-grid ${templateId === 'soft' ? 'theme-grid-disabled' : ''}`}>
           {themes.map((t) => (
             <button
               key={t.id}
               type="button"
+              disabled={templateId === 'soft'}
               className={`theme-swatch ${t.id === themeId ? 'selected' : ''}`}
               onClick={() => setThemeId(t.id)}
               style={{ borderColor: t.id === themeId ? t.colors.accent1 : undefined }}
@@ -68,45 +64,80 @@ export default function Setting() {
             </button>
           ))}
         </div>
+        {templateId === 'soft' && (
+          <p className="setting-hint">Soft ships with its own fixed palette — switch back to Classic to pick a theme.</p>
+        )}
+
+        <div className="setting-subgroup">
+          <div className="setting-subgroup-title" id="layout-label">Layout</div>
+          <div className="template-grid" role="radiogroup" aria-labelledby="layout-label">
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={t.id === templateId}
+                className={`template-option ${t.id === templateId ? 'selected' : ''}`}
+                onClick={() => setTemplateId(t.id)}
+              >
+                <span className={`template-preview template-preview-${t.id}`} aria-hidden="true">
+                  <span className="template-preview-side" />
+                  <span className="template-preview-body">
+                    <span className="template-preview-line" />
+                    <span className="template-preview-grid">
+                      <i /><i /><i />
+                    </span>
+                  </span>
+                </span>
+                <span className="template-option-text">
+                  <span className="template-option-label">{t.label}</span>
+                  <span className="template-option-desc">{t.description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ===== Generation Defaults ===== */}
-      <form onSubmit={handleSave} className="card" style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 14 }}>Generation Defaults</div>
-        <div className="field-row">
-          <div className="field">
-            <label htmlFor="defaultWidth">Default Width</label>
-            <select id="defaultWidth" value={settings.defaultWidth} onChange={(e) => update('defaultWidth', Number(e.target.value))}>
-              {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+      {SHOW_GENERATION_DEFAULTS && (
+        <form onSubmit={handleSave} className="card" style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, marginBottom: 14 }}>Generation Defaults</div>
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="defaultWidth">Default Width</label>
+              <select id="defaultWidth" value={settings.defaultWidth} onChange={(e) => update('defaultWidth', Number(e.target.value))}>
+                {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="defaultHeight">Default Height</label>
+              <select id="defaultHeight" value={settings.defaultHeight} onChange={(e) => update('defaultHeight', Number(e.target.value))}>
+                {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="defaultSteps">Default Steps</label>
+              <input id="defaultSteps" type="number" min={1} max={50} value={settings.defaultSteps} onChange={(e) => update('defaultSteps', Number(e.target.value))} />
+            </div>
+            <div className="field">
+              <label htmlFor="defaultCfgScale">Default CFG Scale</label>
+              <input id="defaultCfgScale" type="number" min={1} max={20} step={0.5} value={settings.defaultCfgScale} onChange={(e) => update('defaultCfgScale', Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="field" style={{ maxWidth: 280 }}>
+            <label htmlFor="defaultSampler">Default Sampler</label>
+            <select id="defaultSampler" value={settings.defaultSampler} onChange={(e) => update('defaultSampler', e.target.value)}>
+              {SAMPLERS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="defaultHeight">Default Height</label>
-            <select id="defaultHeight" value={settings.defaultHeight} onChange={(e) => update('defaultHeight', Number(e.target.value))}>
-              {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+          <div className="action-row">
+            <button className="btn btn-primary" type="submit">{saved ? 'Saved ✓' : 'Save Defaults'}</button>
           </div>
-        </div>
-        <div className="field-row">
-          <div className="field">
-            <label htmlFor="defaultSteps">Default Steps</label>
-            <input id="defaultSteps" type="number" min={1} max={50} value={settings.defaultSteps} onChange={(e) => update('defaultSteps', Number(e.target.value))} />
-          </div>
-          <div className="field">
-            <label htmlFor="defaultCfgScale">Default CFG Scale</label>
-            <input id="defaultCfgScale" type="number" min={1} max={20} step={0.5} value={settings.defaultCfgScale} onChange={(e) => update('defaultCfgScale', Number(e.target.value))} />
-          </div>
-        </div>
-        <div className="field" style={{ maxWidth: 280 }}>
-          <label htmlFor="defaultSampler">Default Sampler</label>
-          <select id="defaultSampler" value={settings.defaultSampler} onChange={(e) => update('defaultSampler', e.target.value)}>
-            {SAMPLERS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="action-row">
-          <button className="btn btn-primary" type="submit">{saved ? 'Saved ✓' : 'Save Defaults'}</button>
-        </div>
-      </form>
+        </form>
+      )}
 
       {/* ===== Account ===== */}
       <div className="card">

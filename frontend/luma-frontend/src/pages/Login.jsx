@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { loginErrorMessage } from '../api/errorMessages'
 import { useAuth } from '../context/AuthContext'
 import MockModeBanner from '../components/MockModeBanner'
 import '../styles/auth.css'
@@ -30,7 +31,7 @@ export default function Login() {
       await login(email, password)
       navigate('/')
     } catch (err) {
-      setError(err.message)
+      setError(loginErrorMessage(err))
     } finally {
       setLoading(false)
     }
