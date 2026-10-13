@@ -6,10 +6,12 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Home from './pages/Home'
 import Generate from './pages/Generate'
+import Features from './pages/Features'   // ← เพิ่มบรรทัดนี้ต่อจาก import Generate
 import Result from './pages/Result'
 import History from './pages/History'
 import Profile from './pages/Profile'
 import Setting from './pages/Setting'
+
 
 export default function App() {
   return (
@@ -23,6 +25,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
               <Route path="/generate" element={<Generate />} />
+              <Route path="/features" element={<Features />} />
               <Route path="/result/:id" element={<Result />} />
               <Route path="/history" element={<History />} />
               <Route path="/profile" element={<Profile />} />

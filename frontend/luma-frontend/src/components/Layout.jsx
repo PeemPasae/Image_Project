@@ -5,6 +5,7 @@ import MockModeBanner from './MockModeBanner'
 const NAV = [
   { to: '/', label: 'Home', end: true },
   { to: '/generate', label: 'Generate' },
+  { to: '/features', label: 'Features' },
   { to: '/history', label: 'History' },
   { to: '/profile', label: 'Profile' },
   { to: '/setting', label: 'Setting' },
