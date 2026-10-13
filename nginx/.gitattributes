@@ -1,0 +1,3 @@
+# ให้ไฟล์ .bat / .ps1 เป็น CRLF เสมอ (cmd อ่าน .bat ที่เป็น LF ล้วนแล้ว goto/label พังได้)
+*.bat text eol=crlf
+*.ps1 text eol=crlf

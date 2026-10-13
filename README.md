@@ -91,7 +91,7 @@ Image_Project/
 │   ├── schema.sql              # DDL: users + generations
 │   └── init_db.py
 ├── Ai Server/                  # Stable Diffusion config + สคริปต์ทดสอบ (ไอซ์)
-└── nginx/nginx.conf            # reverse proxy config
+└── nginx/                      # reverse proxy (ดู nginx/README.md)
 ```
 
 ---

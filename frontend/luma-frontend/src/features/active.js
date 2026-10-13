@@ -2,7 +2,7 @@ import { FEATURE_REGISTRY } from './registry'
 
 // IDs shown in the 4-tile Features grid, in display order. Current value
 // matches the 4 tools that have always been there.
-export const ACTIVE_FEATURE_IDS = ['spot-blur', 'cartoonize', 'tilt-shift', 'hdr-enhancer']
+export const ACTIVE_FEATURE_IDS = ['spot-blur', 'cartoonize', 'hand-gesture', 'remove-background']
 
 /**
  * Resolves ACTIVE_FEATURE_IDS against FEATURE_REGISTRY: keeps registry order,

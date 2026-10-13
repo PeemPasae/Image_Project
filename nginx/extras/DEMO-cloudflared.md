@@ -17,7 +17,7 @@ cloudflared ชี้เข้า **nginx :80 อย่างเดียว** �
 
 ## เตรียมก่อนเดโม (ทำครั้งเดียว — ทำไปแล้ว)
 
-- ✅ `cloudflared.exe` อยู่ที่ `C:\nginx\cloudflared.exe`
+- ✅ `cloudflared.exe` อยู่ที่ `nginx\win\cloudflared.exe`
 - ✅ nginx อ่าน IP จริงจาก `CF-Connecting-IP` แล้ว (rate limit นับแยกรายคน ไม่ใช่รวมกันเป็น 127.0.0.1)
 
 ## ขั้นตอนวันเดโม
@@ -28,14 +28,14 @@ cloudflared ชี้เข้า **nginx :80 อย่างเดียว** �
 cd "C:\Learn Uni\Y3\Term1\Image processing\ProjectFinal\Image_Project\backend"
 python run.py
 # SD WebUI (webui-user.bat)  — อีกหน้าต่าง
-# nginx — ถ้ายังไม่รัน:  cd C:\nginx ; .\nginx.exe
+# nginx — ถ้ายังไม่รัน: ดับเบิลคลิก nginx\START.bat
 ```
 เช็ค: เปิด `http://172.20.56.158/` ในเครื่องตัวเองต้องเห็นหน้าเว็บ + login/generate ได้
 
 **2. เปิด tunnel**
 ```powershell
 cd "C:\Learn Uni\Y3\Term1\Image processing\ProjectFinal\Image_Project"
-powershell -ExecutionPolicy Bypass -File nginx\scripts\demo-tunnel.ps1
+powershell -ExecutionPolicy Bypass -File nginx\extras\demo-tunnel.ps1
 ```
 รอสักครู่จะเห็นบรรทัดแบบนี้ในหน้าต่าง:
 ```
@@ -48,7 +48,7 @@ https://random-words-xxxx.trycloudflare.com
 ## ระหว่างเดโม ดูว่าใครเข้ามาบ้าง
 
 ```powershell
-Get-Content C:\nginx\logs\luma.access.log -Wait -Tail 15
+(ดับเบิลคลิก nginx\LOGS.bat)
 ```
 จะเห็น **IP จริงของรุ่นน้องแต่ละคน** (ไม่ใช่ 127.0.0.1) พร้อม status
 
@@ -57,7 +57,7 @@ Get-Content C:\nginx\logs\luma.access.log -Wait -Tail 15
 | เรื่อง | รายละเอียด |
 |---|---|
 | **GPU ทำทีละคน** | SD เจนได้ทีละรูป ถ้ารุ่นน้องกดพร้อมกัน คนที่ 2 จะได้ `AI_SERVER_BUSY` (ถูกต้องตาม spec) — บอกให้ผลัดกันกด |
-| **user เก็บใน memory** | สมัคร/ล็อกอินได้ แต่ถ้า restart backend ข้อมูล user + ประวัติหายหมด (auth.py ยังใช้ MOCK DB) |
+| **ข้อมูลไม่หาย** | ผู้ใช้ + ประวัติเก็บใน database (SQLite) บนเครื่อง Backend — restart backend แล้วข้อมูลยังอยู่ |
 | **URL เปลี่ยนทุกครั้ง** | quick tunnel สุ่ม URL ใหม่ทุกรอบที่เปิด — แจกใหม่ทุกครั้ง |
 | **หลังบ้านปลอดภัย** | `:8089`/`:5000`/`:8088` ไม่ออก tunnel; `/_dev/` ต่อให้เดา URL ได้ก็เจอ 403 (IP จริงไม่อยู่ใน allowlist) |
 | **rate limit** | login 10/นาที/คน, API 120/นาที/คน — พอสำหรับเล่น ถ้าเจอ 429 บ่อยตอนคนเยอะ บอกผมปรับเพิ่มได้ |
