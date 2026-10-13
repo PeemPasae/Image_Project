@@ -251,6 +251,7 @@
   color: var(--text);
   font-size: 14px;
 }
+[data-template='soft'] .field input[type="range"] { padding: 0; background: transparent; }
 [data-template='soft'] .field input:focus,
 [data-template='soft'] .field select:focus,
 [data-template='soft'] .field textarea:focus {
