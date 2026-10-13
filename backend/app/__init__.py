@@ -76,6 +76,13 @@ def create_app(test_config=None) -> Flask:
     if test_config:
         app.config.update(test_config)
 
+    # [แก้บัค] ไม่ยอมเปิด backend ถ้าไม่มีรหัสลับสำหรับเซ็น JWT (กันคนปลอม token)
+    if not app.config.get("SECRET_KEY"):
+        raise RuntimeError(
+            "ยังไม่ได้ตั้ง JWT_SECRET_KEY ในไฟล์ backend/.env — "
+            "สร้างได้ด้วย: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+        )
+
     # 4. กำหนดค่า CORS ให้รองรับการเรียกจาก Frontend ทั้ง Localhost และ LAN
     CORS(
         app,
@@ -132,10 +139,10 @@ def create_app(test_config=None) -> Flask:
     @app.route("/api/v1/health", methods=["GET"])
     def health_check():
         """GET /health หรือ /api/v1/health ตรวจสอบความพร้อมทำงานของระบบ Backend"""
+        # [แก้บัค] ไม่ส่ง IP ของเครื่อง AI กลับไป เพราะ endpoint นี้ใครก็เปิดได้
         return success_response({
             "status": "healthy",
             "database": "connected",
-            "ai_server_url": app.config.get("AI_SERVER_URL"),
         }, status_code=200)
 
     # 6.2 ตัวดักจับข้อผิดพลาดขนาดไฟล์เกินกำหนด (413 Payload Too Large)
@@ -147,6 +154,18 @@ def create_app(test_config=None) -> Flask:
             "Uploaded file exceeds the maximum allowed limit of 16 MB",
             413
         )
+
+    # 6.3 [แก้บัค] error อื่น ๆ ทั้งหมดให้ตอบเป็น JSON แบบเดียวกับ API ปกติ
+    #     เดิม Flask ตอบเป็นหน้า HTML (เช่น 404, 405, 500) ทำให้หน้าเว็บอ่าน error ไม่ออก
+    @app.errorhandler(Exception)
+    def handle_any_error(exc):
+        if isinstance(exc, HTTPException):
+            # error ที่ Flask รู้จัก เช่น 404 Not Found -> code "NOT_FOUND"
+            code = exc.name.upper().replace(" ", "_")
+            return error_response(code, exc.description, exc.code)
+        # error ที่ไม่คาดคิดในโค้ด -> บันทึก log แล้วตอบ 500
+        app.logger.exception("Unexpected error: %s", exc)
+        return error_response("INTERNAL_SERVER_ERROR", "Unexpected server error", 500)
 
     # 7. ครอบ wsgi_app ด้วย ProxyFix เพื่อให้อ่านค่าจาก Nginx Reverse Proxy ถูกต้อง
     #    (x_for=1, x_proto=1, x_host=1) ทำให้ request.remote_addr เป็น IP จริงของผู้ใช้

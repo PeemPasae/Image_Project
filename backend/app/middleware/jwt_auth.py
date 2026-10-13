@@ -25,10 +25,11 @@ def get_jwt_secret() -> str:
         return current_app.config["SECRET_KEY"]
 
     # ตรวจสอบตัวแปร JWT_SECRET_KEY หรือ JWT_SECRET จาก .env
+    # [แก้บัค] เดิมมีรหัสสำรองเขียนตายตัวไว้ในโค้ด (อยู่บน GitHub) ใครรู้ก็ปลอม token เป็น admin ได้
+    #          ตอนนี้ถ้าไม่ได้ตั้งรหัสลับ จะ error ทันทีแทน
     secret = os.getenv("JWT_SECRET_KEY") or os.getenv("JWT_SECRET")
     if not secret:
-        # กำหนดค่าสำรองสำหรับใช้งานในสภาพแวดล้อม Development
-        secret = "luma_default_jwt_secret_key_2026"
+        raise RuntimeError("ยังไม่ได้ตั้ง JWT_SECRET_KEY ในไฟล์ backend/.env")
     return secret
 
 
@@ -78,6 +79,15 @@ def token_required(f):
             # ตรวจสอบว่าใน Payload มี user_id หรือไม่
             if not request.user_id:
                 return error_response(UNAUTHORIZED, "Token payload is missing user_id", 401)
+
+            # [แก้บัค] เช็คว่าเจ้าของ token ยังอยู่ในระบบ และเป็น "คนเดิม" (email ตรงกัน)
+            # - ถ้า admin ลบผู้ใช้ไปแล้ว token เก่าต้องใช้ไม่ได้ทันที
+            # - ถ้ามีคนสมัครใหม่แล้วได้ ID ซ้ำกับคนที่ถูกลบ token เก่าจะ email ไม่ตรง จึงเข้าบัญชีคนใหม่ไม่ได้
+            from app.extensions import db
+            from app.models.user import User
+            owner = db.session.get(User, request.user_id)
+            if owner is None or owner.email != request.user_email:
+                return error_response(UNAUTHORIZED, "User account no longer exists", 401)
 
         except jwt.ExpiredSignatureError:
             # กรณี Token หมดอายุ (เกิน 24 ชั่วโมง)

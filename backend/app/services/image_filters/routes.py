@@ -5,6 +5,7 @@
 # ==============================================================================
 
 import json
+import math
 import re
 from io import BytesIO
 
@@ -13,6 +14,7 @@ import numpy as np
 from flask import Blueprint, request, send_file
 
 from app.middleware.jwt_auth import token_required
+from config import MAX_IMAGE_PIXELS
 from app.extensions import db
 from app.models.generation import Generation
 from app.services.image_filters.spot_blur import spot_blur
@@ -55,7 +57,7 @@ def process_spot_blur():
         isinstance(circles, list) and len(circles) > 0
         and all(
             isinstance(c, list) and len(c) == 3
-            and all(type(v) in (int, float) for v in c)
+            and all(_is_num(v) for v in c)   # [แก้บัค] ต้องเป็นตัวเลขจริง ไม่รับ NaN / Infinity
             and c[2] > 0
             for c in circles
         )
@@ -71,10 +73,13 @@ def process_spot_blur():
         )
 
     # 3. decode ภาพ (IMREAD_COLOR ทำให้เป็น BGR 3 ช่องเสมอ)
-    data = file.read()
-    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    img = _decode_image(file)
     if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+        return error_response(INVALID_IMAGE, DECODE_ERROR, 400)
+
+    # [แก้บัค] รัศมีต้องไม่เกินด้านยาวของรูป (เดิมส่งรัศมีเป็นแสนได้ ทำ backend ค้าง/ดับ)
+    if any(c[2] > max(img.shape[:2]) for c in circles):
+        return error_response(VALIDATION_ERROR, "circle radius must not exceed the image size", 400)
 
     # 4. เบลอ แล้วส่งกลับเป็น PNG
     result = spot_blur(img, circles, strength=strength, soft=(soft == "true"))
@@ -102,10 +107,26 @@ def _read_gesture_params(form):
     return num_hands, min_confidence
 
 
+DECODE_ERROR = "Unable to decode the uploaded image (file is corrupted or larger than 20 megapixels)"
+
+
 def _decode_image(file):
-    """แปลงไฟล์ที่อัปโหลดเป็นภาพ BGR ถ้า decode ไม่ได้คืน None"""
+    """แปลงไฟล์ที่อัปโหลดเป็นภาพ BGR ถ้า decode ไม่ได้คืน None
+
+    [แก้บัค] ทุกเครื่องมือใช้ฟังก์ชันนี้ตัวเดียว และถ้ารูปใหญ่เกิน 20 ล้านพิกเซล
+    OpenCV จะไม่ยอมเปิด (ตั้งค่าไว้ใน config.py) เราจับ error นั้นแล้วตอบว่า decode ไม่ได้
+    """
     data = file.read()
-    return cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    if not data:
+        return None
+    try:
+        img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    except cv2.error:
+        return None
+    # เช็คซ้ำอีกชั้น เผื่อ OpenCV ถูกโหลดก่อนที่ config.py จะตั้งค่าจำกัดไว้
+    if img is not None and img.shape[0] * img.shape[1] > MAX_IMAGE_PIXELS:
+        return None
+    return img
 
 
 @process_bp.route("/process/gesture", methods=["POST"])
@@ -128,7 +149,7 @@ def process_gesture():
     # 3. decode ภาพ
     img = _decode_image(file)
     if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+        return error_response(INVALID_IMAGE, DECODE_ERROR, 400)
 
     # 4. จดจำท่ามือ (ครั้งแรกอาจช้าเพราะต้องดาวน์โหลดหรือโหลดโมเดล)
     try:
@@ -150,8 +171,8 @@ MAX_POINTS = 5000
 
 
 def _is_num(v):
-    """ตัวเลขจริง ๆ (ไม่นับ True/False ที่ Python ถือว่าเป็น int)"""
-    return type(v) in (int, float)
+    """ตัวเลขจริง ๆ (ไม่นับ True/False ที่ Python ถือว่าเป็น int) และไม่ใช่ NaN / Infinity"""
+    return type(v) in (int, float) and math.isfinite(v)
 
 
 def _valid_rect(rect):
@@ -222,7 +243,7 @@ def process_remove_bg():
     # 3. decode ภาพ
     img = _decode_image(file)
     if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+        return error_response(INVALID_IMAGE, DECODE_ERROR, 400)
 
     # 4. ลบพื้นหลัง แล้วส่งกลับเป็น PNG (โปร่งใส = มีช่อง alpha)
     color = None if bg == "transparent" else tuple(int(bg[i:i + 2], 16) for i in (5, 3, 1))   # #RRGGBB -> (B, G, R)
@@ -276,10 +297,9 @@ def process_cartoonize():
         )
 
     # 3. decode ภาพ (IMREAD_COLOR ทำให้เป็น BGR 3 ช่องเสมอ)
-    data = file.read()
-    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    img = _decode_image(file)
     if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+        return error_response(INVALID_IMAGE, DECODE_ERROR, 400)
 
     # 4. แปลงภาพสไตล์การ์ตูน แล้วส่งกลับเป็น PNG
     try:
@@ -333,10 +353,9 @@ def process_tilt_shift():
             400,
         )
 
-    data = file.read()
-    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    img = _decode_image(file)
     if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+        return error_response(INVALID_IMAGE, DECODE_ERROR, 400)
 
     try:
         result = tilt_shift(
@@ -387,10 +406,9 @@ def process_hdr_enhancer():
             400,
         )
 
-    data = file.read()
-    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR) if data else None
+    img = _decode_image(file)
     if img is None:
-        return error_response(INVALID_IMAGE, "Unable to decode the uploaded image", 400)
+        return error_response(INVALID_IMAGE, DECODE_ERROR, 400)
 
     try:
         result = hdr_enhancer(
