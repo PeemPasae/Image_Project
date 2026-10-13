@@ -1,2 +1,4 @@
 # basic-auth ของหลังบ้าน — สร้างด้วย scripts/make_htpasswd.sh ห้าม commit
 luma_dev.htpasswd
+# โปรแกรม nginx สำหรับ Windows ที่แตกไว้รันในเครื่อง (ไม่ commit)
+win/

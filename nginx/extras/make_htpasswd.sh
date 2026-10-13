@@ -2,11 +2,11 @@
 # =====================================================================
 #  make_htpasswd.sh — สร้าง/เพิ่ม user ในไฟล์ luma_dev.htpasswd (basic auth ของหลังบ้าน)
 #
-#    bash scripts/make_htpasswd.sh <username>          # ถามรหัสผ่าน (ไม่โชว์บนจอ)
-#    bash scripts/make_htpasswd.sh <username> <pass>
+#    bash nginx/extras/make_htpasswd.sh <username>          # ถามรหัสผ่าน (ไม่โชว์บนจอ)
+#    bash nginx/extras/make_htpasswd.sh <username> <pass>
 #
 #  ใช้ได้ทั้ง Git Bash (Windows) และ Linux — ต้องมี openssl
-#  ผลลัพธ์อยู่ที่ nginx/luma_dev.htpasswd → ก๊อปไปวางข้าง nginx.conf บนเครื่อง nginx
+#  ผลลัพธ์อยู่ที่ nginx/luma_dev.htpasswd → START.bat ก๊อปเข้า nginx ให้เองตอนเปิด
 # =====================================================================
 set -euo pipefail
 

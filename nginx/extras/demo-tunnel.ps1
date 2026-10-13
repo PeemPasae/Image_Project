@@ -7,16 +7,19 @@
 #
 #  Requires (the script checks): nginx on :80, backend running, SD WebUI running.
 #
-#    powershell -ExecutionPolicy Bypass -File nginx\scripts\demo-tunnel.ps1
+#    powershell -ExecutionPolicy Bypass -File nginx\extras\demo-tunnel.ps1
+#
+#  Put cloudflared.exe in nginx\win\ (or C:\nginx\) first.
 #
 #  หมายเหตุ (ไทย): สคริปต์นี้เปิดเว็บให้รุ่นน้องเข้าจากนอกวง LAN ชั่วคราว
 #  ชี้เข้า nginx พอร์ต 80 อย่างเดียว ไม่แตะพอร์ตหลังบ้าน (8089/5000/8088)
 # =====================================================================
 $ErrorActionPreference = "Stop"
-$cf = "C:\nginx\cloudflared.exe"
+$cf = Join-Path $PSScriptRoot "..\win\cloudflared.exe"
+if (-not (Test-Path $cf)) { $cf = "C:\nginx\cloudflared.exe" }
 
 if (-not (Test-Path $cf)) {
-    Write-Host "cloudflared not found at $cf" -ForegroundColor Red
+    Write-Host "cloudflared.exe not found - put it in nginx\win\" -ForegroundColor Red
     Write-Host "Download: https://github.com/cloudflare/cloudflared/releases/latest"
     exit 1
 }
@@ -24,7 +27,7 @@ if (-not (Test-Path $cf)) {
 # nginx :80 must be up
 $ok = Test-NetConnection 127.0.0.1 -Port 80 -InformationLevel Quiet -WarningAction SilentlyContinue
 if (-not $ok) {
-    Write-Host "nginx :80 is not running - go to C:\nginx and run .\nginx.exe first" -ForegroundColor Red
+    Write-Host "nginx :80 is not running - double-click nginx\START.bat first" -ForegroundColor Red
     exit 1
 }
 

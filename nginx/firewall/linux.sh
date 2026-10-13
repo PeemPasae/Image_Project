@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  firewall-linux.sh — เวอร์ชัน ufw (Ubuntu) ของสคริปต์ .ps1 สองตัวข้างบน
+#  linux.sh — เวอร์ชัน ufw (Ubuntu) ของ for-nginx.ps1 / for-ai.ps1 (ใช้เมื่อเครื่องนั้นเป็น Linux)
 #
-#    sudo bash scripts/firewall-linux.sh backend            # เครื่อง Backend/nginx
-#    sudo bash scripts/firewall-linux.sh ai 172.20.56.158    # เครื่อง AI Server (ระบุ IP backend)
+#    sudo bash nginx/firewall/linux.sh backend            # เครื่อง nginx
+#    sudo bash nginx/firewall/linux.sh ai 192.168.1.169    # เครื่อง AI Server (ระบุ IP backend)
 # =====================================================================
 set -euo pipefail
 
 ROLE="${1:-}"
-BACKEND_IP="${2:-172.20.56.158}"
+BACKEND_IP="${2:-192.168.1.169}"
 
 case "$ROLE" in
   backend)

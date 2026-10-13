@@ -1,16 +1,16 @@
 ﻿# =====================================================================
-#  firewall-ai-server.ps1 — รันบน "เครื่อง AI Server" (172.20.56.221) แบบ Run as Administrator
+#  for-ai.ps1 — รันบน "เครื่อง AI Server" (ตอนนี้ 192.168.1.160) แบบ Run as Administrator
 #
-#  ผล: พอร์ต 8088 (SD WebUI --listen) รับได้จาก "เครื่อง Backend/nginx" เท่านั้น
-#      → คนอื่นในวง LAN เปิด http://172.20.56.221:8088 ไม่ได้อีกต่อไป
-#      → ทีม DEV เข้า WebUI ผ่าน http://<backend-ip>:8089 (nginx คัด IP + รหัสผ่าน)
+#  ผล: พอร์ต 8088 (SD WebUI) รับได้จาก "เครื่อง Backend" เท่านั้น
+#      → เครื่องอื่นในวง LAN เปิด http://<IP เครื่อง AI>:8088 ไม่ได้
+#      → บนเครื่อง AI เองยังเปิด http://127.0.0.1:8088 ได้ปกติ
 #
-#  เปลี่ยน IP ของเครื่อง Backend ที่ $BackendIp ให้ตรงก่อนรัน
+#  IP ของเครื่อง Backend ใส่ไว้ที่ $BackendIp ข้างล่าง (หรือส่งเข้ามา: -BackendIp x.x.x.x)
 #  ถอนออก:  Get-NetFirewallRule -DisplayName "LUMA *" | Remove-NetFirewallRule
 # =====================================================================
 #Requires -RunAsAdministrator
 param(
-    [string]$BackendIp = "172.20.56.158"
+    [string]$BackendIp = "192.168.1.169"
 )
 
 $ErrorActionPreference = "Stop"
