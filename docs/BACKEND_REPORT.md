@@ -23,28 +23,29 @@
 +-----------------------------------------------------------------------------------+
                                          │
                                          ▼ Port 5000 (Host 0.0.0.0)
-+-----------------------------------------------------------------------------------+
-|                               FLASK BACKEND (run.py)                              |
-|                                                                                   |
-|   +---------------------------------------------------------------------------+   |
-|   |                       JWT AUTH MIDDLEWARE (@token_required)               |   |
-|   +---------------------------------------------------------------------------+   |
-|                                         │                                         |
-|   +-------------------+-----------------+-------------------+-----------------+   |
-|   │                   │                 │                   │                 │   |
-|   ▼                   ▼                 ▼                   ▼                 ▼   |
-| [auth_bp]         [sd_bp]          [history_bp]        [profile_bp]      [process_bp] |
-| /register         /generate        /history            /profile          /process/*   |
-| /login            /estimate        /history/:id                          (OpenCV &    |
-|                   /models          (DELETE)                              MediaPipe)   |
-|                   /images/:id                                                 │   |
-|                       │                                                       │   |
-|                       ▼                                                       ▼   |
-|               [services/ai_client.py]                         [services/image_filters]|
-|               - Concurrency GPU Lock (Mutex)                  - Spot Blur (OpenCV)    |
-|               - Queue Counter & Time Estimation               - Gesture (MediaPipe)   |
-|               - SD WebUI / Forge REST Client                  - Remove BG (GrabCut)   |
-+-----------------------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------+
+|                               FLASK BACKEND (run.py)                                              |
+|                                                                                                   |
+|   +-------------------------------------------------------------------------------------------+   |
+|   |                       JWT AUTH MIDDLEWARE (@token_required, @admin_required)              |   |
+|   +-------------------------------------------------------------------------------------------+   |
+|                                         │                                                         |
+|   +---------------+---------------+-----+---------+---------------+---------------+           |
+|   │               │               │               │               │               │           |
+|   ▼               ▼               ▼               ▼               ▼               ▼           |
+| [auth_bp]       [sd_bp]      [history_bp]    [profile_bp]    [admin_bp]      [process_bp]     |
+| /register       /generate    /history        /profile        /admin/users    /process/*       |
+| /login          /estimate    /history/:id                    (GET & DELETE)  - spot-blur      |
+|                 /models      (DELETE)                                        - gesture        |
+|                 /images/:id                                                  - remove-bg      |
+|                     │                                                        - cartoonize     |
+|                     ▼                                                        - tilt-shift     |
+|             [services/ai_client.py]                                          - hdr-enhancer   |
+|             - Concurrency GPU Lock (Mutex)                                        │           |
+|             - Queue Counter & Time Estimation                                     ▼           |
+|             - SD WebUI / Forge REST Client                            [services/image_filters]|
+|                                                                       (Pure Filter Algorithms)|
++---------------------------------------------------------------------------------------------------+
              │                                                   │
              ▼                                                   ▼
 +-----------------------------+                 +-----------------------------------+
@@ -61,15 +62,19 @@
 ## 2. หน้าที่และความรับผิดชอบของแต่ละไฟล์ (File Breakdown)
 
 ### 2.1 โครงสร้างระดับ Root และการรันระบบ
-* **[`backend/run.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/run.py)**: จุดเริ่มต้นรันเซิร์ฟเวอร์ (Entry Point) ดึงค่าพอร์ตจาก Environment (`PORT=5000`) เริ่มการทำงานของ Flask App บน Host `0.0.0.0`
+* **[`backend/run.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/run.py)**: จุดเริ่มต้นรันเซิร์ฟเวอร์ (Entry Point) ดึงค่าพอร์ตจาก Environment (`PORT=5000`) ตรวจสอบไฟล์โมเดล AI ล่วงหน้า และเริ่มการทำงานของ Flask App บน Host `0.0.0.0`
 * **[`backend/config.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/config.py)**: ศูนย์กลางการตั้งค่า (Central Configuration) เช่น คีย์ลับ `JWT_SECRET_KEY`, อายุ Token (24 ชม.), รายการ `CORS_ORIGINS` ที่อนุญาตสำหรับ Localhost และ LAN, รวมถึง URL ของ AI Server (`AI_SERVER_URL`)
+* **[`backend/gunicorn_conf.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/gunicorn_conf.py)**: คอนฟิกูเรชันสำหรับ Production WSGI Server (Gunicorn) กำหนด `workers=1` และ `threads=8` เพื่อรักษา Threading Lock ของ GPU Queue ให้ทำงานได้ 100%
 
 ### 2.2 แกนหลักของแอปพลิเคชัน (`backend/app/`)
 * **[`backend/app/__init__.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/__init__.py)**: 
-  - สร้าง Application Instance ผ่านฟังก์ชัน `create_app()`
+  - สร้าง Application Instance ผ่านฟังก์ชัน `create_app()` ออกแบบตาม **Clean Application Factory Pattern**
   - กำหนดค่าฐานข้อมูล SQLite ชี้ไปที่ `database/database.db`
-  - ทำการลงทะเบียน Blueprints ทั้ง 5 ตัว: `auth_bp`, `profile_bp`, `sd_bp`, `history_bp`, และ `process_bp` ภายใต้ URL Prefix `/api/v1`
-  - มีระบบ **Auto Schema Migration** ตรวจสอบโครงสร้างคอลัมน์ในตารางฐานข้อมูลและเพิ่มคอลัมน์ใหม่อัตโนมัติเมื่อเริ่มระบบ (เช่น `image_data`, `category`, `action_type`, `params`, `source_image_id`)
+  - ตั้งค่า Centralized Logging และ CORS
+  - ลงทะเบียน Blueprints ทั้งหมดผ่าน `register_routes(app)`
+  - ให้บริการ `/health` และ `/api/v1/health` สำหรับ Health Check
+  - ดักจับ `RequestEntityTooLarge` (413 Payload Too Large) ป้องกัน DoS
+  - เรียกใช้ระบบ **Auto Schema Migration** ผ่าน `run_auto_migrations(db)`
 * **[`backend/app/extensions.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/extensions.py)**: ประกาศตัวแปร `db = SQLAlchemy()` กลาง เพื่อให้ทุกโมดูลเรียกใช้งานได้โดยไม่เกิดปัญหา Circular Import
 
 ### 2.3 ฐานข้อมูลและโมเดล (`backend/app/models/`)
@@ -77,58 +82,73 @@
   - `id` (INTEGER PRIMARY KEY)
   - `email` (VARCHAR 255 UNIQUE INDEX)
   - `password_hash` (VARCHAR 255)
+  - `role` (VARCHAR 20, ค่าเริ่มต้น `user` หรือ `admin`)
   - `created_at` (DATETIME)
   - ความสัมพันธ์แบบ Cascade Delete ไปยังตาราง `generations` (เมื่อลบ User ประวัติและภาพทั้งหมดของ User นั้นจะถูกลบตามทันที)
 * **[`backend/app/models/generation.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/models/generation.py)** (ตาราง `generations`):
   - `id` (INTEGER PRIMARY KEY)
   - `user_id` (INTEGER FOREIGN KEY เชื่อมกับ `users.id`)
-  - `category` (VARCHAR 50, ค่าเริ่มต้น `sd_generate` สำหรับภาพที่สร้างจาก AI Checkpoint)
-  - `action_type` (VARCHAR 50, เช่น `txt2img`)
+  - `category` (VARCHAR 50, ค่าเริ่มต้น `sd_generate` สำหรับภาพที่สร้างจาก AI Checkpoint และ `image_filter` สำหรับฟังก์ชันแต่งภาพ)
+  - `action_type` (VARCHAR 50, เช่น `txt2img`, `cartoonize`, `spot_blur`, `tilt_shift`, `hdr_enhancer`, `remove_bg`)
   - `prompt`, `negative_prompt`, `checkpoint`, `sampler`, `width`, `height`, `steps`, `cfg_scale`, `seed`
   - `params` (TEXT เก็บค่าพารามิเตอร์ทั้งหมดในรูปแบบ JSON String)
-  - `image_data` (BLOB / LargeBinary): จัดเก็บไฟล์ภาพไบนารีลงในฐานข้อมูลโดยตรง ป้องกันข้อผิดพลาดเรื่อง Path และรองรับการจัดการสิทธิ์
+  - `source_image_id` (INTEGER อ้างอิงภาพต้นฉบับกรณีแต่งภาพต่อยอด)
+  - `image_path` (VARCHAR 500 เส้นทางไฟล์ภาพบน Disk Storage เพื่อเร่งความเร็วในการอ่านข้อมูล)
+  - `image_data` (BLOB / LargeBinary): จัดเก็บไฟล์ภาพไบนารีลงในฐานข้อมูลโดยตรง ป้องกันข้อผิดพลาดเรื่อง Path ข้ามเครื่องและรองรับความปลอดภัย
   - `created_at` (DATETIME สำหรับจัดเรียงประวัติล่าสุด)
 
 ### 2.4 ระบบความปลอดภัยและมิดเดิลแวร์ (`backend/app/middleware/`)
 * **[`backend/app/middleware/jwt_auth.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/middleware/jwt_auth.py)**:
-  - สร้าง Decorator `@token_required` ป้องกันเส้นทาง Protected Routes
-  - ตรวจสอบความถูกต้องของ Header `Authorization: Bearer <token>`
-  - ถอดรหัส JSON Web Token (HS256) และสกัด `request.user_id` ออกมา
-  - ตรวจสอบอายุ Token (ไม่เกิน 24 ชั่วโมง) ป้องกันการเข้าถึงโดยไม่ได้รับอนุญาต
+  - `@token_required`: ป้องกัน Protected Routes ตรวจสอบ Header `Authorization: Bearer <token>`, ตรวจสอบอายุ Token (24 ชม.), และสกัด `request.user_id`
+  - `@admin_required`: ตรวจสอบสิทธิ์ระดับผู้ดูแลระบบ (`role == 'admin'`) สำหรับ Endpoint เฉพาะของ Admin
 
 ### 2.5 เส้นทาง API (API Routes: `backend/app/routes/`)
+* **[`backend/app/routes/__init__.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/__init__.py)**: รวมศูนย์ฟังก์ชัน `register_routes(app)` ลงทะเบียน Blueprints ทั้งหมดและ URL Aliases ในจุดเดียว
 * **[`backend/app/routes/auth.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/auth.py)** (`auth_bp`):
-  - `POST /api/v1/register`: ตรวจสอบความถูกต้องของอีเมลด้วย Regex, รหัสผ่านขั้นต่ำ 8 ตัวอักษร, เช็กอีเมลซ้ำ (`EMAIL_EXISTS`), แฮชรหัสผ่านด้วย PBKDF2/SHA256 ก่อนบันทึก
+  - `POST /api/v1/register`: ตรวจสอบความถูกต้องของอีเมลด้วย Regex, รหัสผ่านขั้นต่ำ 8 ตัวอักษร, เช็กอีเมลซ้ำ (`EMAIL_EXISTS`), แฮชรหัสผ่านด้วย PBKDF2/SHA256
   - `POST /api/v1/login`: ตรวจสอบรหัสผ่านกับค่า Hash และออก JWT Access Token อายุ 24 ชั่วโมง
 * **[`backend/app/routes/sd.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/sd.py)** (`sd_bp`):
   - `GET /api/v1/models`: ดึงรายชื่อโมเดล Checkpoints จาก Stable Diffusion AI Server
   - `POST /api/v1/estimate`: คำนวณเวลาประเมินล่วงหน้าก่อนสร้างภาพ
-  - `POST /api/v1/generate`: รับค่าพารามิเตอร์ -> ตรวจสอบ Validation -> ส่งเข้าคิว GPU Lock -> สั่ง AI Server สร้างภาพ -> แปลงเป็น Binary BLOB -> บันทึกลงตาราง `generations`
+  - `POST /api/v1/generate`: รับค่าพารามิเตอร์ -> Validation -> เข้าคิว Mutex GPU Lock -> สั่ง AI Server สร้างภาพ -> จัดเก็บ BLOB และ Disk -> ส่งคืนสถานะ
   - `GET /api/v1/images/<id>`: สตรีมไฟล์ภาพ PNG กลับไปแสดงผลบน Frontend พร้อมระบบตรวจสอบความเป็นเจ้าของภาพ (Anti-Hopping / IDOR Protection)
 * **[`backend/app/routes/history.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/history.py)** (`history_bp`):
-  - `GET /api/v1/history`: ดึงรายการประวัติภาพของผู้ใช้ปัจจุบัน รองรับการแบ่งหน้า (Pagination) และการกรองตามประเภท
-  - `GET /api/v1/history/<id>`: ดูรายละเอียดพารามิเตอร์ของภาพ
-  - `DELETE /api/v1/history/<id>`: ลบภาพของตนเองออกจากระบบ พร้อมระบบป้องกัน IDOR
+  - `GET /api/v1/history`: ดึงรายการประวัติภาพของผู้ใช้ปัจจุบัน รองรับการแบ่งหน้า (Pagination) และการกรองตามหมวดหมู่ (`category`) หรือประเภท (`type`)
+  - `GET /api/v1/history/<id>`: ดูรายละเอียดพารามิเตอร์ของภาพ (ป้องกัน IDOR)
+  - `DELETE /api/v1/history/<id>`: ลบภาพของตนเองออกจากระบบ พร้อมลบไฟล์ดิสก์
 * **[`backend/app/routes/profile.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/profile.py)** (`profile_bp`):
   - `GET /api/v1/profile`: ดึงข้อมูลโปรไฟล์ผู้ใช้ และสรุปสถิติจำนวนภาพที่สร้าง
+* **[`backend/app/routes/admin.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/admin.py)** (`admin_bp`):
+  - `GET /api/v1/admin/users`: ดึงรายชื่อผู้ใช้ทั้งหมดในระบบพร้อมสถิติการสร้างภาพ (Admin Only)
+  - `DELETE /api/v1/admin/users/<id>`: ลบบัญชีผู้ใช้ ล้างข้อมูลประวัติและไฟล์ภาพทั้งหมด ป้องกัน Admin ลบบัญชีตนเอง
+* **[`backend/app/routes/process.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/process.py)** (`process_bp`):
+  - รวมเส้นทาง API สำหรับ Image Processing ทั้งหมดภายใต้ `/api/v1/process/*`
+  - `/process/spot-blur`: เบลอเฉพาะจุด
+  - `/process/gesture`: จดจำท่าทางมือ
+  - `/process/remove-bg`: ลบพื้นหลัง
+  - `/process/cartoonize`: แปลงเป็นภาพการ์ตูน
+  - `/process/tilt-shift`: จำลองโมเดลจิ๋ว
+  - `/process/hdr-enhancer`: เพิ่มมิติและความคมชัดสไตล์ HDR
 
 ### 2.6 บริการเชื่อมต่อ AI (`backend/app/services/ai_client.py`)
 * **[`backend/app/services/ai_client.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/services/ai_client.py)**:
   - **ระบบจัดการคิวงานพร้อมกัน (Concurrency Queue)**: ใช้ `threading.Lock` ป้องกันคำขอชนกันเมื่อมีผู้ใช้สั่งสร้างภาพพร้อมกันหลายคน โดยให้ GPU ประมวลผลทีละ 1 งานอย่างปลอดภัย ป้องกันปัญหา CUDA Out of Memory
   - **ระบบประเมินเวลา (Time Estimation)**: คำนวณจากความละเอียดภาพ (Width x Height), จำนวน Steps, และจำนวนงานที่กำลังรอคิวอยู่ในระบบ
-  - **ระบบ Timeout & Error Handling**: จำกัดเวลาประมวลผลสูงสุด 75 วินาที และเวลารอคิวสูงสุด 120 วินาที
+  - **ระบบ Timeout & Error Handling**: จำกัดเวลาประมวลผลสูงสุด 75 วินาที และเวลารอคิวสูงสุด 40 วินาที เพื่อตอบกลับก่อนที่ Reverse Proxy จะตัดการเชื่อมต่อ
 
 ### 2.7 บริการประมวลผลภาพคอมพิวเตอร์วิทัศน์ (`backend/app/services/image_filters/`)
-* **[`backend/app/services/image_filters/routes.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/services/image_filters/routes.py)** (`process_bp`):
-  - จุดรับคำขอ API สำหรับการประมวลผลภาพบน Backend (OpenCV & MediaPipe) ภายใต้ Prefix `/api/v1/process/*`
-  - ตรวจสอบไฟล์ภาพ (.jpg, .jpeg, .png, .webp) และพารามิเตอร์ต่าง ๆ
-  - คืนผลลัพธ์เป็นภาพสตรีม PNG หรือข้อมูล JSON ตามฟังก์ชันที่เรียกใช้
-  - *(รายละเอียดอัลกอริทึม อธิบายแยกไว้ใน [IMAGE_PROCESSING_REPORT.md](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/docs/IMAGE_PROCESSING_REPORT.md))*
+* **Pure Filter Algorithms**: อัลกอริทึมประมวลผลภาพถูกจัดให้อยู่ในรูปแบบ Pure Python Functions ที่รับและคืนค่า `np.ndarray` โดยไม่มีความผูกพันกับ Flask HTTP Request:
+  - `spot_blur.py`: อัลกอริทึม Gaussian Blur + Soft Masking
+  - `cartoonize.py`: อัลกอริทึม Bilateral Filter + K-Means Color Quantization + Adaptive Edge
+  - `tilt_shift.py`: อัลกอริทึม Progressive Smoothstep Depth Map + Color Saturation Boost
+  - `hdr_enhancer.py`: อัลกอริทึม Gray World White Balance + CLAHE บน L-channel + Multi-scale Unsharp Mask
+  - `remove_bg.py`: อัลกอริทึม MediaPipe Segmentation + Interactive GrabCut
+  - `gesture.py`: อัลกอริทึม MediaPipe Gesture Recognizer พร้อม Auto-download และ Model Caching
 
-### 2.8 ยูทิลิตี้และมาตรฐานการตอบกลับ (`backend/app/utils/error_codes.py`)
-* **[`backend/app/utils/error_codes.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/utils/error_codes.py)**:
-  - กำหนดฟังก์ชันมาตรฐาน `success_response()` และ `error_response()`
-  - กำหนดรหัสข้อผิดพลาด 14 รูปแบบตามสเปก LUMA API Envelope
+### 2.8 ยูทิลิตี้และระบบสนับสนุน (`backend/app/utils/`)
+* **[`backend/app/utils/error_codes.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/utils/error_codes.py)**: ฟังก์ชันสร้าง Envelope Response (`success_response()`, `error_response()`) และค่าคงที่ Error Codes มาตรฐานทั้งหมด
+* **[`backend/app/utils/image_helpers.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/utils/image_helpers.py)**: ฟังก์ชันตัวช่วยตรวจสอบไฟล์ภาพ (`extract_uploaded_image`) ตรวจนามสกุล แปลงเป็น OpenCV Matrix และสตรีมภาพ PNG (`send_image_png`) ลดความซ้ำซ้อนของโค้ด
+* **[`backend/app/utils/db_migrations.py`](file:///c:/Uni_Work%27/3_1/Img_pro_code/Main/Image_Project/backend/app/utils/db_migrations.py)**: ฟังก์ชัน `run_auto_migrations(db)` ตรวจสอบโครงสร้างตารางและรัน `ALTER TABLE` เพิ่มคอลัมน์ใหม่อัตโนมัติเมื่อเริ่มแอป
 
 ---
 
@@ -261,23 +281,25 @@
 
 | หมวดหมู่ | HTTP Method | API Path | จำเป็นต้องมี Token? | หน้าที่การทำงาน |
 | :--- | :---: | :--- | :---: | :--- |
-| **Authentication** | `POST` | `/api/v1/register` | ❌ ไม่ต้องมี | สมัครสมาชิกผู้ใช้งานใหม่ |
-| **Authentication** | `POST` | `/api/v1/login` | ❌ ไม่ต้องมี | ตรวจสอบรหัสผ่านและรับ JWT Token |
-| **Stable Diffusion** | `GET` | `/api/v1/models` | ❌ ไม่ต้องมี | ดึงรายชื่อโมเดล AI Checkpoints |
-| **Stable Diffusion** | `POST` | `/api/v1/estimate` | ❌ ไม่ต้องมี | คำนวณเวลาโดยประมาณในการสร้างภาพ |
-| **Stable Diffusion** | `POST` | `/api/v1/generate` | 🔒 มี Token | สั่งสร้างรูปภาพ AI (ผูกกับเจ้าของบัญชี) |
-| **Image Delivery** | `GET` | `/api/v1/images/:id` | 🔒 มี Token | สตรีมไฟล์ภาพ PNG (จำกัดสิทธิ์เฉพาะเจ้าของ) |
-| **History** | `GET` | `/api/v1/history` | 🔒 มี Token | ดึงประวัติการสร้างภาพ (รองรับ Pagination & Filter) |
-| **History** | `GET` | `/api/v1/history/:id` | 🔒 มี Token | ดึงรายละเอียดพารามิเตอร์ของภาพ |
-| **History** | `DELETE` | `/api/v1/history/:id` | 🔒 มี Token | ลบภาพประวัติของตนเองออกจากระบบ |
-| **Profile** | `GET` | `/api/v1/profile` | 🔒 มี Token | ดูข้อมูลโปรไฟล์และสรุปสถิติจำนวนภาพที่สร้าง |
-| **Image Processing** | `POST` | `/api/v1/process/spot-blur` | 🔒 มี Token | เบลอเฉพาะจุดตามตำแหน่งพิกัดวงกลม |
-| **Image Processing** | `POST` | `/api/v1/process/gesture` | 🔒 มี Token | จดจำท่าทางมือจากรูปภาพนิ่ง |
-| **Image Processing** | `POST` | `/api/v1/process/gesture/frame` | 🔒 มี Token | ตรวจจับท่าทางมือจากเฟรมเว็บแคมแบบเรียลไทม์ |
-| **Image Processing** | `POST` | `/api/v1/process/gesture/stop` | 🔒 มี Token | ปิดการใช้งานกล้องและคืนหน่วยความจำเซสชัน |
+| **System** | `GET` | `/health` หรือ `/api/v1/health` | ❌ ไม่ต้องมี | ตรวจสอบสถานะการเชื่อมต่อเซิร์ฟเวอร์และ AI Server |
+| **Authentication** | `POST` | `/api/v1/register` | ❌ ไม่ต้องมี | สมัครสมาชิกผู้ใช้งานใหม่ (ตรวจอีเมลซ้ำ, แฮชรหัสผ่าน) |
+| **Authentication** | `POST` | `/api/v1/login` | ❌ ไม่ต้องมี | ตรวจสอบรหัสผ่านและรับ JWT Access Token |
+| **Stable Diffusion** | `GET` | `/api/v1/models` | ❌ ไม่ต้องมี | ดึงรายชื่อโมเดล AI Checkpoints ทั้งหมดจาก AI Server |
+| **Stable Diffusion** | `POST` | `/api/v1/estimate` | ❌ ไม่ต้องมี | คำนวณเวลาประเมินล่วงหน้าในการสร้างภาพตามขนาดและ Steps |
+| **Stable Diffusion** | `POST` | `/api/v1/generate` | 🔒 มี Token | สั่งสร้างรูปภาพ AI พร้อมระบบคิว Concurrency GPU Lock |
+| **Image Delivery** | `GET` | `/api/v1/images/:id` | 🔒 มี Token | สตรีมไฟล์ภาพ PNG (จำกัดสิทธิ์เฉพาะเจ้าของ ป้องกัน IDOR) |
+| **History** | `GET` | `/api/v1/history` | 🔒 มี Token | ดึงประวัติการสร้างภาพ (รองรับ Pagination, Category & Type Filter) |
+| **History** | `GET` | `/api/v1/history/:id` | 🔒 มี Token | ดึงรายละเอียดพารามิเตอร์ของภาพแบบเจาะลึก |
+| **History** | `DELETE` | `/api/v1/history/:id` | 🔒 มี Token | ลบภาพประวัติของตนเอง พร้อมล้างไฟล์ภาพบนดิสก์ |
+| **Profile** | `GET` | `/api/v1/profile` | 🔒 มี Token | ดูข้อมูลโปรไฟล์และสรุปสถิติจำนวนภาพที่สร้างทั้งหมด |
+| **Admin** | `GET` | `/api/v1/admin/users` | 👑 Admin Only | ดึงรายชื่อผู้ใช้ทั้งหมดในระบบพร้อมสถิติภาพของแต่ละคน |
+| **Admin** | `DELETE` | `/api/v1/admin/users/:id` | 👑 Admin Only | ลบบัญชีผู้ใช้ พร้อมล้างประวัติและไฟล์ภาพทั้งหมด |
+| **Image Processing** | `POST` | `/api/v1/process/spot-blur` | 🔒 มี Token | เบลอเฉพาะจุดตามตำแหน่งพิกัดวงกลมที่ระบุ |
+| **Image Processing** | `POST` | `/api/v1/process/gesture` | 🔒 มี Token | ตรวจจับและจดจำท่าทางมือจากรูปภาพนิ่ง |
 | **Image Processing** | `POST` | `/api/v1/process/remove-bg` | 🔒 มี Token | ลบพื้นหลังภาพบุคคล (AI / GrabCut / แปรงเก็บ-ลบ) |
-| **Image Processing** | `POST` | `/api/v1/process/cartoonize` | 🔒 มี Token | อัปโหลดรูปภาพเพื่อแปลงเป็นสไตล์การ์ตูน/อนิเมะ (Bilateral + K-Means + Edge) |
-| **Image Processing** | `POST` | `/api/v1/process/cartoonize/:id` | 🔒 มี Token | นำภาพเดิมจากประวัติมาแปลงเป็นสไตล์การ์ตูน |
+| **Image Processing** | `POST` | `/api/v1/process/cartoonize` | 🔒 มี Token | แปลงรูปภาพเป็นสไตล์การ์ตูน/อนิเมะ (Bilateral + K-Means + Edge) |
+| **Image Processing** | `POST` | `/api/v1/process/tilt-shift` | 🔒 มี Token | จำลองเอฟเฟกต์ภาพถ่ายโมเดลจำลอง (Tilt-Shift Miniature) |
+| **Image Processing** | `POST` | `/api/v1/process/hdr-enhancer` | 🔒 มี Token | เพิ่มมิติและความคมชัดสไตล์ HDR (CLAHE + Detail Enhance) |
 
 ---
 

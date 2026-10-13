@@ -162,6 +162,7 @@ def login():
             "user_id": target_user.id,
             "email": target_user.email,
             "role": target_user.role or "user",
+            "is_admin": (target_user.role == "admin"),
             "exp": expiration_time
         }
         # เข้ารหัส Token ด้วย Secret Key และ Algorithm HS256

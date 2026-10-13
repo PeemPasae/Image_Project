@@ -52,5 +52,6 @@ class User(db.Model):
             "id": self.id,
             "email": self.email,
             "role": self.role or "user",
+            "is_admin": (self.role == "admin"),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

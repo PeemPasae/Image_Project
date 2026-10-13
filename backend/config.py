@@ -47,7 +47,7 @@ class Config:
     # 3. การตั้งค่าการเชื่อมต่อ AI Server (Stable Diffusion WebUI / Forge)
     # --------------------------------------------------------------------------
     # URL สำหรับเรียกใช้งาน Stable Diffusion Web API
-    AI_SERVER_URL = os.environ.get("AI_SERVER_URL", "http://172.20.57.0:8088")
+    AI_SERVER_URL = os.environ.get("AI_SERVER_URL", "http://192.168.1.160:8088")
 
     # เวลาสูงสุดที่รอการประมวลผลภาพจาก AI Server (วินาที) หากเกินจะตัดเป็น Timeout
     AI_SERVER_TIMEOUT_SECONDS = 75

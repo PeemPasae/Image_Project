@@ -169,18 +169,22 @@ def generate_backend_report(output_dir):
     file_rows = [
         ("backend/run.py", "จุดเริ่มต้นรันเซิร์ฟเวอร์ (Entry Point) กำหนดพอร์ต (PORT=5000) และเปิดบริการบน 0.0.0.0"),
         ("backend/config.py", "ศูนย์กลางคอนฟิกูเรชัน เช่น JWT Secret Key, CORS Origins, และ URL ของ AI Server"),
-        ("backend/app/__init__.py", "Application Factory สร้าง Flask App, ผูก SQLAlchemy, ลงทะเบียน 5 Blueprints และทำ Auto Schema Migration"),
+        ("backend/app/__init__.py", "Application Factory สร้าง Flask App, ผูก SQLAlchemy, และเรียกใช้ register_routes()"),
         ("backend/app/extensions.py", "ประกาศตัวแปรกลาง db = SQLAlchemy() ป้องกันปัญหา Circular Import"),
-        ("backend/app/models/user.py", "โมเดลตาราง users (id, email, password_hash, created_at) ผูก Cascade Delete ไปยังตารางภาพ"),
-        ("backend/app/models/generation.py", "โมเดลตาราง generations สำหรับบันทึกประวัติการสร้างภาพ AI พร้อมเก็บไฟล์เป็น BLOB"),
-        ("backend/app/middleware/jwt_auth.py", "มิดเดิลแวร์ @token_required ถอดรหัส user_id จาก Bearer JWT Token และตรวจอายุ Token"),
+        ("backend/app/models/user.py", "โมเดลตาราง users (id, email, role, password_hash, created_at) ผูก Cascade Delete ไปยังตารางภาพ"),
+        ("backend/app/models/generation.py", "โมเดลตาราง generations สำหรับบันทึกประวัติการสร้างภาพ AI และภาพฟิลเตอร์ พร้อมเก็บทั้งดิสก์และ BLOB"),
+        ("backend/app/middleware/jwt_auth.py", "มิดเดิลแวร์ @token_required ถอดรหัส user_id จาก Bearer JWT Token และ @admin_required ควบคุมสิทธิ์แอดมิน"),
+        ("backend/app/routes/__init__.py", "ศูนย์กลางลงทะเบียน Blueprint ทั้ง 6 ตัว และจัดการ URL Prefixes / Route Aliases ทั้งหมด"),
         ("backend/app/routes/auth.py", "เส้นทาง /register (ตรวจสอบอีเมลซ้ำ, แฮชรหัสผ่าน) และ /login (ตรวจสอบรหัสผ่าน, ออก JWT)"),
+        ("backend/app/routes/admin.py", "เส้นทาง /admin/users (ดึงรายชื่อผู้ใช้) และ DELETE /admin/users/:id (ลบบัญชีพร้อมลบภาพแบบ Cascade)"),
         ("backend/app/routes/sd.py", "เส้นทาง /generate (สร้างภาพ AI), /estimate (ประเมินเวลา), /images/:id (สตรีมภาพ PNG พร้อมเช็กเจ้าของ)"),
         ("backend/app/routes/history.py", "เส้นทาง /history (ดึงประวัติพร้อม Pagination & Filter), ดูรายละเอียด และลบประวัติของตนเอง"),
         ("backend/app/routes/profile.py", "เส้นทาง /profile ดึงข้อมูลส่วนตัวผู้ใช้ และสรุปสถิติจำนวนภาพที่สร้างทั้งหมด"),
+        ("backend/app/routes/process.py", "ศูนย์กลางรับคำขอ API ตกแต่งรูปภาพ OpenCV/MediaPipe (/api/v1/process/*)"),
         ("backend/app/services/ai_client.py", "ตัวเชื่อมต่อ Stable Diffusion Server พร้อมระบบ Concurrency Queue (GPU Lock) และระบบคำนวณเวลาประเมิน"),
-        ("backend/app/services/image_filters/routes.py", "จุดรับคำขอ API สำหรับการประมวลผลภาพบนเซิร์ฟเวอร์ (/api/v1/process/*)"),
-        ("backend/app/utils/error_codes.py", "ฟังก์ชันห่อ Response Format (success_response, error_response) และนิยาม Error Codes ทั้ง 14 รูปแบบ")
+        ("backend/app/utils/image_helpers.py", "Helper ฟังก์ชันกลางตรวจสอบ/ถอดรหัสรูปภาพ (extract_uploaded_image) และแปลงผลลัพธ์เป็น PNG (send_image_png)"),
+        ("backend/app/utils/db_migrations.py", "ระบบ SQLite Auto Schema Migration ตรวจสอบและเพิ่มคอลัมน์ใหม่อัตโนมัติ (เช่น role, generation_type)"),
+        ("backend/app/utils/error_codes.py", "ฟังก์ชันห่อ Response Format (success_response, error_response) และนิยาม Error Codes มาตรฐาน")
     ]
     render_table(doc, file_headers, file_rows, [Inches(2.3), Inches(4.2)])
 
@@ -214,13 +218,17 @@ def generate_backend_report(output_dir):
         ("GET", "/api/v1/history/:id", "ต้องมี", "ดึงรายละเอียดพารามิเตอร์ของภาพ"),
         ("DELETE", "/api/v1/history/:id", "ต้องมี", "ลบประวัติรูปภาพของตนเองออกจากระบบ"),
         ("GET", "/api/v1/profile", "ต้องมี", "ดึงข้อมูลโปรไฟล์และสรุปสถิติจำนวนภาพที่สร้าง"),
+        ("GET", "/api/v1/admin/users", "แอดมิน", "ดึงรายชื่อผู้ใช้ทั้งหมดในระบบพร้อมสถิติการใช้งาน"),
+        ("DELETE", "/api/v1/admin/users/:id", "แอดมิน", "ลบบัญชีผู้ใช้ พร้อมลบภาพและประวัติทั้งหมดแบบ Cascade"),
         ("POST", "/api/v1/process/spot-blur", "ต้องมี", "เบลอภาพเฉพาะจุดตามตำแหน่งพิกัดวงกลม"),
-        ("POST", "/api/v1/process/gesture", "ต้องมี", "จดจำท่าทางมือจากรูปภาพนิ่ง"),
+        ("POST", "/api/v1/process/cartoonize", "ต้องมี", "แปลงภาพเป็นสไตล์การ์ตูน/อนิเมะ"),
+        ("POST", "/api/v1/process/cartoonize/:id", "ต้องมี", "นำภาพเดิมจากประวัติมาแปลงเป็นการ์ตูน"),
+        ("POST", "/api/v1/process/tilt-shift", "ต้องมี", "สร้างเอฟเฟกต์ภาพจำลองย่อส่วน (Miniature)"),
+        ("POST", "/api/v1/process/hdr-enhancer", "ต้องมี", "ดึงมิติแสงเงาและรายละเอียดภาพด้วยเทคนิค CLAHE"),
+        ("POST", "/api/v1/process/gesture", "ต้องมี", "จดจำท่าทางมือจากรูปภาพนิ่งด้วย MediaPipe"),
         ("POST", "/api/v1/process/gesture/frame", "ต้องมี", "ตรวจจับท่าทางมือจากเว็บแคมแบบเรียลไทม์"),
         ("POST", "/api/v1/process/gesture/stop", "ต้องมี", "ปิดการใช้งานกล้องเว็บแคมและคืนหน่วยความจำ"),
-        ("POST", "/api/v1/process/remove-bg", "ต้องมี", "ตัดพื้นหลังภาพบุคคล (AI / GrabCut / แปรงเก็บ-ลบ)"),
-        ("POST", "/api/v1/process/cartoonize", "ต้องมี", "แปลงภาพเป็นสไตล์การ์ตูน/อนิเมะ"),
-        ("POST", "/api/v1/process/cartoonize/:id", "ต้องมี", "นำภาพเดิมจากประวัติมาแปลงเป็นการ์ตูน")
+        ("POST", "/api/v1/process/remove-bg", "ต้องมี", "ตัดพื้นหลังภาพบุคคล (AI / GrabCut / แปรงเก็บ-ลบ)")
     ]
     render_table(doc, api_headers, api_rows, [Inches(1.0), Inches(2.2), Inches(1.0), Inches(2.3)])
 
@@ -307,7 +315,10 @@ def generate_image_processing_report(output_dir):
         ("spot_blur.py", "ฟังก์ชันเบลอภาพเฉพาะจุดตามตำแหน่งพิกัดวงกลม พร้อมระบบเกลี่ยขอบนุ่ม (Feathering)"),
         ("gesture.py", "ระบบตรวจจับท่าทางมือจากภาพนิ่งและเว็บแคมเรียลไทม์ พร้อมระบบแคชและจัดการเซสชันผู้ใช้"),
         ("remove_bg.py", "ระบบตัดพื้นหลังภาพบุคคลแบบ Hybrid (AI + Interactive GrabCut + Matting Equation)"),
-        ("routes.py", "จุดรับคำขอ API (process_bp) ภายใต้ Prefix /api/v1/process/* และตรวจสอบสิทธิ์/ความถูกต้องของไฟล์")
+        ("cartoonize.py", "แปลงภาพเป็นสไตล์การ์ตูน/อนิเมะด้วย Bilateral Filter, Color Quantization (K-Means), และ Adaptive Thresholding"),
+        ("tilt_shift.py", "สร้างเอฟเฟกต์ภาพจำลองย่อส่วน (Miniature Effect) ด้วย Linear Gradient Blur และเร่งสี Saturation"),
+        ("hdr.py", "ดึงมิติและรายละเอียดแสงเงาของภาพด้วย CLAHE (Contrast Limited Adaptive Histogram Equalization) และ Unsharp Masking"),
+        ("app/routes/process.py", "ศูนย์กลางรับคำขอ API (process_bp) ภายใต้ Prefix /api/v1/process/* และตรวจสอบสิทธิ์/ความถูกต้องของไฟล์")
     ]
     render_table(doc, struct_headers, struct_rows, [Inches(1.8), Inches(4.7)])
 
@@ -373,12 +384,14 @@ def generate_image_processing_report(output_dir):
     proc_headers = ["Method", "Endpoint Path", "พารามิเตอร์สำคัญ", "ผลลัพธ์ตอบกลับ"]
     proc_rows = [
         ("POST", "/api/v1/process/spot-blur", "image, circles, strength, soft", "สตรีมภาพ PNG ที่เบลอเฉพาะจุด"),
+        ("POST", "/api/v1/process/cartoonize", "image, num_colors, line_thickness, smoothness", "สตรีมภาพ PNG สไตล์การ์ตูน/อนิเมะ"),
+        ("POST", "/api/v1/process/cartoonize/:id", "num_colors, line_thickness, smoothness", "JSON ข้อมูลภาพการ์ตูนที่บันทึกใหม่ในประวัติ"),
+        ("POST", "/api/v1/process/tilt-shift", "image, focus_position, focus_width, blur_strength, saturation_boost", "สตรีมภาพ PNG เอฟเฟกต์โมเดลย่อส่วน"),
+        ("POST", "/api/v1/process/hdr-enhancer", "image, clahe_clip_limit, detail_strength, color_balance", "สตรีมภาพ PNG ดึงมิติแสงเงาแบบ HDR"),
         ("POST", "/api/v1/process/gesture", "image, num_hands, min_confidence", "JSON สรุปผลชื่อท่าทาง และความมั่นใจ"),
         ("POST", "/api/v1/process/gesture/frame", "image (frame), num_hands, min_confidence", "JSON โครงกระดูกมือ 21 จุดและท่าทางสำหรับเว็บแคม"),
         ("POST", "/api/v1/process/gesture/stop", "-", "JSON ยืนยันการปิดเซสชันและคืนหน่วยความจำ"),
-        ("POST", "/api/v1/process/remove-bg", "image, use_ai, rect, strokes, bg", "สตรีมภาพ PNG โปร่งใส (BGRA) หรือเติมสีพื้นใหม่"),
-        ("POST", "/api/v1/process/cartoonize", "image, num_colors, line_thickness, smoothness", "สตรีมภาพ PNG สไตล์การ์ตูน/อนิเมะ"),
-        ("POST", "/api/v1/process/cartoonize/:id", "num_colors, line_thickness, smoothness", "JSON ข้อมูลภาพการ์ตูนที่บันทึกใหม่ในประวัติ")
+        ("POST", "/api/v1/process/remove-bg", "image, use_ai, rect, strokes, bg", "สตรีมภาพ PNG โปร่งใส (BGRA) หรือเติมสีพื้นใหม่")
     ]
     render_table(doc, proc_headers, proc_rows, [Inches(0.9), Inches(2.2), Inches(1.8), Inches(1.6)])
 

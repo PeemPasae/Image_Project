@@ -77,28 +77,3 @@ def test_cartoonize_upload_endpoint(client, auth_header, sample_image):
     assert res.mimetype == "image/png"
     assert len(res.data) > 0
 
-
-# ==============================================================================
-# [DISABLED TEST] การทดสอบสำหรับ Endpoint ที่ไม่ได้ใช้งานโดย Frontend
-# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
-# ==============================================================================
-# def test_cartoonize_generation_endpoint(client, auth_header, sample_image):
-#     """ทดสอบ POST /api/v1/process/cartoonize/:generation_id"""
-#     png_bytes = cv2.imencode(".png", sample_image)[1].tobytes()
-#     with client.application.app_context():
-#         gen0 = Generation(
-#             user_id=1,
-#             category="sd_generate",
-#             action_type="txt2img",
-#             image_data=png_bytes,
-#         )
-#         db.session.add(gen0)
-#         db.session.commit()
-#         gen0_id = gen0.id
-#     res = client.post(
-#         f"/api/v1/process/cartoonize/{gen0_id}",
-#         json={"num_colors": 4, "line_thickness": 2, "smoothness": 3},
-#         headers=auth_header,
-#     )
-#     assert res.status_code == 200
-

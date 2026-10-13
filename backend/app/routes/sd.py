@@ -11,7 +11,6 @@ import base64
 from io import BytesIO
 from flask import Blueprint, request, send_file, current_app
 
-# นำเข้าองค์ประกอบของ Database, Models, และ Middleware
 from app.extensions import db
 from app.models.user import User
 from app.models.generation import Generation
@@ -37,7 +36,6 @@ from app.utils.error_codes import (
     UNAUTHORIZED,
 )
 
-# สร้าง Flask Blueprint สำหรับกลุ่มเส้นทาง Stable Diffusion (/api/v1/...)
 sd_bp = Blueprint("sd", __name__)
 
 
@@ -46,14 +44,11 @@ def get_models():
     """
     GET /api/v1/models
     ดึงรายชื่อโมเดล Checkpoints ทั้งหมดจาก Stable Diffusion AI Server
-    เพื่อให้ Frontend นำไปแสดงใน Dropdown สำหรับเลือกโมเดล
     """
-    # รองรับ CORS Preflight Request
     if request.method == "OPTIONS":
         return "", 200
 
     try:
-        # เรียก Service ดึงรายชื่อโมเดลจาก AI Server โดยตรง
         models_list = fetch_available_models()
         return success_response({"models": models_list}, status_code=200)
     except AIServerTimeoutException as exc:
@@ -64,29 +59,43 @@ def get_models():
         return error_response(AI_SERVER_ERROR, f"Unexpected error: {str(exc)}", 500)
 
 
+@sd_bp.route("/estimate", methods=["GET", "POST"])
+def estimate_time():
+    """
+    GET / POST /api/v1/estimate
+    เส้นทางสำหรับคำนวณและส่งค่าเวลาโดยประมาณที่ต้องใช้ในการสร้างภาพ
+    """
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+    else:
+        data = request.args
+
+    try:
+        width = int(data.get("width", 512))
+        height = int(data.get("height", 512))
+        steps = int(data.get("steps", 20))
+    except (ValueError, TypeError):
+        width, height, steps = 512, 512, 20
+
+    estimate_result = calculate_estimated_time(width=width, height=height, steps=steps)
+    return success_response(estimate_result, status_code=200)
+
 
 @sd_bp.route("/generate", methods=["POST"])
 @token_required
 def generate_image():
     """
     POST /api/v1/generate 🔒 (ต้องใช้ JWT Token)
-    เส้นทางหลักสำหรับการสร้างรูปภาพจากข้อความ Prompt (รูปแบบที่ 1: Checkpoint Generation)
-    
-    ขั้นตอนการทำงาน:
-    1. ตรวจสอบสิทธิ์ผู้ใช้จาก JWT Token
-    2. ตรวจสอบความถูกต้องของพารามิเตอร์ทั้งหมด (Prompt, Size, Steps, Sampler)
-    3. ส่งคำขอเข้าสู่ Concurrency Queue เพื่อประมวลผลบน AI Server อย่างปลอดภัย
-    4. แปลงภาพ Base64 เป็น Binary และบันทึกลงฐานข้อมูล โดยผูกกับ user_id ของผู้ใช้ปัจจุบัน
-    5. ส่งคืน generation_id, image_url, เวลาประเมิน และเวลาที่ใช้จริง
+    สร้างรูปภาพจากข้อความ Prompt ผ่าน Stable Diffusion AI Server
     """
     data = request.get_json() or {}
 
-    # 1. ตรวจสอบว่าผู้ใช้งานนี้มีตัวตนในระบบจริง
+    # 1. ตรวจสอบว่าผู้ใช้งานมีตัวตนในระบบจริง
     current_user = db.session.get(User, request.user_id)
     if not current_user:
         return error_response(UNAUTHORIZED, "User not found in system", 401)
 
-    # 2. ตรวจสอบเงื่อนไขพารามิเตอร์ (Validation) ตามสัญญา LUMA Contract
+    # 2. ตรวจสอบเงื่อนไขพารามิเตอร์ (Validation)
     prompt = data.get("prompt", "").strip()
     if not prompt or len(prompt) > 2000:
         return error_response(
@@ -140,7 +149,6 @@ def generate_image():
     sampler = data.get("sampler") or data.get("sampler_name") or "Euler a"
     checkpoint = data.get("checkpoint", "")
 
-    # รวมค่าพารามิเตอร์ที่ผ่าน Type Conversion แล้ว
     clean_payload = dict(data)
     clean_payload.update({
         "prompt": prompt,
@@ -155,17 +163,17 @@ def generate_image():
     })
 
     try:
-        # 3. ส่งคำสั่งไปยัง AI Server ผ่านระบบ Concurrency Queue
+        # 3. ส่งคำสั่งไปยัง AI Server ผ่าน Concurrency Queue
         base64_image, actual_duration, estimated_duration = generate_sd_image(clean_payload)
 
-        # 4. ถอดรหัสข้อความ Base64 ให้เป็น Binary Bytes เพื่อจัดเก็บลงฐานข้อมูล
+        # 4. ถอดรหัสรูปภาพ Base64 เป็น Binary
         image_bytes = base64.b64decode(base64_image)
 
-        # 5. สร้างเรคคอร์ดใหม่ในตาราง generations (กำหนด category='sd_generate' สำหรับรูปแบบที่ 1)
+        # 5. สร้างเรคคอร์ดใหม่ในตาราง generations
         new_generation = Generation(
-            user_id=request.user_id,             # 🔑 ผูกไอดีเจ้าของภาพจาก JWT Token
-            category="sd_generate",               # 🏷️ รูปแบบที่ 1: สร้างจาก AI Checkpoint
-            action_type="txt2img",                # ⚙️ ชนิดการทำงาน: Text-to-Image
+            user_id=request.user_id,
+            category="sd_generate",
+            action_type="txt2img",
             prompt=prompt,
             negative_prompt=negative_prompt,
             checkpoint=checkpoint,
@@ -175,15 +183,14 @@ def generate_image():
             steps=steps,
             cfg_scale=cfg_scale,
             seed=seed,
-            params=json.dumps(data),              # บันทึกพารามิเตอร์ทั้งหมดในรูปแบบ JSON
-            image_data=image_bytes,               # เก็บข้อมูลภาพ Binary ลง SQLite
+            params=json.dumps(data),
+            image_data=image_bytes,
         )
 
-        # 6. เพิ่มข้อมูลและบันทึกลงใน Database
         db.session.add(new_generation)
         db.session.commit()
 
-        # 6.1 บันทึกไฟล์ภาพลงใน Disk Storage (uploads/generations/{id}.png) เพื่อประสิทธิภาพการดึงข้อมูล
+        # 6. บันทึกสำเนาลง Disk Storage เพื่อการเข้าถึงที่รวดเร็ว
         upload_folder = current_app.config.get("UPLOAD_FOLDER")
         if upload_folder:
             gen_dir = os.path.join(upload_folder, "generations")
@@ -197,7 +204,7 @@ def generate_image():
             except Exception as io_err:
                 current_app.logger.warning("Failed to save image to disk storage: %s", str(io_err))
 
-        # 7. ตอบกลับผลลัพธ์ตามมาตรฐาน LUMA Contract พร้อมเวลาประมาณและเวลาจริง
+        # 7. ตอบกลับผลลัพธ์
         return success_response({
             "generation_id": new_generation.id,
             "image_url": f"/api/v1/images/{new_generation.id}",
@@ -226,20 +233,13 @@ def generate_image():
 def stream_image(gen_id: int):
     """
     GET /api/v1/images/:gen_id 🔒 (ต้องใช้ JWT Token)
-    เส้นทางสำหรับส่งไฟล์รูปภาพแบบไบนารี (Binary Stream, image/png) กลับไปแสดงผลบน Frontend
-    
-    🛡️ ระบบป้องกันการข้ามสิทธิ์และ IDOR (Anti-Hopping & Ownership Protection):
-    - ค้นหารูปภาพโดยระบุทั้ง id และ user_id จาก Token เสมอ
-    - หากผู้ใช้พยายามเปิดดูภาพของคนอื่น ระบบจะมองไม่เห็นภาพนั้น และตอบกลับ 404 ทันที
-    ⚡ ประสิทธิภาพสูง: สตรีมตรงจากไฟล์ Disk ก่อน หากไม่มีจึงดึงจาก Database BLOB
+    สตรีมไฟล์รูปภาพไบนารี พร้อมป้องกันการข้ามสิทธิ์ผู้ใช้ (Anti-Hopping & IDOR Protection)
     """
-    # 1. ค้นหารูปภาพโดยกรองเฉพาะภาพที่เป็นของผู้ใช้คนนี้เท่านั้น
     record = Generation.query.filter_by(
         id=gen_id, 
         user_id=request.user_id
     ).first()
 
-    # 2. หากไม่พบภาพ หรือภาพนั้นไม่ใช่ของผู้ใช้คนนี้
     if not record:
         return error_response(
             GENERATION_NOT_FOUND, 
@@ -247,7 +247,7 @@ def stream_image(gen_id: int):
             404
         )
 
-    # 3. หากมีไฟล์บน Disk Storage ให้ Stream ตรงจากไฟล์ (ใช้ OS sendfile เร็วกว่าและประหยัด RAM)
+    # 1. สตรีมจาก Disk Storage หากมี
     if record.image_path and os.path.isfile(record.image_path):
         return send_file(
             record.image_path,
@@ -256,7 +256,7 @@ def stream_image(gen_id: int):
             download_name=f"luma_image_{gen_id}.png"
         )
 
-    # 4. หากไม่มีไฟล์บน Disk ให้ดึงข้อมูลสำรองจาก image_data ใน Database
+    # 2. หากไม่มีบน Disk ให้ดึงจาก Database BLOB
     if record.image_data:
         return send_file(
             BytesIO(record.image_data),
@@ -265,31 +265,8 @@ def stream_image(gen_id: int):
             download_name=f"luma_image_{gen_id}.png"
         )
 
-    # 5. หากไม่มีทั้งสองแห่ง
     return error_response(
         IMAGE_NOT_FOUND, 
         "Image binary data is missing in database or storage", 
         404
     )
-
-
-# ==============================================================================
-# [UNUSED BY FRONTEND] ย้ายส่วนที่ Frontend ไม่ได้เรียกใช้มาไว้ด้านล่างสุด
-# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
-# ==============================================================================
-# @sd_bp.route("/estimate", methods=["GET", "POST"])
-# def estimate_time():
-#     """
-#     GET / POST /api/v1/estimate
-#     เส้นทางสำหรับคำนวณและส่งค่าเวลาโดยประมาณที่ต้องใช้ในการสร้างภาพ
-#     Frontend ไม่ได้เรียกใช้งาน (หน้า Generate เรียก /generate ตรงๆ)
-#     """
-#     if request.method == "POST":
-#         data = request.get_json() or {}
-#     else:
-#         data = request.args
-#     width = int(data.get("width", 512))
-#     height = int(data.get("height", 512))
-#     steps = int(data.get("steps", 20))
-#     estimate_result = calculate_estimated_time(width=width, height=height, steps=steps)
-#     return success_response(estimate_result, status_code=200)

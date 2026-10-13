@@ -147,11 +147,14 @@ tests/test_backend_full.py::test_generation_type_display_name PASSED
 tests/test_backend_full.py::test_get_profile_contract PASSED
 tests/test_backend_full.py::test_health_check_endpoint PASSED
 tests/test_backend_full.py::test_disk_storage_and_streaming PASSED
+tests/test_backend_full.py::test_auth_and_profile_return_role PASSED
+tests/test_backend_full.py::test_admin_endpoints_and_permissions PASSED
+tests/test_backend_full.py::test_time_estimation_endpoint PASSED
 tests/test_image_filters_suite.py::test_cartoonize_algorithm PASSED
 tests/test_image_filters_suite.py::test_spot_blur_algorithm PASSED
 tests/test_image_filters_suite.py::test_cartoonize_upload_endpoint PASSED
 
-============================= 13 passed in 4.77s =============================
+============================= 16 passed in 5.80s =============================
 ```
 
 ---
@@ -231,7 +234,7 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
 
 ---
 
-### 7.2 ระบบสร้างภาพ AI (Stable Diffusion)
+### 8.2 ระบบสร้างภาพ AI (Stable Diffusion)
 
 ทุก Endpoint ในส่วนนี้ต้องแนบ Header: `Authorization: Bearer <access_token>`
 
@@ -285,9 +288,28 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
 - **Path:** `/images/:id`
 - **Response (200 OK):** ข้อมูลไบนารีของรูปภาพ `Content-Type: image/png`
 
+#### 4. คำนวณเวลาประเมินการสร้างภาพ (Estimate Time)
+- **Method:** `POST`
+- **Path:** `/estimate`
+- **Request Body:**
+  ```json
+  {
+    "steps": 25
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "estimated_seconds": 10.0
+    }
+  }
+  ```
+
 ---
 
-### 7.3 ระบบประวัติและโปรไฟล์ (History & Profile)
+### 8.3 ระบบประวัติและโปรไฟล์ (History & Profile)
 
 #### 1. ดึงรายการประวัติ (Pagination)
 - **Method:** `GET`
@@ -360,7 +382,7 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
 
 ---
 
-### 7.4 ระบบประมวลผลแต่งรูปภาพ (Image Processing Tools)
+### 8.4 ระบบประมวลผลแต่งรูปภาพ (Image Processing Tools)
 
 ทุก Endpoint รับข้อมูลแบบ `multipart/form-data`:
 
@@ -375,7 +397,7 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
 
 ---
 
-### 7.5 ระบบผู้ดูแลระบบ (Admin Management) 🔒
+### 8.5 ระบบผู้ดูแลระบบ (Admin Management) 🔒
 
 ทุก Endpoint ในส่วนนี้ต้องแนบ Header: `Authorization: Bearer <access_token>` ของบัญชีที่มี `role = "admin"`
 (หากไม่ใช่ admin จะได้รับ HTTP 403 `FORBIDDEN`)
@@ -430,13 +452,17 @@ Base URL ของระบบ: `http://localhost:5000/api/v1`
 
 ---
 
-## 8. วิธีเปิดใช้งานฟังก์ชันสำรอง (Re-enabling Disabled Features)
+## 9. สถาปัตยกรรมและการปรับปรุงโครงสร้าง (Architecture & Code Organization)
 
-หากต้องการนำฟังก์ชันที่คอมเมนต์ `#` ไว้ด้านล่างไฟล์กลับมาใช้งาน:
+ระบบได้รับการจัดโครงสร้างตามหลัก Clean Modular Architecture เพื่อให้โค้ดอ่านง่ายและบำรุงรักษาสะดวก:
 
-1. **เปิดใช้งานการประมาณเวลา (`/estimate`):**
-   - ไปที่ท้ายไฟล์ [`backend/app/routes/sd.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/sd.py)
-   - ลบเครื่องหมาย `#` ออกจากฟังก์ชัน `estimate_time()`
-2. **เปิดใช้งานการสตรีมเว็บแคมสำหรับ Gesture:**
-   - ไปที่ท้ายไฟล์ [`backend/app/services/image_filters/gesture.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/services/image_filters/gesture.py) ลบ `#` ออกจากโค้ดโหมด VIDEO
-   - ไปที่ท้ายไฟล์ [`backend/app/services/image_filters/routes.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/services/image_filters/routes.py) ลบ `#` ออกจาก `/process/gesture/frame` และ `/process/gesture/stop`
+1. **โครงสร้าง Routing แยกเป็นสัดส่วนชัดเจน:**
+   - รวมการประมวลผลแต่งภาพ OpenCV/MediaPipe ไว้ที่ [`backend/app/routes/process.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/process.py) แทน `image_filters/routes.py` เดิม
+   - ลงทะเบียน Route และ Blueprint ทั้งหมดรวมศูนย์ที่ [`backend/app/routes/__init__.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/__init__.py) ในฟังก์ชัน `register_routes(app)`
+2. **Helper กลางสำหรับการจัดการรูปภาพและฐานข้อมูล:**
+   - [`backend/app/utils/image_helpers.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/utils/image_helpers.py): ทำหน้าที่ตรวจสอบไฟล์อัปโหลด (`extract_uploaded_image`) และแปลงภาพ NumPy กลับเป็น PNG Response (`send_image_png`) แบบ DRY (Don't Repeat Yourself)
+   - [`backend/app/utils/db_migrations.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/utils/db_migrations.py): จัดการ Auto Schema Migration (เช่น เพิ่มคอลัมน์ `role`, `generation_type` บน SQLite) แยกออกจาก App Factory
+3. **ความสมบูรณ์ของฟังก์ชัน:**
+   - ฟังก์ชันประมาณเวลาสร้างภาพ [`/api/v1/estimate`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/routes/sd.py) เปิดใช้งานเป็นปกติและมีชุดทดสอบครอบคลุม 100%
+   - Gesture Recognition รองรับโหมด Single Image REST API ที่ `POST /process/gesture` สำหรับโมเดล MediaPipe Tasks ล่าสุด
+

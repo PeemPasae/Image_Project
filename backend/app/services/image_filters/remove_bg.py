@@ -12,8 +12,12 @@ MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/image_segmenter/"
     "selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite"
 )
-# backend/models/selfie_multiclass_256x256.tflite
-MODEL_PATH = Path(__file__).resolve().parents[3] / "models" / "selfie_multiclass_256x256.tflite"
+_BACKEND_ROOT = Path(__file__).resolve().parents[3]
+MODEL_PATH = (
+    _BACKEND_ROOT / "ai_models" / "selfie_multiclass_256x256.tflite"
+    if (_BACKEND_ROOT / "ai_models" / "selfie_multiclass_256x256.tflite").is_file()
+    else _BACKEND_ROOT / "models" / "selfie_multiclass_256x256.tflite"
+)
 
 # GrabCut ช้าตามขนาดรูป จึงคำนวณที่รูปย่อ (ด้านยาวสุดเท่านี้) แล้วค่อยขยาย mask กลับ
 WORK_SIDE = 900

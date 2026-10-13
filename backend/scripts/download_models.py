@@ -11,9 +11,13 @@ import argparse
 import urllib.request
 from pathlib import Path
 
-# ตำแหน่งโฟลเดอร์เก็บ Model: backend/models/
+# ตำแหน่งโฟลเดอร์เก็บ Model: backend/ai_models/ หรือ backend/models/
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-MODELS_DIR = BACKEND_DIR / "models"
+MODELS_DIR = (
+    BACKEND_DIR / "ai_models"
+    if (BACKEND_DIR / "ai_models").is_dir()
+    else BACKEND_DIR / "models"
+)
 
 MODELS = [
     {

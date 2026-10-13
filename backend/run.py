@@ -28,8 +28,13 @@ if __name__ == "__main__":
 
     # ตรวจสอบสถานะไฟล์โมเดล AI ล่วงหน้า
     backend_dir = os.path.dirname(os.path.abspath(__file__))
-    model1 = os.path.join(backend_dir, "models", "selfie_multiclass_256x256.tflite")
-    model2 = os.path.join(backend_dir, "models", "gesture_recognizer.task")
+    model_dir = (
+        os.path.join(backend_dir, "ai_models")
+        if os.path.isdir(os.path.join(backend_dir, "ai_models"))
+        else os.path.join(backend_dir, "models")
+    )
+    model1 = os.path.join(model_dir, "selfie_multiclass_256x256.tflite")
+    model2 = os.path.join(model_dir, "gesture_recognizer.task")
     models_ready = os.path.isfile(model1) and os.path.isfile(model2)
 
     # 3. แสดงข้อความแจ้งเตือนสถานะการเริ่มทำงานของเซิร์ฟเวอร์

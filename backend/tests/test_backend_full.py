@@ -434,16 +434,12 @@ def test_admin_endpoints_and_permissions(client):
     with client.application.app_context():
         assert db.session.get(User, reg2_id) is None
 
-
-# ==============================================================================
-# [DISABLED TESTS] การทดสอบสำหรับ Endpoint ที่ไม่ได้ใช้งานโดย Frontend
-# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
-# ==============================================================================
-# def test_time_estimation_endpoint(client):
-#     res = client.post("/api/v1/estimate", json={"width": 512, "height": 512, "steps": 20})
-#     assert res.status_code == 200
-#     data = res.get_json()["data"]
-#     assert "total_estimated_seconds" in data
+def test_time_estimation_endpoint(client):
+    """ทดสอบ POST /api/v1/estimate เพื่อประมาณเวลาการสร้างภาพ"""
+    res = client.post("/api/v1/estimate", json={"width": 512, "height": 512, "steps": 20})
+    assert res.status_code == 200
+    data = res.get_json()["data"]
+    assert "total_estimated_seconds" in data
 
 
 

@@ -36,12 +36,22 @@ def get_history():
     - page     : หมายเลขหน้าที่ต้องการดู (ค่าเริ่มต้น: 1)
     - limit    : จำนวนรายการต่อหน้า (ค่าเริ่มต้น: 20 รายการ)
     """
-    # 1. รับค่า Query Parameters จาก URL (Frontend ส่งเฉพาะ page, limit)
+    # 1. รับค่า Query Parameters จาก URL
     page = request.args.get("page", default=1, type=int)
     limit = request.args.get("limit", default=20, type=int)
+    category = request.args.get("category", type=str)
+    gen_type = request.args.get("type", type=str)
 
     # 2. สร้าง Base Query ที่กรองเฉพาะข้อมูลของผู้ใช้ปัจจุบันเท่านั้น (User Isolation)
     query = Generation.query.filter_by(user_id=request.user_id)
+
+    # 3. กรองตามหมวดหมู่หรือประเภทหากมีการระบุ
+    if category:
+        query = query.filter_by(category=category)
+    elif gen_type == "checkpoint":
+        query = query.filter_by(category="sd_generate")
+    elif gen_type == "sub_function":
+        query = query.filter_by(category="image_filter")
 
     # 4. เรียงลำดับจากภาพล่าสุดไปเก่าสุด (created_at DESC) และแบ่งหน้า Pagination
     pagination = query.order_by(Generation.created_at.desc()).paginate(
@@ -144,18 +154,3 @@ def delete_history(generation_id: int):
             f"Failed to delete generation: {str(e)}", 
             500
         )
-
-
-# ==============================================================================
-# [UNUSED BY FRONTEND] การกรองประวัติตาม category หรือ type
-# Frontend ไม่ได้ส่ง parameter เหล่านี้มา (ส่งเฉพาะ page, limit เสมอ)
-# เผื่อต้องการนำกลับมาเปิดใช้งานในอนาคต (เพียงเอาเครื่องหมาย # ออก)
-# ==============================================================================
-# category = request.args.get("category", type=str)
-# gen_type = request.args.get("type", type=str)
-# if category:
-#     query = query.filter_by(category=category)
-# elif gen_type == "checkpoint":
-#     query = query.filter_by(category="sd_generate")
-# elif gen_type == "sub_function":
-#     query = query.filter_by(category="image_filter")

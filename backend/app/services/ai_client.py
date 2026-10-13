@@ -34,7 +34,7 @@ def get_ai_server_url() -> str:
     """
     if has_app_context() and current_app.config.get("AI_SERVER_URL"):
         return str(current_app.config["AI_SERVER_URL"]).rstrip("/")
-    return (os.getenv("AI_SERVER_URL") or getattr(Config, "AI_SERVER_URL", "http://172.20.57.0:8088")).rstrip("/")
+    return (os.getenv("AI_SERVER_URL") or getattr(Config, "AI_SERVER_URL", "http://192.168.1.160:8088")).rstrip("/")
 
 
 def get_ai_server_timeout() -> int:
