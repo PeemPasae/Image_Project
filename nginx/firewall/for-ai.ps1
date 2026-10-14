@@ -1,5 +1,5 @@
 ﻿# =====================================================================
-#  for-ai.ps1 — รันบน "เครื่อง AI Server" (ตอนนี้ 192.168.1.160) แบบ Run as Administrator
+#  for-ai.ps1 — รันบน "เครื่อง AI Server" (ตอนนี้ 172.20.10.7) แบบ Run as Administrator
 #
 #  ผล: พอร์ต 8088 (SD WebUI) รับได้จาก "เครื่อง Backend" เท่านั้น
 #      → เครื่องอื่นในวง LAN เปิด http://<IP เครื่อง AI>:8088 ไม่ได้
@@ -10,7 +10,7 @@
 # =====================================================================
 #Requires -RunAsAdministrator
 param(
-    [string]$BackendIp = "192.168.1.169"
+    [string]$BackendIp = "172.20.10.8"
 )
 
 $ErrorActionPreference = "Stop"
