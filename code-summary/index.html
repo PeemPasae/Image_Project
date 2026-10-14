@@ -194,7 +194,7 @@ td.nw{white-space:nowrap}
     <strong>ถ้าต้องอธิบายใน 1 นาที</strong>
     <ol>
       <li>LUMA เป็นเว็บที่ทำได้ 2 อย่าง: <b>สร้างรูปจากข้อความด้วย AI</b> (Stable Diffusion) และ <b>แต่งรูปที่อัปโหลด</b> (เบลอเฉพาะจุด, การ์ตูน, ลบพื้นหลัง, จับท่ามือ ฯลฯ)</li>
-      <li>ระบบแยก 3 เครื่องในวง LAN: <b>nginx</b> (172.20.10.6) เป็นประตูเดียวที่ผู้ใช้เข้า, <b>Backend</b> (172.20.10.8) คิดงานและเก็บข้อมูล, <b>AI Server</b> (172.20.10.7) มีการ์ดจอไว้สร้างรูป</li>
+      <li>ระบบแยก 3 เครื่องในวง LAN: <b>nginx</b> (172.20.57.12) เป็นประตูเดียวที่ผู้ใช้เข้า, <b>Backend</b> (172.20.57.16) คิดงานและเก็บข้อมูล, <b>AI Server</b> (172.20.57.10) มีการ์ดจอไว้สร้างรูป</li>
       <li>nginx ส่งไฟล์หน้าเว็บ (React ที่ build แล้ว) ให้ browser และส่งต่อทุกคำขอที่ขึ้นต้นด้วย <code>/api/v1/</code> ไปที่ Flask</li>
       <li>Flask ตรวจ token (JWT) ว่าเป็นใคร, ตรวจค่าที่ส่งมา, ถ้าสร้างรูปก็ส่งต่อให้ AI Server แล้วเก็บรูปลง SQLite + โฟลเดอร์ uploads, ถ้าแต่งรูปก็คิดเองด้วย OpenCV/MediaPipe แล้วส่งรูปกลับเลย</li>
       <li>ทุกคำตอบของ API อยู่ในรูปแบบเดียวกัน <code>{"success": true, "data": …}</code> หรือ <code>{"success": false, "error": {code, message}}</code> หน้าเว็บมีไฟล์เดียว (<code>client.js</code>) ที่แกะรูปแบบนี้ให้ทุกหน้า</li>
@@ -220,9 +220,9 @@ td.nw{white-space:nowrap}
             <rect x="800" y="90" width="185" height="165" rx="12"/>
           </g>
           <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill-opacity=".7">
-            <text x="225" y="370">เครื่อง nginx · 172.20.10.6</text>
-            <text x="480" y="370">เครื่อง Backend · 172.20.10.8</text>
-            <text x="810" y="240">เครื่อง AI · 172.20.10.7</text>
+            <text x="225" y="370">เครื่อง nginx · 172.20.57.12</text>
+            <text x="480" y="370">เครื่อง Backend · 172.20.57.16</text>
+            <text x="810" y="240">เครื่อง AI · 172.20.57.10</text>
           </g>
 
           <!-- browser -->
@@ -332,7 +332,7 @@ td.nw{white-space:nowrap}
       </ul>
     </div>
     <div class="card lc l-ngx">
-      <h3>nginx <span class="machine">nginx/ · 172.20.10.6</span></h3>
+      <h3>nginx <span class="machine">nginx/ · 172.20.57.12</span></h3>
       <p>ประตูเดียวของระบบ ผู้ใช้ไม่เคยคุยกับ Flask หรือ AI โดยตรง</p>
       <ul>
         <li><code>/</code> ส่งไฟล์จาก <code>dist/</code> ถ้าไม่เจอไฟล์ส่ง <code>index.html</code> (ให้ React Router จัดการ URL)</li>
@@ -344,7 +344,7 @@ td.nw{white-space:nowrap}
       </ul>
     </div>
     <div class="card lc l-be">
-      <h3>Backend <span class="machine">backend/ · 172.20.10.8</span></h3>
+      <h3>Backend <span class="machine">backend/ · 172.20.57.16</span></h3>
       <p>Flask แบ่งเส้นทางเป็นกลุ่ม (Blueprint) ประกอบรวมกันที่ <span data-f="backend/app/__init__.py"></span></p>
       <ul>
         <li><b>auth</b> สมัคร/ล็อกอิน ออก JWT อายุ 24 ชม. · <span data-f="backend/app/routes/auth.py"></span></li>
@@ -356,7 +356,7 @@ td.nw{white-space:nowrap}
       </ul>
     </div>
     <div class="card lc l-ai">
-      <h3>AI Server <span class="machine">Ai Server/ · 172.20.10.7</span></h3>
+      <h3>AI Server <span class="machine">Ai Server/ · 172.20.57.10</span></h3>
       <p>เป็นโปรแกรม AUTOMATIC1111 Stable Diffusion WebUI (หรือ Forge) ที่เปิดโหมด <code>--api</code> โฟลเดอร์ใน repo เก็บแค่ค่าตั้งและสคริปต์ทดสอบ ไม่ได้เก็บตัวโปรแกรม</p>
       <ul>
         <li>Backend เรียกแค่ 2 endpoint: <code>GET /sdapi/v1/sd-models</code> และ <code>POST /sdapi/v1/txt2img</code></li>
@@ -514,10 +514,10 @@ td.nw{white-space:nowrap}
   <div class="tbl"><table>
     <thead><tr><th>ลำดับ</th><th>เครื่อง</th><th>ทำอะไร</th><th>เช็คว่าพร้อม</th></tr></thead>
     <tbody>
-      <tr><td class="nw">1</td><td><span class="chip l-ai">AI · .160</span></td><td>รัน <code>webui-user.bat</code> ในโฟลเดอร์ stable-diffusion-webui</td><td><code>curl http://172.20.10.7:8088/sdapi/v1/sd-models</code> ได้รายชื่อโมเดล</td></tr>
+      <tr><td class="nw">1</td><td><span class="chip l-ai">AI · .160</span></td><td>รัน <code>webui-user.bat</code> ในโฟลเดอร์ stable-diffusion-webui</td><td><code>curl http://172.20.57.10:8088/sdapi/v1/sd-models</code> ได้รายชื่อโมเดล</td></tr>
       <tr><td class="nw">2</td><td><span class="chip l-be">Backend · .169</span></td><td><code>cd backend</code> → เปิด venv → <code>python run.py</code> (ต้องมี <code>backend/.env</code> ที่มี <code>JWT_SECRET_KEY</code>)</td><td><code>http://127.0.0.1:5000/api/v1/health</code> ได้ <code>"healthy"</code></td></tr>
       <tr><td class="nw">3</td><td><span class="chip l-ngx">nginx · .171</span></td><td>หลัง <code>git pull</code> ที่แก้หน้าเว็บ ดับเบิลคลิก <code>BUILD-WEB.bat</code> จากนั้น <code>START.bat</code></td><td><code>http://127.0.0.1/api/v1/health</code> และ <code>/api/v1/models</code> ตอบได้</td></tr>
-      <tr><td class="nw">4</td><td><span class="chip l-fe">ผู้ใช้</span></td><td>เปิด <code>http://172.20.10.6/</code></td><td>หน้า Login ขึ้น</td></tr>
+      <tr><td class="nw">4</td><td><span class="chip l-fe">ผู้ใช้</span></td><td>เปิด <code>http://172.20.57.12/</code></td><td>หน้า Login ขึ้น</td></tr>
     </tbody>
   </table></div>
   <p class="lede">ถ้า IP เครื่องไหนเปลี่ยน ดูแถวแรกๆ ในตาราง <a href="#match">ค่าที่ต้องตรงกัน</a> ว่าต้องแก้ไฟล์ไหนบ้าง</p>
@@ -667,7 +667,7 @@ function chip(p){
 
 /* ---------- เส้นทางการทำงาน ---------- */
 const FLOWS=[
- {id:'open',t:'เปิดเว็บ',s:'ผู้ใช้พิมพ์ http://172.20.10.6/ ใน browser จนเห็นหน้าแรก (ยังไม่มีการคุยกับ Flask)',st:[
+ {id:'open',t:'เปิดเว็บ',s:'ผู้ใช้พิมพ์ http://172.20.57.12/ ใน browser จนเห็นหน้าแรก (ยังไม่มีการคุยกับ Flask)',st:[
   ['ngx','nginx/conf/nginx.conf','location /','nginx หาไฟล์ใน dist/ ตาม URL ไม่เจอก็ส่ง index.html (try_files) ทำให้กด refresh ที่ /history แล้วไม่ขึ้น 404'],
   ['ngx','nginx/conf/nginx.conf','location /assets/','browser โหลดไฟล์ .js .css ที่ชื่อมี hash ให้ cache ได้ 1 ปี เพราะ build ใหม่ชื่อไฟล์จะเปลี่ยนเอง'],
   ['fe',SRC+'main.jsx','createRoot().render','React เริ่มทำงาน ครอบแอปด้วยธีม เลย์เอาต์ toast และตัวกันจอขาว'],
@@ -792,9 +792,9 @@ document.getElementById('apiRows').innerHTML=API.map(([m,p,a,fe,[f,fn],out])=>
 
 /* ---------- ค่าที่ต้องตรงกัน ---------- */
 const MATCH=[
- ['IP + พอร์ต Backend',['nginx/conf/nginx.conf','upstream luma_backend'],[BE+'.env','HOST=0.0.0.0, PORT=5000'],['nginx/firewall/for-backend.ps1','-NginxIp'],'172.20.10.8:5000'],
- ['IP + พอร์ต AI Server',[BE+'.env','AI_SERVER_URL'],['Ai Server/config/webui-user.bat','--listen --port 8088'],['nginx/firewall/for-ai.ps1','-BackendIp'],'172.20.10.7:8088'],
- ['IP เครื่อง nginx',[BE+'.env','CORS_ORIGINS'],['nginx/conf/dev_allowlist.conf','allow'],['nginx/firewall/for-backend.ps1','NginxIp'],'172.20.10.6'],
+ ['IP + พอร์ต Backend',['nginx/conf/nginx.conf','upstream luma_backend'],[BE+'.env','HOST=0.0.0.0, PORT=5000'],['nginx/firewall/for-backend.ps1','-NginxIp'],'172.20.57.16:5000'],
+ ['IP + พอร์ต AI Server',[BE+'.env','AI_SERVER_URL'],['Ai Server/config/webui-user.bat','--listen --port 8088'],['nginx/firewall/for-ai.ps1','-BackendIp'],'172.20.57.10:8088'],
+ ['IP เครื่อง nginx',[BE+'.env','CORS_ORIGINS'],['nginx/conf/dev_allowlist.conf','allow'],['nginx/firewall/for-backend.ps1','NginxIp'],'172.20.57.12'],
  ['ที่อยู่ API',[FE+'.env.production','VITE_API_BASE_URL'],['nginx/conf/nginx.conf','location /api/v1/'],[APP+'__init__.py','url_prefix="/api/v1"'],'/api/v1'],
  ['ที่อยู่หน้าเว็บที่ build แล้ว',['nginx/conf/nginx.conf','root "…/dist"'],['nginx/BUILD-WEB.bat','npm run build'],null,'frontend/luma-frontend/dist'],
  ['ขนาดไฟล์อัปโหลด',['nginx/conf/nginx.conf','client_max_body_size'],[BE+'config.py','MAX_CONTENT_LENGTH'],null,'16 MB'],

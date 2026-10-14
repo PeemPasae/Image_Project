@@ -30,10 +30,10 @@ Backend เป็นตัวกลางเดียวที่แตะ Datab
 ## 🏗️ สถาปัตยกรรม (แยก 3 เครื่องในวง LAN)
 
 ```
-                 ผู้ใช้ในวง LAN  ──  http://172.20.10.6/
+                 ผู้ใช้ในวง LAN  ──  http://172.20.57.12/
                                      │
           ┌──────────────────────────▼───────────────────────────┐
-          │  Nginx  :80   — เครื่อง 172.20.10.6   (ไอซ์)          │
+          │  Nginx  :80   — เครื่อง 172.20.57.12   (ไอซ์)          │
           │   /            → ไฟล์ static จาก frontend/.../dist      │
           │   /api/v1/*    → proxy → Backend  (rate limit)         │
           │   /api/*  อื่น → 404                                    │
@@ -42,11 +42,11 @@ Backend เป็นตัวกลางเดียวที่แตะ Datab
           └──────────────────────────┬───────────────────────────┘
                                      ▼
           ┌──────────────────────────────────────────────────────┐
-          │  Flask Backend :5000 — เครื่อง 172.20.10.8   (นาย)     │
+          │  Flask Backend :5000 — เครื่อง 172.20.57.16   (นาย)     │
           │  JWT · Validation · GPU Lock/Queue · OpenCV/MediaPipe │
           └───────────────┬──────────────────────────┬───────────┘
                           ▼                          ▼
-             SQLite  database/database.db     AI Server :8088 — 172.20.10.7 (ไอซ์)
+             SQLite  database/database.db     AI Server :8088 — 172.20.57.10 (ไอซ์)
              users / generations  (ภีม)        SD WebUI --api (A1111 / Forge)
              + ไฟล์ภาพ backend/uploads/         POST /sdapi/v1/txt2img → Base64 PNG
 ```
@@ -148,7 +148,7 @@ Image_Project/
 
 > รันทุกอย่างในเครื่องเดียวก็ได้ — แค่เปลี่ยน IP ใน `backend/.env` และ `nginx/conf/nginx.conf` เป็น `127.0.0.1`
 
-### 1) AI Server — ไอซ์ (เครื่อง 172.20.10.7)
+### 1) AI Server — ไอซ์ (เครื่อง 172.20.57.10)
 
 ```bash
 git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git
@@ -170,7 +170,7 @@ python scripts/test_txt2img.py -p "a cat astronaut" --steps 20
 > ถ้า 2 สคริปต์นี้ผ่าน แต่หน้าเว็บสร้างรูปไม่ได้ → ปัญหาอยู่ฝั่ง Backend / Nginx / Frontend
 > รายละเอียด + ตารางแก้ปัญหา: [`Ai Server/README.md`](Ai%20Server/README.md)
 
-### 2) Backend — นาย (เครื่อง 172.20.10.8)
+### 2) Backend — นาย (เครื่อง 172.20.57.16)
 
 ```bash
 cd backend
@@ -187,9 +187,9 @@ python run.py                       # http://0.0.0.0:5000
 | `PORT` | พอร์ต Flask (default `5000`) |
 | `HOST` | `0.0.0.0` เมื่อ Nginx อยู่คนละเครื่อง · `127.0.0.1` เมื่ออยู่เครื่องเดียวกัน |
 | `JWT_SECRET_KEY` | ค่าลับเซ็น JWT — `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `AI_SERVER_URL` | เช่น `http://172.20.10.7:8088` |
+| `AI_SERVER_URL` | เช่น `http://172.20.57.10:8088` |
 | `FLASK_DEBUG` | `0` เสมอเมื่อเปิดรับจาก LAN |
-| `CORS_ORIGINS` | เช่น `http://172.20.10.6,http://localhost:5173` |
+| `CORS_ORIGINS` | เช่น `http://172.20.57.12,http://localhost:5173` |
 
 ตรวจ: `http://127.0.0.1:5000/api/v1/health` ต้องได้ `"status": "healthy"`
 
@@ -220,7 +220,7 @@ npm test                    # Vitest
 | `VITE_API_BASE_URL` | `/api/v1` เมื่อผ่าน Nginx · `http://localhost:5000/api/v1` เมื่อ dev ต่อ Backend ตรง |
 | `VITE_MOCK_MODE` | `true` = เดินดูทุกหน้าด้วยข้อมูลปลอม ไม่ต้องมี Backend · `false` = ต่อ Backend จริง |
 
-### 4) Nginx — ไอซ์ (เครื่อง 172.20.10.6)
+### 4) Nginx — ไอซ์ (เครื่อง 172.20.57.12)
 
 ตั้งค่าครั้งแรก:
 
