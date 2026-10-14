@@ -5,8 +5,11 @@
 LUMA คือเว็บแอปสำหรับ **สร้างรูปด้วย AI (Text-to-Image)** และ **แต่งรูปด้วย Computer Vision** ในที่เดียว
 
 - **Generate** — พิมพ์ prompt เลือก checkpoint / sampler / ขนาด / steps / CFG / seed แล้วให้ Stable Diffusion สร้างรูป
-- **Image Tools** — อัปโหลดรูปแล้วใช้เครื่องมือ OpenCV + MediaPipe: Spot Blur, Cartoonize, Tilt-Shift, HDR Enhancer, Hand Gesture, Remove Background
-- **History** — รูปทุกใบถูกเก็บพร้อมพารามิเตอร์ ดูย้อนหลัง ดาวน์โหลด ลบ หรือกด "Again" เพื่อสร้างซ้ำได้ (เห็นเฉพาะของตัวเอง)
+- **Image Tools** — อัปโหลดรูปแล้วแต่งด้วย OpenCV + MediaPipe
+  - เปิดในหน้าเว็บ (หน้า Features): **Spot Blur, Cartoonize, Hand Gesture, Remove Background**
+  - มี API ใน Backend แล้ว แต่ยังไม่เปิดในหน้าเว็บ: **Tilt-Shift, HDR Enhancer** (เปิดได้ที่ `frontend/luma-frontend/src/features/active.js`)
+- **History** — รูปที่สร้างจาก **Generate** ถูกเก็บพร้อมพารามิเตอร์ ดูย้อนหลัง ดาวน์โหลด ลบ หรือกด "Again" เพื่อสร้างซ้ำได้ (เห็นเฉพาะของตัวเอง)
+  ผลจาก Image Tools ส่งกลับมาให้ดาวน์โหลดทันที **ไม่ได้บันทึกลง History**
 - **Admin** — ผู้ดูแลระบบดูรายชื่อผู้ใช้ + จำนวนรูปที่สร้าง และลบบัญชีได้
 
 **หลักการที่ทั้งทีมยึด:** ผู้ใช้เข้าผ่าน **Nginx** ประตูเดียว → Frontend คุยกับ Backend เท่านั้น →
@@ -28,6 +31,9 @@ Backend เป็นตัวกลางเดียวที่แตะ Datab
 ---
 
 ## 🏗️ สถาปัตยกรรม (แยก 3 เครื่องในวง LAN)
+
+> IP ในแผนภาพเป็นค่าที่ตั้งไว้ใน `nginx/conf/nginx.conf` และ `backend/.env.example`
+> วง LAN มหาลัยเป็น DHCP — ถ้า IP เปลี่ยนให้ดูหัวข้อ [ถ้า IP เปลี่ยน ต้องแก้ที่ไหน](#-ถ้า-ip-เปลี่ยน-ต้องแก้ที่ไหน)
 
 ```
                  ผู้ใช้ในวง LAN  ──  http://192.168.1.171/
@@ -65,7 +71,7 @@ User → Frontend → POST /api/v1/generate (Bearer JWT) → Nginx → Flask
 ```
 
 **Image Tool flow:** Frontend อัปโหลดรูป (multipart) → `POST /api/v1/process/<tool>` → Flask ประมวลผลด้วย
-OpenCV / MediaPipe บนเครื่อง Backend เอง (ไม่ใช้ GPU Server) → ส่ง PNG กลับ
+OpenCV / MediaPipe บนเครื่อง Backend เอง (ไม่ใช้ GPU Server) → ส่ง PNG กลับ (ไม่บันทึกลงฐานข้อมูล)
 
 ---
 
@@ -74,9 +80,9 @@ OpenCV / MediaPipe บนเครื่อง Backend เอง (ไม่ใ�
 | ชั้น | เทคโนโลยี | พอร์ต | โฟลเดอร์ |
 |---|---|---|---|
 | **Gateway** | Nginx for Windows (มีเวอร์ชัน Linux), Cloudflare quick tunnel สำหรับเดโม | 80, 8089 | `nginx/` |
-| **Frontend** | React 18, Vite 5, React Router 6, Axios, lucide-react, motion, Vitest | 5173 (dev) | `frontend/luma-frontend/` |
-| **Backend** | Flask 3, Flask-SQLAlchemy, Flask-CORS, PyJWT, Werkzeug, Requests, OpenCV, NumPy, MediaPipe, Gunicorn (Linux) | 5000 | `backend/` |
-| **Database** | SQLite | — | `database/` |
+| **Frontend** | React 18, Vite 5, React Router 6, Axios, lucide-react, motion, Vitest + jsdom | 5173 (dev) | `frontend/luma-frontend/` |
+| **Backend** | Flask 3, Flask-SQLAlchemy, Flask-CORS, PyJWT, python-dotenv, Werkzeug, Requests, OpenCV, NumPy, MediaPipe, pytest · Gunicorn (Linux, ติดตั้งแยก) | 5000 | `backend/` |
+| **Database** | SQLite (ผ่าน SQLAlchemy) | — | `database/` |
 | **AI Server** | Stable Diffusion WebUI (AUTOMATIC1111 / Forge) `--api --listen` | 8088 | `Ai Server/` |
 
 ---
@@ -88,7 +94,7 @@ Image_Project/
 ├── nginx/                          # (ไอซ์) — คู่มือเต็ม: nginx/README.md
 │   ├── START.bat / STOP.bat        # เปิด-รีโหลด / ปิด nginx
 │   ├── LOGS.bat                    # ดู access log สด ๆ
-│   ├── BUILD-WEB.bat               # npm run build หน้าเว็บใหม่หลัง git pull
+│   ├── BUILD-WEB.bat               # npm install (ครั้งแรก) + npm run build หน้าเว็บใหม่หลัง git pull
 │   ├── conf/
 │   │   ├── nginx.conf              # upstream IP, root dist, rate limit, headers, :80 และ :8089
 │   │   ├── luma_proxy_backend.conf # ชุด proxy_* ไป Flask (timeout 120s)
@@ -96,6 +102,7 @@ Image_Project/
 │   ├── firewall/                   # for-nginx / for-backend / for-ai .ps1 + linux.sh
 │   └── extras/                     # Cloudflare demo tunnel, make_htpasswd.sh, คู่มือเดิม
 ├── Ai Server/                      # (ไอซ์) — ไม่ได้เก็บตัว webui เก็บแค่ config + สคริปต์ + เอกสาร
+│   ├── .env.example                # AI_SERVER_URL สำหรับสคริปต์ทดสอบเท่านั้น
 │   ├── config/webui-user.bat|.sh   # COMMANDLINE_ARGS: --api --listen --port 8088 ...
 │   ├── scripts/check_server.py     # health check: options / sd-models / samplers
 │   ├── scripts/test_txt2img.py     # ยิง txt2img ตรง ไม่ผ่าน Backend
@@ -105,9 +112,9 @@ Image_Project/
 │   ├── gunicorn_conf.py            # production บน Linux (workers=1, threads=8 เพื่อให้ GPU lock ใช้ได้)
 │   ├── config.py                   # ค่ากลาง: JWT, CORS, AI_SERVER_URL, upload 16 MB, log
 │   ├── .env.example
-│   ├── models/                     # โมเดล MediaPipe (.tflite / .task)
+│   ├── models/                     # โมเดล MediaPipe (.tflite / .task) — commit มาให้แล้ว
 │   ├── scripts/
-│   │   ├── download_models.py      # โหลดโมเดล MediaPipe ล่วงหน้า
+│   │   ├── download_models.py      # โหลดโมเดล MediaPipe ใหม่ (ถ้าไฟล์หาย / --force)
 │   │   └── set_admin.py            # ตั้ง / ถอดสิทธิ์ admin, ดูรายชื่อผู้ใช้
 │   ├── app/
 │   │   ├── __init__.py             # app factory, CORS, ProxyFix, blueprints, /health, auto-migration
@@ -117,55 +124,134 @@ Image_Project/
 │   │   ├── services/image_filters/ # spot_blur, cartoonize, tilt_shift, hdr_enhancer, gesture, remove_bg + routes
 │   │   ├── middleware/jwt_auth.py  # @token_required, @admin_required
 │   │   └── utils/error_codes.py    # success / error envelope + error codes
-│   └── tests/                      # test_backend_full.py, test_image_filters_suite.py
+│   ├── tests/                      # test_backend_full.py, test_image_filters_suite.py
+│   ├── uploads/                    # (สร้างอัตโนมัติ) ไฟล์ภาพที่ generate — ไม่ commit
+│   └── logs/                       # (สร้างอัตโนมัติ) luma_backend.log — ไม่ commit
 ├── database/                       # (ภีม)
 │   ├── schema.sql                  # DDL: users + generations + index
-│   ├── init_db.py                  # สร้าง DB จาก schema.sql
+│   ├── init_db.py                  # สร้าง database.db จาก schema.sql
 │   ├── clear.py                    # ล้างข้อมูล (เลือกเก็บบาง user_id ได้)
-│   └── Test1..3_*.py               # สคริปต์ทดสอบ insert / select
+│   └── Test1..3_*.py               # สคริปต์ทดสอบ insert / select (ใช้ไฟล์ app.db แยกจากของจริง)
 ├── frontend/
 │   ├── index.html                  # prototype หน้าเดียว (เวอร์ชันแรก)
+│   ├── luma-frontend.zip           # สำเนา zip ของ frontend
 │   └── luma-frontend/              # (กร) React + Vite — ตัวจริง
+│       ├── .env.example / .env.production
 │       └── src/
 │           ├── api/                # client.js (axios กลาง), errorMessages.js, mockData.js
 │           ├── pages/              # Login, Register, Home, Generate, Features, Result, History, Profile, Setting, Admin
-│           ├── components/         # Layout, ProtectedRoute, AuthImage, Toast, SkeletonCard, ErrorBoundary
+│           ├── components/         # Layout, ProtectedRoute, AuthImage, Toast, SkeletonCard, ErrorBoundary, MockModeBanner
 │           ├── components/features/# หน้าเครื่องมือแต่งรูปแต่ละตัว + ImageUploader
 │           ├── components/templates/ # ClassicLayout, SoftLayout
-│           ├── features/           # registry.js + active.js — เปิด/ปิดเครื่องมือจากที่เดียว
+│           ├── features/           # registry.js (เครื่องมือทั้งหมด) + active.js (ตัวที่โชว์ในหน้า Features)
 │           ├── context/            # Auth, Theme, Layout, Toast
 │           ├── themes/ templates/  # สีธีม และ layout template (Classic / Soft)
+│           ├── utils/              # modelSizes, roles, settingsStorage
 │           └── test/               # Vitest
-└── docs/                           # รายงาน Backend + Image Processing (.md / .docx)
+├── docs/                           # รายงาน Backend + Image Processing (.md / .docx)
+└── git-graph.txt / git-history.txt # snapshot ประวัติ git ของโปรเจกต์
 ```
 
 ---
 
-## 🚀 วิธีรัน
+## 📦 สิ่งที่ต้องติดตั้งก่อน (Prerequisites)
 
-**ลำดับเปิดระบบ:** AI Server → Backend → Nginx
+| โปรแกรม | เวอร์ชัน | ใช้ที่เครื่อง | หมายเหตุ |
+|---|---|---|---|
+| Git | ล่าสุด | ทุกเครื่อง | Git Bash ใช้รัน `make_htpasswd.sh` ได้ด้วย |
+| Python | 3.10 – 3.13 | Backend | ทดสอบแล้วกับ 3.13 |
+| Python 3.10.x | 3.10.6 แนะนำ | AI Server | ตามที่ SD WebUI ต้องการ |
+| Node.js | **18 – 22 LTS** | Frontend / Nginx (ใช้ build) | Node 25+ ทำให้ `npm test` พัง — ดู [แก้ปัญหา](#️-แก้ปัญหาที่เจอบ่อย) |
+| Nginx for Windows | zip จาก nginx.org | Nginx | |
+| NVIDIA GPU + CUDA driver | VRAM ≥ 6 GB | AI Server | VRAM < 8 GB ให้เปิด `--medvram` |
 
-**สิ่งที่ต้องมี:** Python 3.10+, Node.js 18+, Nginx for Windows (zip), NVIDIA GPU ≥ 6 GB VRAM บนเครื่อง AI
+---
 
-> รันทุกอย่างในเครื่องเดียวก็ได้ — แค่เปลี่ยน IP ใน `backend/.env` และ `nginx/conf/nginx.conf` เป็น `127.0.0.1`
+## ⚡ Quick Start — รันทุกอย่างในเครื่องเดียว (สำหรับ dev)
+
+ไม่ต้องใช้ Nginx — เปิด Vite dev server แล้วให้ Frontend ยิงหา Backend ตรง ๆ
+
+**1. Backend**
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\activate                 # Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+copy .env.example .env                 # Linux/macOS: cp .env.example .env
+```
+
+แก้ `backend/.env` ให้เป็นค่าเครื่องเดียว:
+
+```ini
+HOST=127.0.0.1
+AI_SERVER_URL=http://127.0.0.1:8088    # หรือ IP เครื่อง AI ของทีม
+JWT_SECRET_KEY=<สุ่มใหม่ ดูคำสั่งด้านล่าง>
+```
+
+```powershell
+python run.py                          # → http://127.0.0.1:5000/api/v1/health ต้องได้ "status": "healthy"
+```
+
+**2. Frontend** (เปิด terminal ใหม่)
+
+```powershell
+cd frontend/luma-frontend
+npm install
+copy .env.example .env
+```
+
+แก้ `frontend/luma-frontend/.env`:
+
+```ini
+VITE_API_BASE_URL=http://localhost:5000/api/v1   # ⚠ ค่า default /api/v1 ใช้ได้เฉพาะเมื่ออยู่หลัง Nginx
+VITE_MOCK_MODE=false
+```
+
+```powershell
+npm run dev                            # → http://localhost:5173
+```
+
+**3. ใช้งาน**
+
+1. เปิด `http://localhost:5173` → สมัครสมาชิก → login
+2. (ถ้าต้องการหน้า Admin) ตั้งตัวเองเป็น admin แล้ว logout / login ใหม่
+   ```powershell
+   cd backend
+   python scripts/set_admin.py you@example.com
+   ```
+3. Image Tools ใช้ได้ทันทีโดยไม่ต้องมี AI Server · หน้า Generate ต้องมี AI Server ออนไลน์
+
+> **อยากดูแค่หน้าเว็บ ไม่มี Backend:** ตั้ง `VITE_MOCK_MODE=true` ใน `.env` ของ frontend แล้ว `npm run dev` —
+> ทุกหน้าใช้ข้อมูลปลอม และมีแถบ Mock Mode แสดงบนจอ
+
+---
+
+## 🚀 Setup แบบใช้งานจริง (3 เครื่องในวง LAN)
+
+**ลำดับเปิดระบบ:** AI Server → Backend → Nginx (Nginx เป็นตัว build + เสิร์ฟ Frontend ให้)
 
 ### 1) AI Server — ไอซ์ (เครื่อง 192.168.1.160)
 
-```bash
-git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git
+```powershell
+git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git   # หรือ Forge
 cd stable-diffusion-webui
-copy "..\Image_Project\Ai Server\config\webui-user.bat" webui-user.bat
-# วาง checkpoint .safetensors ลง models/Stable-diffusion/
-webui-user.bat
+copy "<path>\Image_Project\Ai Server\config\webui-user.bat" webui-user.bat
+# วาง checkpoint .safetensors ลง models\Stable-diffusion\
+webui-user.bat                         # ครั้งแรกจะติดตั้ง torch นานหน่อย
 ```
 
 Flag ที่ **ห้ามลบ**: `--api` · `--listen` · `--port 8088`
+(ใน `webui-user.bat` ให้แก้ `--cors-allow-origins=` ให้เป็น IP เครื่อง Backend / Nginx ของตัวเอง)
 
-```bash
+ทดสอบ AI Server โดยไม่ผ่าน Backend:
+
+```powershell
 cd "Ai Server"
 pip install -r scripts/requirements.txt
+copy .env.example .env                 # ตั้ง AI_SERVER_URL (หรือใช้ --url ทุกครั้ง)
 python scripts/check_server.py --url http://127.0.0.1:8088
-python scripts/test_txt2img.py -p "a cat astronaut" --steps 20
+python scripts/test_txt2img.py --url http://127.0.0.1:8088 -p "a cat astronaut" --steps 20 --width 512 --height 512
 ```
 
 > ถ้า 2 สคริปต์นี้ผ่าน แต่หน้าเว็บสร้างรูปไม่ได้ → ปัญหาอยู่ฝั่ง Backend / Nginx / Frontend
@@ -173,53 +259,62 @@ python scripts/test_txt2img.py -p "a cat astronaut" --steps 20
 
 ### 2) Backend — นาย (เครื่อง 192.168.1.169)
 
-```bash
+```powershell
 cd backend
 python -m venv .venv
 .venv\Scripts\activate              # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
-python scripts/download_models.py   # โหลดโมเดล MediaPipe (ถ้ายังไม่มีใน backend/models/)
-copy .env.example .env              # แล้วแก้ค่าในไฟล์
+copy .env.example .env              # แล้วแก้ค่าตามตารางด้านล่าง
 python run.py                       # http://0.0.0.0:5000
 ```
 
-| ตัวแปร `backend/.env` | ความหมาย |
-|---|---|
-| `PORT` | พอร์ต Flask (default `5000`) |
-| `HOST` | `0.0.0.0` เมื่อ Nginx อยู่คนละเครื่อง · `127.0.0.1` เมื่ออยู่เครื่องเดียวกัน |
-| `JWT_SECRET_KEY` | ค่าลับเซ็น JWT — `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `AI_SERVER_URL` | เช่น `http://192.168.1.160:8088` |
-| `FLASK_DEBUG` | `0` เสมอเมื่อเปิดรับจาก LAN |
-| `CORS_ORIGINS` | เช่น `http://192.168.1.171,http://localhost:5173` |
+ตอนสตาร์ท `run.py` จะพิมพ์สถานะออกมา — ต้องเห็น `AI Models Status: [READY]`
+ถ้าขึ้น `Missing models` ให้รัน `python scripts/download_models.py` (Remove BG / Gesture ใช้โมเดลนี้)
 
-ตรวจ: `http://127.0.0.1:5000/api/v1/health` ต้องได้ `"status": "healthy"`
+| ตัวแปร `backend/.env` | ความหมาย | ถ้าไม่ตั้ง |
+|---|---|---|
+| `PORT` | พอร์ต Flask | `5000` |
+| `HOST` | `0.0.0.0` เมื่อ Nginx อยู่คนละเครื่อง · `127.0.0.1` เมื่ออยู่เครื่องเดียวกัน | `0.0.0.0` |
+| `JWT_SECRET_KEY` | ค่าลับเซ็น JWT — `python -c "import secrets; print(secrets.token_urlsafe(48))"` | ค่า default ใน `config.py` (**ห้ามใช้จริง**) |
+| `AI_SERVER_URL` | เช่น `http://192.168.1.160:8088` | `http://172.20.57.0:8088` (มักผิด — ตั้งเสมอ) |
+| `FLASK_DEBUG` | `0` เสมอเมื่อเปิดรับจาก LAN | ปิด |
+| `CORS_ORIGINS` | คั่นด้วย `,` เช่น `http://192.168.1.171,http://localhost:5173` | localhost:5173 + `*` |
+| `UPLOAD_FOLDER` | (ไม่บังคับ) ที่เก็บไฟล์ภาพ | `backend/uploads` |
+| `LOG_LEVEL` / `LOG_FILE` | (ไม่บังคับ) ระดับ log / ไฟล์ log | `INFO` / `backend/logs/luma_backend.log` |
 
-ตั้งผู้ใช้เป็น admin (ต้องสมัครผ่านหน้าเว็บก่อน):
+ตรวจ: `http://127.0.0.1:5000/api/v1/health` ต้องได้ `"status": "healthy"` (response แสดง `ai_server_url` ที่ใช้อยู่ด้วย)
 
-```bash
+ตั้งผู้ใช้เป็น admin (ต้องสมัครผ่านหน้าเว็บก่อน · รันจากโฟลเดอร์ไหนก็ได้):
+
+```powershell
 python scripts/set_admin.py --list
 python scripts/set_admin.py user@example.com
 python scripts/set_admin.py --revoke user@example.com
 ```
 
-> ตารางในฐานข้อมูลถูกสร้าง/เพิ่มคอลัมน์ให้อัตโนมัติตอนสตาร์ท (`database/database.db`)
-> Production บน Linux: `gunicorn -c gunicorn_conf.py run:app`
+> **ฐานข้อมูล:** ไม่ต้องรันอะไรเพิ่ม — Backend สร้างตาราง / เพิ่มคอลัมน์ที่ขาดใน `database/database.db` ให้อัตโนมัติตอนสตาร์ท
+> (`python database/init_db.py` ใช้สร้างจาก `schema.sql` ด้วยมือได้ถ้าต้องการ)
+>
+> **Production บน Linux:** `pip install gunicorn` แล้ว `gunicorn -c gunicorn_conf.py run:app` (ต้อง workers=1 เพื่อให้ GPU lock ทำงาน)
 
 ### 3) Frontend — กร
 
-```bash
+ใช้งานจริงไม่ต้องรัน dev server — Nginx เสิร์ฟไฟล์ที่ build แล้ว (`BUILD-WEB.bat` ทำให้)
+
+```powershell
 cd frontend/luma-frontend
 npm install
-copy .env.example .env      # Linux/macOS: cp .env.example .env
-npm run dev                 # dev: http://localhost:5173
-npm run build               # build ไป dist/ (ใช้ .env.production → VITE_API_BASE_URL=/api/v1)
+npm run build               # build ไป dist/ (อ่าน .env.production → VITE_API_BASE_URL=/api/v1 เสมอ)
+npm run preview             # (ไม่บังคับ) ดูไฟล์ build ในเครื่อง
 npm test                    # Vitest
 ```
 
 | ตัวแปร | ความหมาย |
 |---|---|
-| `VITE_API_BASE_URL` | `/api/v1` เมื่อผ่าน Nginx · `http://localhost:5000/api/v1` เมื่อ dev ต่อ Backend ตรง |
+| `VITE_API_BASE_URL` | `/api/v1` เมื่อผ่าน Nginx · `http://localhost:5000/api/v1` เมื่อ `npm run dev` ต่อ Backend ตรง (Vite ไม่มี proxy) |
 | `VITE_MOCK_MODE` | `true` = เดินดูทุกหน้าด้วยข้อมูลปลอม ไม่ต้องมี Backend · `false` = ต่อ Backend จริง |
+
+> `npm run dev` bind `0.0.0.0:5173` แบบ `strictPort` — ถ้าพอร์ตถูกใช้จะ error ทันทีแทนที่จะย้ายพอร์ต
 
 ### 4) Nginx — ไอซ์ (เครื่อง 192.168.1.171)
 
@@ -229,15 +324,19 @@ npm test                    # Vitest
 2. แก้ `nginx\conf\nginx.conf`
    - `upstream luma_backend` → IP:พอร์ต ของ Backend
    - `upstream luma_ai_server` → IP:พอร์ต ของ AI Server
-   - `root` → path ของ `frontend/luma-frontend/dist` ในเครื่องตัวเอง (ใช้ `/` ไม่ใช่ `\`)
-3. ใส่ IP ทีม DEV ใน `conf\dev_allowlist.conf` และสร้างรหัสหลังบ้านด้วย `extras/make_htpasswd.sh` (ถ้าจะใช้ `:8089`)
+   - `root` → path ของ `frontend/luma-frontend/dist` **ในเครื่องตัวเอง** (ค่าใน repo เป็น path เครื่องเพื่อน · ใช้ `/` ไม่ใช่ `\`)
+3. (ถ้าจะใช้หลังบ้าน `:8089` / `/_dev/backend/`) ใส่ IP ทีม DEV ใน `conf\dev_allowlist.conf` และสร้างรหัสด้วย Git Bash
+   ```bash
+   bash nginx/extras/make_htpasswd.sh <username>     # ได้ไฟล์ nginx/luma_dev.htpasswd — START.bat ก๊อปเข้า nginx ให้เอง
+   ```
 4. รัน firewall ครั้งเดียวต่อเครื่อง (PowerShell แบบ Run as Administrator)
    ```powershell
    powershell -ExecutionPolicy Bypass -File nginx\firewall\for-nginx.ps1     # เครื่อง nginx
    powershell -ExecutionPolicy Bypass -File nginx\firewall\for-backend.ps1   # เครื่อง Backend
    powershell -ExecutionPolicy Bypass -File nginx\firewall\for-ai.ps1        # เครื่อง AI
    ```
-5. ดับเบิลคลิก `BUILD-WEB.bat` → `START.bat`
+   Linux ใช้ `nginx/firewall/linux.sh`
+5. ดับเบิลคลิก `BUILD-WEB.bat` (ครั้งแรกจะ `npm install` ให้) → `START.bat`
 
 ใช้งานประจำวัน:
 
@@ -246,7 +345,7 @@ npm test                    # Vitest
 | `START.bat` | เปิด nginx หรือกดซ้ำหลังแก้ `conf\` (คัดลอก config → `nginx -t` → start/reload) |
 | `STOP.bat` | ปิด nginx |
 | `LOGS.bat` | ดูว่าใครเข้าเว็บ ขออะไร |
-| `BUILD-WEB.bat` | หลัง `git pull` ที่มีการแก้หน้าเว็บ |
+| `BUILD-WEB.bat` | หลัง `git pull` ที่มีการแก้หน้าเว็บ (ไม่ต้อง restart nginx) |
 
 สิ่งที่ Gateway ทำ:
 
@@ -256,7 +355,7 @@ npm test                    # Vitest
 | จำกัด API | ผ่านเฉพาะ `/api/v1/*` · path อื่นใต้ `/api/` ตอบ 404 |
 | Rate limit | login / register 10 ครั้ง/นาที · API อื่น 120 ครั้ง/นาที ต่อ IP → `429` |
 | Upload | `client_max_body_size 16m` ให้ตรงกับ Backend |
-| Security | ซ่อนเวอร์ชัน nginx, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, กันเข้าไฟล์ `.env/.db/.py/...` |
+| Security | ซ่อนเวอร์ชัน nginx, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, กันเข้าไฟล์ `.env/.db/.py/...` |
 | Performance | gzip, cache `/assets/` 1 ปี (ไฟล์ Vite มี hash) |
 | Backend ล่ม | ตอบ JSON `{"success":false,"error":{"code":"INTERNAL_SERVER_ERROR",...}}` แทนหน้า 502 |
 | DEV gateway | `:8089` → SD WebUI (allowlist IP + basic auth) และ `/_dev/backend/` |
@@ -264,7 +363,16 @@ npm test                    # Vitest
 
 ตรวจ: `http://localhost/healthz` → `ok` · `http://localhost/api/v1/health` → `healthy`
 
-> คู่มือเต็ม + ตาราง "IP เปลี่ยนต้องแก้ที่ไหน" + แก้ปัญหา: [`nginx/README.md`](nginx/README.md)
+> คู่มือเต็ม + แก้ปัญหา: [`nginx/README.md`](nginx/README.md)
+
+### 🔁 ถ้า IP เปลี่ยน ต้องแก้ที่ไหน
+
+| เครื่องที่ IP เปลี่ยน | ไฟล์ที่ต้องแก้ | แล้วทำ |
+|---|---|---|
+| Backend | `nginx/conf/nginx.conf` → `upstream luma_backend` | `START.bat` |
+| AI Server | `backend/.env` → `AI_SERVER_URL` · `nginx.conf` → `upstream luma_ai_server` · `Ai Server/.env` | restart `run.py` + `START.bat` |
+| Nginx | `backend/.env` → `CORS_ORIGINS` · `nginx/conf/dev_allowlist.conf` · `--cors-allow-origins` ใน `webui-user.bat` | restart `run.py` / webui + `START.bat` |
+| ทุกเครื่อง | รัน `nginx/firewall/*.ps1` ใหม่ (กฎอ้าง IP) | — |
 
 ---
 
@@ -278,7 +386,7 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | POST | `/register` | | สมัครสมาชิก (password ≥ 8 ตัว, hash ด้วย Werkzeug) |
 | POST | `/login` | | เข้าสู่ระบบ → `access_token` อายุ 24 ชม. + `user` (มี `role`) |
 | GET | `/models` | | รายชื่อ checkpoint จาก AI Server |
-| POST | `/generate` | 🔒 | สร้างรูป → `generation_id`, `image_url`, `seed` |
+| POST | `/generate` | 🔒 | สร้างรูป → `generation_id`, `image_url`, `seed`, `estimated_time_seconds`, `actual_time_seconds` |
 | GET | `/images/:id` | 🔒 | ไฟล์ PNG (binary) — เช็คเจ้าของกัน IDOR |
 | GET | `/history` | 🔒 | ประวัติของตัวเอง `?page=1&limit=20` |
 | GET | `/history/:id` | 🔒 | รายละเอียด 1 รายการ |
@@ -286,14 +394,16 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | GET | `/profile` | 🔒 | ข้อมูลผู้ใช้ + `generation_count` |
 | POST | `/process/spot-blur` | 🔒 | เบลอเฉพาะจุด (`circles`, `strength`, `soft`) |
 | POST | `/process/cartoonize` | 🔒 | ภาพสไตล์การ์ตูน (`num_colors`, `line_thickness`, `smoothness`) |
-| POST | `/process/tilt-shift` | 🔒 | จำลองโมเดลจิ๋ว |
-| POST | `/process/hdr-enhancer` | 🔒 | เพิ่มรายละเอียด / คอนทราสต์สไตล์ HDR |
+| POST | `/process/tilt-shift` | 🔒 | จำลองโมเดลจิ๋ว _(ยังไม่เปิดในหน้าเว็บ)_ |
+| POST | `/process/hdr-enhancer` | 🔒 | เพิ่มรายละเอียด / คอนทราสต์สไตล์ HDR _(ยังไม่เปิดในหน้าเว็บ)_ |
 | POST | `/process/gesture` | 🔒 | จดจำท่ามือ 7 แบบ (MediaPipe) |
 | POST | `/process/remove-bg` | 🔒 | ลบพื้นหลัง (MediaPipe + GrabCut) |
 | GET | `/admin/users` | 👑 | รายชื่อผู้ใช้ทั้งหมด + จำนวนรูป |
-| DELETE | `/admin/users/:id` | 👑 | ลบผู้ใช้ (ลบตัวเองไม่ได้) |
+| DELETE | `/admin/users/:id` | 👑 | ลบผู้ใช้ + รูปทั้งหมดของผู้ใช้ (ลบตัวเองไม่ได้) |
 
 `/process/*` รับ `multipart/form-data` (field `image`: .jpg .jpeg .png .webp ≤ 16 MB)
+
+> Backend รับ path แบบไม่มี `/api/v1` ด้วย (เช่น `/login`, `/health`) เพื่อกัน 404 — แต่ผ่าน Nginx ใช้ได้เฉพาะ `/api/v1/*`
 
 ```jsonc
 // JSON response ทุกตัวใช้ envelope เดียวกัน
@@ -310,7 +420,8 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
   "steps": 20, "cfg_scale": 7, "sampler": "DPM++ 2M Karras", "seed": -1 }
 
 // response 201
-{ "success": true, "data": { "generation_id": 123, "image_url": "/api/v1/images/123", "seed": 123456789, ... } }
+{ "success": true, "data": { "generation_id": 123, "image_url": "/api/v1/images/123", "seed": 123456789,
+  "estimated_time_seconds": 4.5, "actual_time_seconds": 5.1, "created_at": "..." } }
 ```
 
 ### Authentication
@@ -324,7 +435,7 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 
 ## 🗄️ ฐานข้อมูล
 
-`users 1 : N generations` (`ON DELETE CASCADE`) · index ที่ `user_id`, `category`, `created_at`
+ไฟล์จริง: `database/database.db` (SQLite — อยู่ใน `.gitignore` แต่ยังถูก track ใน git อยู่ ระวัง commit ข้อมูลทดสอบติดไป) · `users 1 : N generations` (`ON DELETE CASCADE`) · index ที่ `user_id`, `category`, `created_at`
 
 **`users`** — `id`, `email` (UNIQUE), `password_hash`, `role` (`user` / `admin`), `created_at`
 
@@ -333,12 +444,12 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | Field | Note |
 |---|---|
 | `id`, `user_id` | PK / FK → `users.id` |
-| `category`, `action_type` | แยกประเภท เช่น `sd_generate` / `txt2img` หรือรายการจากเครื่องมือแต่งรูป |
+| `category`, `action_type` | แยกประเภท ปัจจุบันมีแค่ `sd_generate` / `txt2img` (เผื่อไว้สำหรับเครื่องมืออื่นในอนาคต) |
 | `prompt`, `negative_prompt`, `checkpoint`, `sampler` | พารามิเตอร์ SD |
 | `width`, `height`, `steps`, `cfg_scale`, `seed` | พารามิเตอร์ SD |
-| `params` | JSON พารามิเตอร์ของเครื่องมืออื่น ๆ |
-| `source_image_id` | อ้างถึงรูปต้นทาง (ถ้ามี) |
-| `image_data` / `image_path` | ไบต์ PNG ในฐานข้อมูล + ไฟล์สำเนาบนดิสก์ (`backend/uploads/generations/`) |
+| `params` | JSON ของ request ทั้งก้อน |
+| `source_image_id` | อ้างถึงรูปต้นทาง (สำรองไว้ ยังไม่ได้ใช้) |
+| `image_data` / `image_path` | ไบต์ PNG ในฐานข้อมูล + ไฟล์สำเนาบนดิสก์ (`backend/uploads/generations/<id>.png`) |
 | `created_at` | |
 
 > Backend เพิ่มคอลัมน์ที่ขาดให้อัตโนมัติตอนสตาร์ท จึงใช้กับฐานข้อมูลเก่าได้โดยข้อมูลไม่หาย
@@ -347,16 +458,16 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 
 ## ✅ กติกาที่ตกลงกัน
 
-| Field | Rule |
-|---|---|
-| `width` / `height` | 512, 768 หรือ 1024 |
-| `steps` | 1–50 (default 20) |
-| `cfg_scale` | 1–20 (default 7) |
-| `seed` | -1 (สุ่ม) หรือ 0–2147483647 |
-| `sampler` | `Euler a` (default) / `Euler` / `DPM++ 2M Karras` |
-| `prompt` | required, ≤ 2000 ตัวอักษร |
-| `password` | ≥ 8 ตัวอักษร |
-| upload | .jpg .jpeg .png .webp, ≤ 16 MB |
+| Field | Rule | ตรวจที่ |
+|---|---|---|
+| `width` / `height` | 512, 768 หรือ 1024 | Backend + Frontend |
+| `steps` | 1–50 (default 20) | Backend + Frontend |
+| `cfg_scale` | 1–20 (default 7) | Backend + Frontend |
+| `seed` | -1 (สุ่ม) หรือ 0–2147483647 | Frontend |
+| `sampler` | `DPM++ 2M Karras` (default ในหน้าเว็บ) / `Euler a` (default ของ Backend ถ้าไม่ส่งมา) / `Euler` | Frontend |
+| `prompt` / `negative_prompt` | prompt required · ทั้งคู่ ≤ 2000 ตัวอักษร | Backend + Frontend |
+| `password` | ≥ 8 ตัวอักษร | Backend + Frontend |
+| upload | .jpg .jpeg .png .webp, ≤ 16 MB | Backend + Nginx |
 
 **Timeout:** Backend → AI Server 75s · Frontend → `/generate` 90s · Nginx → Backend 120s · รอคิว GPU สูงสุด 40s
 
@@ -380,11 +491,13 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 
 | ส่วน | คำสั่ง | ครอบคลุม |
 |---|---|---|
-| AI Server | `python "Ai Server/scripts/check_server.py"` / `test_txt2img.py` | API online, checkpoint, sampler, สร้างรูปจริง |
-| Backend | `cd backend && pytest tests` | สมัคร / login / JWT, IDOR, pagination, คิว GPU, profile, health, การเก็บไฟล์, admin, image filters ทุกตัว |
-| Database | `python database/Test1_create_user.py` ฯลฯ | insert / select |
+| AI Server | `python "Ai Server/scripts/check_server.py" --url <url>` / `test_txt2img.py` | API online, checkpoint, sampler, สร้างรูปจริง |
+| Backend | `cd backend` แล้ว `python -m pytest tests` (ต้อง activate venv ก่อน) | สมัคร / login / JWT, IDOR, pagination, คิว GPU, profile, health, การเก็บไฟล์, admin, image filters ทุกตัว — ใช้ SQLite in-memory ไม่แตะข้อมูลจริง ไม่ต้องมี AI Server |
+| Database | `cd database` แล้ว `python Test1_create_user.py` → `Test2_insert_generation.py` → `Test3_select_all.py` | insert / select (เขียนลง `database/app.db` ไม่ใช่ `database.db`) |
 | Frontend | `cd frontend/luma-frontend && npm test` | API contract, admin, ขนาดรูปตามโมเดล, settings, ErrorBoundary |
 | ทั้งระบบ | `http://<nginx>/healthz` และ `/api/v1/health` | Nginx → Backend ต่อกันได้ |
+
+> ⚠ Backend ต้องใช้ `python -m pytest` — ถ้าพิมพ์ `pytest tests` เฉย ๆ จะเจอ `ModuleNotFoundError: No module named 'app'`
 
 ---
 
@@ -393,11 +506,17 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | อาการ | ดูที่ |
 |---|---|
 | หน้าเว็บขึ้น แต่ login ไม่ได้ / "Backend is unavailable" | Backend ไม่ได้รัน, `HOST` ไม่ใช่ `0.0.0.0`, หรือ firewall เครื่อง Backend ยังไม่อนุญาตเครื่อง Nginx |
-| ไม่มีรายชื่อโมเดล / สร้างรูปไม่ได้ | AI Server ไม่ได้รัน หรือ firewall เครื่อง AI → `check_server.py` |
+| `npm run dev` แล้ว login ไม่ได้ / 404 ที่ `/api/v1/...` | `VITE_API_BASE_URL` ยังเป็น `/api/v1` → เปลี่ยนเป็น `http://localhost:5000/api/v1` |
+| CORS error ใน console ของ browser | origin ของหน้าเว็บไม่อยู่ใน `CORS_ORIGINS` ของ `backend/.env` |
+| ไม่มีรายชื่อโมเดล / สร้างรูปไม่ได้ | AI Server ไม่ได้รัน, `AI_SERVER_URL` ผิด (เช็คจาก `/api/v1/health`), หรือ firewall เครื่อง AI → `check_server.py` |
 | `AI_SERVER_BUSY` | มีคนสร้างรูปอยู่และรอคิวเกิน 40s — ลองใหม่ |
-| Remove BG / Gesture ได้ `MODEL_UNAVAILABLE` | ยังไม่มีโมเดลใน `backend/models/` → `python scripts/download_models.py` |
+| Remove BG / Gesture ได้ `MODEL_UNAVAILABLE` | ไม่มีโมเดลใน `backend/models/` → `python scripts/download_models.py` |
+| `pytest` ขึ้น `No module named 'app'` | ใช้ `python -m pytest tests` จากในโฟลเดอร์ `backend/` |
+| `npm test` fail ด้วย `Cannot read properties of undefined (reading 'setItem')` | ใช้ Node 25+ (มี `localStorage` ในตัวไปทับของ jsdom) → ใช้ Node 22 LTS หรือรัน `$env:NODE_OPTIONS="--no-experimental-webstorage"; npm test` |
+| หน้า Admin ไม่ขึ้นหลัง `set_admin.py` | logout แล้ว login ใหม่ให้ได้ token / `role` ใหม่ |
 | เครื่องอื่นเปิดเว็บไม่ได้ | `nginx/firewall/for-nginx.ps1` และตั้ง Wi-Fi เป็น Private |
 | แก้หน้าเว็บแล้วไม่เปลี่ยน | ลืม `BUILD-WEB.bat` |
+| `:8089` ได้ 403 | IP ตัวเองไม่อยู่ใน `dev_allowlist.conf` → แก้แล้ว `START.bat` |
 | `413` / `429` | ไฟล์เกิน 16 MB / กดถี่เกิน rate limit |
 
 ---
@@ -409,9 +528,12 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | [`nginx/README.md`](nginx/README.md) | คู่มือ Nginx Gateway ฉบับเต็ม |
 | [`nginx/extras/DEMO-cloudflared.md`](nginx/extras/DEMO-cloudflared.md) | เปิดเดโมให้คนนอกวง LAN |
 | [`Ai Server/README.md`](Ai%20Server/README.md) | ติดตั้ง / ทดสอบ / แก้ปัญหา AI Server |
+| [`Ai Server/config/README-config.md`](Ai%20Server/config/README-config.md) | อธิบาย flag ใน `webui-user` |
+| [`Ai Server/models/README.md`](Ai%20Server/models/README.md) | วาง checkpoint / LoRA / VAE |
 | [`frontend/luma-frontend/README.md`](frontend/luma-frontend/README.md) | โครงสร้าง Frontend และ Mock Mode |
 | [`docs/BACKEND_CAPABILITIES.md`](docs/BACKEND_CAPABILITIES.md) | ความสามารถทั้งหมดของ Backend |
 | [`docs/BACKEND_USER_GUIDE.md`](docs/BACKEND_USER_GUIDE.md) | คู่มือใช้งาน Backend |
+| [`docs/BACKEND_REPORT.md`](docs/BACKEND_REPORT.md) · [`docs/BACKEND_CODE_REVIEW.md`](docs/BACKEND_CODE_REVIEW.md) | รายงาน + code review ฝั่ง Backend |
 | [`docs/IMAGE_PROCESSING_REPORT.md`](docs/IMAGE_PROCESSING_REPORT.md) | อัลกอริทึมของเครื่องมือแต่งรูป |
 | [`docs/FRONTEND_REQUIREMENTS.md`](docs/FRONTEND_REQUIREMENTS.md) | Requirement ฝั่ง Frontend |
 
@@ -421,13 +543,14 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 
 - ห้าม push ตรงเข้า `main` — 1 Issue → 1 branch (`<issue>-<type>/<area>-<name>`) → เปิด PR
 - Commit แบบ Conventional Commits: `type(scope): description` เช่น `feat(nginx): ...`, `fix(frontend): ...`
-- ห้าม commit: `.env`, `*.htpasswd`, `nginx/win/`, checkpoint `.safetensors` / `.ckpt`, `node_modules/`, `dist/`
+- ห้าม commit: `.env`, `*.htpasswd`, `nginx/win/`, checkpoint `.safetensors` / `.ckpt`, `node_modules/`, `dist/`, `backend/uploads/` และไม่ควร commit การเปลี่ยนแปลงของ `database/*.db`
 
 ---
 
 ## 🔭 Future Features
 
-Image-to-Image · Upscale · Inpainting · ControlNet · Change Password · HTTPS ถาวรบน Nginx
+Image-to-Image · Upscale · Inpainting · ControlNet · Change Password · HTTPS ถาวรบน Nginx ·
+เปิด Tilt-Shift / HDR Enhancer ในหน้าเว็บ · บันทึกผล Image Tools ลง History
 
 ---
 

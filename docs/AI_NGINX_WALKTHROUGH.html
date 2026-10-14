@@ -1,0 +1,754 @@
+<title>AI Server กับ nginx</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: diagram across the top, optional hands-on lab, then plain words beside the key code lines; controls pinned to the bottom */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#151c28; --dim:#5c677a; --line:#d5dbe4;
+  --accent:#0f766e; --accent-soft:#d7efec; --on-accent:#ffffff;
+  --packet:#c2410c; --packet-soft:#fde3d3;
+  --bad:#dc2626; --bad-soft:#fde2e2; --ok:#15803d;
+  --code-bg:#f6f8fa; --hl:#fff1cc; --hl-bar:#d97706;
+  --tk-kw:#7c3aed; --tk-str:#0f7b3f; --tk-com:#8a94a6; --tk-num:#b45309;
+  --f-display:"Bai Jamjuree","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141b; --panel:#161d27; --ink:#e3e8ef; --dim:#95a1b3; --line:#283242;
+  --accent:#2dd4bf; --accent-soft:#123b38; --on-accent:#06201d;
+  --packet:#fb923c; --packet-soft:#40210f;
+  --bad:#f87171; --bad-soft:#3f1717; --ok:#4ade80;
+  --code-bg:#111821; --hl:#3a2f12; --hl-bar:#f59e0b;
+  --tk-kw:#c4b5fd; --tk-str:#86efac; --tk-com:#6b7a90; --tk-num:#fbbf24; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141b; --panel:#161d27; --ink:#e3e8ef; --dim:#95a1b3; --line:#283242;
+  --accent:#2dd4bf; --accent-soft:#123b38; --on-accent:#06201d;
+  --packet:#fb923c; --packet-soft:#40210f;
+  --bad:#f87171; --bad-soft:#3f1717; --ok:#4ade80;
+  --code-bg:#111821; --hl:#3a2f12; --hl-bar:#f59e0b;
+  --tk-kw:#c4b5fd; --tk-str:#86efac; --tk-com:#6b7a90; --tk-num:#fbbf24; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.7;margin:0;padding-bottom:84px}
+.shell{max-width:1240px;margin:0 auto;padding-inline:16px}
+header.top{padding-block:18px 8px;display:flex;flex-wrap:wrap;gap:4px 24px;align-items:baseline;justify-content:space-between}
+h1{font-family:var(--f-display);font-size:clamp(22px,3vw,28px);margin:0;line-height:1.3}
+.hint{color:var(--dim);font-size:13px}
+.hint kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--panel)}
+nav.lessons{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bg);border-bottom:1px solid var(--line)}
+nav.lessons .shell{display:flex;gap:4px;overflow-x:auto;padding-block:8px;align-items:center}
+nav.lessons .grp{flex:0 0 auto;font:600 11.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dim);padding:0 6px 0 12px;border-left:1px solid var(--line)}
+nav.lessons .grp:first-child{border-left:0;padding-left:0}
+nav.lessons button{flex:0 0 auto;font:600 14.5px var(--f-display);color:var(--dim);background:none;border:0;border-radius:8px;padding:7px 11px;cursor:pointer;display:flex;gap:7px;align-items:baseline}
+nav.lessons button .n{font:500 12px var(--f-mono)}
+nav.lessons button:hover{background:var(--panel);color:var(--ink)}
+nav.lessons button[aria-current="true"]{background:var(--accent);color:var(--on-accent)}
+button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{display:flex;flex-direction:column;gap:14px;padding-block:14px 24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0}
+.intro{padding:12px 18px;color:var(--dim);font-size:15px}
+.intro b{color:var(--ink);font-family:var(--f-display);font-size:18px;display:block}
+.stage{padding:10px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+.stage.with-viz{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:center}
+.stage svg{display:block;width:100%;height:auto}
+.node rect{fill:var(--panel);stroke:var(--line);stroke-width:1.5;transition:fill .25s,stroke .25s}
+.node .t{font:600 15px var(--f-display);fill:var(--ink)}
+.node .a{font:500 12.5px var(--f-body);fill:var(--accent)}
+.node .s{font:400 10.5px var(--f-mono);fill:var(--dim)}
+.node.on rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:3}
+.node.badon rect{fill:var(--bad-soft);stroke:var(--bad);stroke-width:3}
+.edge{stroke:var(--line);stroke-width:2;stroke-dasharray:4 5;transition:stroke .25s}
+.edge.hot{stroke:var(--packet);stroke-dasharray:none;stroke-width:3}
+.edge.hotbad{stroke:var(--bad);stroke-dasharray:6 4;stroke-width:3}
+.pk circle{fill:var(--packet)}
+.pk rect{fill:var(--packet-soft);stroke:var(--packet);stroke-width:1}
+.pk text{font:500 12px var(--f-mono);fill:var(--ink)}
+.pk.bad circle{fill:var(--bad)}
+.pk.bad rect{fill:var(--bad-soft);stroke:var(--bad)}
+.viz canvas,.lab canvas{display:block;width:100%;max-width:100%;aspect-ratio:320/200;border-radius:8px;background:var(--code-bg)}
+.viz .cap{font-size:13px;color:var(--dim);margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.sw{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-mono);font-size:11.5px}
+.sw i{width:12px;height:12px;border-radius:3px;border:1px solid var(--line);display:inline-block}
+.lab{padding:14px 18px;display:flex;flex-direction:column;gap:12px;border-color:var(--accent)}
+.lab h3{margin:0;font:600 16px var(--f-display);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lab h3 span{font:500 12px var(--f-mono);color:var(--accent);background:var(--accent-soft);padding:1px 8px;border-radius:999px}
+.lab .sub{margin:0;color:var(--dim);font-size:14px}
+.lab-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lab input[type=text]{font:500 15px var(--f-mono);padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--code-bg);color:var(--ink);flex:1;min-width:200px}
+.lab button.t{font:500 13.5px var(--f-mono);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
+.lab button.t:hover{border-color:var(--accent);color:var(--accent)}
+.lab button.p{font:500 14.5px var(--f-body);border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);border-radius:8px;padding:7px 14px;cursor:pointer}
+.lab button.g{font:500 14.5px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
+.chk{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.chk li{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:6px;align-items:baseline}
+.chk .m{font:600 13px var(--f-mono);text-align:center;border-radius:6px;padding:1px 0}
+.chk .y{background:var(--accent-soft);color:var(--accent)}
+.chk .x{background:var(--code-bg);color:var(--dim)}
+.chk .s{background:var(--line);color:var(--dim)}
+.chk code{font-size:.84em}
+.verdict{border-radius:10px;padding:10px 14px;font-size:15.5px}
+.verdict.go{background:var(--accent-soft)}
+.verdict.no{background:var(--bad-soft)}
+.verdict b{font-family:var(--f-mono)}
+.gauge{height:14px;border-radius:7px;background:var(--code-bg);border:1px solid var(--line);overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--accent);width:0;transition:width .15s}
+.gauge.full i{background:var(--bad)}
+.log{display:flex;flex-wrap:wrap;gap:4px;min-height:26px}
+.log span{font:600 11px var(--f-mono);padding:3px 6px;border-radius:5px}
+.log .a{background:var(--accent-soft);color:var(--accent)}
+.log .r{background:var(--bad-soft);color:var(--bad)}
+.sd-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center}
+.sd-ctl{display:flex;flex-direction:column;gap:10px;font-size:14.5px}
+.sd-ctl label{display:flex;flex-direction:column;gap:2px}
+.sd-ctl input[type=range]{width:100%;accent-color:var(--accent)}
+.sd-ctl output{font:600 13px var(--f-mono);color:var(--accent)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;align-items:start}
+.story{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.stepno{font:500 12.5px var(--f-mono);color:var(--dim);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:500 12px var(--f-mono);padding:1px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.story h2{font-family:var(--f-display);font-size:23px;margin:0;line-height:1.35;text-wrap:balance}
+.say{font-size:18px;line-height:1.75;margin:0;max-width:60ch}
+.box{border:1.5px dashed var(--packet);border-radius:10px;padding:10px 14px;background:var(--packet-soft)}
+.box.mem{border-color:var(--accent);background:var(--accent-soft)}
+.box h3{font:600 12.5px var(--f-mono);letter-spacing:.04em;margin:0 0 6px;color:var(--packet)}
+.box.mem h3{color:var(--accent)}
+.box dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 14px;margin:0;font-family:var(--f-mono);font-size:13px}
+.box dt{color:var(--dim)}.box dd{margin:0;overflow-wrap:anywhere}
+details.more summary{cursor:pointer;color:var(--accent);font-weight:500;font-size:14.5px;width:fit-content}
+details.more div{margin-top:8px;font-size:15px}
+details.more p{margin:0 0 .6em;max-width:65ch}
+code{font-family:var(--f-mono);font-size:.86em;background:var(--code-bg);border:1px solid var(--line);padding:0 4px;border-radius:4px;overflow-wrap:anywhere}
+.code{display:flex;flex-direction:column;overflow:hidden}
+.code .head{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline;justify-content:space-between}
+.code .head .lbl{font:600 13px var(--f-display);color:var(--dim)}
+.code .path{font:600 13px var(--f-mono);overflow-wrap:anywhere}
+.focus{display:flex;flex-direction:column;gap:12px;padding:14px 16px}
+.fx-code{background:var(--hl);border-left:3px solid var(--hl-bar);border-radius:0 6px 6px 0;overflow-x:auto;padding-block:4px}
+.fx-code pre{margin:0;font:13.5px/1.6 var(--f-mono);min-width:max-content}
+.fx-tr{margin-top:5px;padding-left:14px;font-size:15.5px;line-height:1.55;position:relative}
+.fx-tr::before{content:"";position:absolute;left:3px;top:.2em;bottom:.2em;width:2px;background:var(--accent);border-radius:2px}
+.gap{font:500 12px var(--f-mono);color:var(--dim);padding-left:14px}
+.ln{display:flex;padding-right:16px;border-left:3px solid transparent}
+.ln .no{width:3.6em;flex:0 0 auto;text-align:right;padding-right:14px;color:var(--tk-com);user-select:none;font-variant-numeric:tabular-nums}
+.fx-code .ln{border-left:0}
+.fx-code .ln .no{color:var(--hl-bar);font-weight:600}
+.ln .tx{white-space:pre}
+.next{border-top:1px solid var(--line);padding:10px 16px;font-size:14px}
+.next b{font-family:var(--f-mono);font-size:12.5px;overflow-wrap:anywhere}
+.full{border-top:1px solid var(--line)}
+.full summary{cursor:pointer;padding:10px 16px;color:var(--accent);font-weight:500;font-size:14.5px}
+.full .body{max-height:52vh;overflow:auto;background:var(--code-bg);padding-block:8px}
+.full pre{margin:0;font:13px/1.65 var(--f-mono);min-width:max-content}
+.full .ln.hl{background:var(--hl);border-left-color:var(--hl-bar)}
+.full .ln.hl .no{color:var(--hl-bar);font-weight:600}
+.kw{color:var(--tk-kw)}.st{color:var(--tk-str)}.cm{color:var(--tk-com);font-style:italic}.nu{color:var(--tk-num)}
+.controls{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.controls .shell{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-block:10px}
+.controls button.c{font:500 15px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 16px;cursor:pointer}
+.controls button.c:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.controls button.c:disabled{opacity:.4;cursor:default}
+.controls button.next-btn{background:var(--accent);color:var(--on-accent);border-color:var(--accent);min-width:96px}
+.controls button.next-btn:hover:not(:disabled){color:var(--on-accent);filter:brightness(1.08)}
+.dots{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:120px;justify-content:flex-end;align-items:center}
+.dots button{width:12px;height:12px;border-radius:50%;border:0;padding:0;background:var(--line);cursor:pointer}
+.dots button.done{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.dots button.cur{background:var(--accent);width:22px;border-radius:6px}
+.count{font:500 13px var(--f-mono);color:var(--dim);font-variant-numeric:tabular-nums}
+@media (max-width:900px){.row,.stage.with-viz,.sd-grid{grid-template-columns:minmax(0,1fr)}.say{font-size:17px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="shell top">
+  <h1>AI Server กับ nginx</h1>
+  <div class="hint">กด “ถัดไป” ไปทีละขั้น · <kbd>←</kbd> <kbd>→</kbd> เลื่อน · <kbd>Space</kbd> เล่นเอง · กล่องเส้นแดง = คำขอที่ถูกปฏิเสธ</div>
+</header>
+<nav class="lessons" aria-label="บทเรียน"><div class="shell" id="lessonTabs"></div></nav>
+
+<main class="shell">
+  <div class="card intro" id="intro"></div>
+  <div class="card stage" id="stage">
+    <svg id="svg" role="img" aria-label="แผนภาพการส่งข้อมูลระหว่างเครื่อง"></svg>
+    <div class="viz" id="viz" hidden><canvas id="cv" width="320" height="200"></canvas><div class="cap" id="vizCap"></div></div>
+  </div>
+
+  <section class="card lab" id="lab-loc" hidden>
+    <h3>ลองเอง: URL นี้ไปห้องไหน <span>ตัวจำลองกติกาของ nginx.conf</span></h3>
+    <p class="sub">พิมพ์ path แล้วดูว่า nginx ไล่เช็คอะไรบ้าง หรือกดตัวอย่าง</p>
+    <div class="lab-row"><input type="text" id="locIn" value="/api/v1/login" aria-label="path ที่จะทดลอง" spellcheck="false"></div>
+    <div class="lab-row" id="locChips"></div>
+    <ol class="chk" id="locSteps"></ol>
+    <div class="verdict" id="locVerdict"></div>
+  </section>
+
+  <section class="card lab" id="lab-rate" hidden>
+    <h3>ลองเอง: ยิง login รัว ๆ <span>rate=10r/m · burst=5 · nodelay</span></h3>
+    <p class="sub">แต่ละ IP มี “ถัง” จุได้ 5 ครั้งเกินโควตา ถังรั่วออก 1 ครั้งทุก 6 วินาที ครั้งไหนทำให้ถังล้น → 429</p>
+    <div class="lab-row"><button class="p" type="button" id="rtOne">ยิง 1 ครั้ง</button><button class="g" type="button" id="rtTen">ยิงรัว 10 ครั้ง</button><button class="g" type="button" id="rtReset">เริ่มใหม่</button></div>
+    <div><div class="gauge" id="rtGauge"><i></i></div><div class="hint" id="rtText" style="margin-top:4px"></div></div>
+    <div class="log" id="rtLog" aria-live="polite"></div>
+  </section>
+
+  <section class="card lab" id="lab-sd" hidden>
+    <h3>ลองเอง: ลบ noise ทีละรอบ <span>ภาพจำลองแนวคิด ไม่ใช่โมเดลจริง</span></h3>
+    <div class="sd-grid">
+      <canvas id="sdCv" width="320" height="200" aria-label="ภาพจำลองการลบ noise"></canvas>
+      <div class="sd-ctl">
+        <label for="sdK">รอบที่ลบ noise ไปแล้ว <output id="sdKo"></output><input type="range" id="sdK" min="0" max="20" value="6"></label>
+        <label for="sdC">CFG scale <output id="sdCo"></output><input type="range" id="sdC" min="1" max="20" value="7"></label>
+        <div class="lab-row"><button class="g" type="button" id="sdS">สุ่ม seed ใหม่</button><span class="hint" id="sdSo"></span></div>
+        <p class="sub">ในของจริง seed ต่างกันจะได้ภาพปลายทางคนละภาพ ตัวจำลองนี้ใช้ภาพปลายทางเดียวเพื่อให้เห็นขั้นตอนชัด ๆ</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="row">
+    <section class="card story" id="story" aria-live="polite"></section>
+    <section class="card code" aria-label="โค้ดของขั้นนี้">
+      <div class="head"><span class="lbl">โค้ด / config จริงของขั้นนี้</span><span class="path" id="cPath"></span></div>
+      <div class="focus" id="focus"></div>
+      <div class="next" id="nextInfo"></div>
+      <details class="full" id="full"><summary>ดูทั้งไฟล์ (บรรทัดที่ใช้ถูกไฮไลต์)</summary><div class="body" id="cBody"><pre id="cPre"></pre></div></details>
+    </section>
+  </div>
+</main>
+
+<div class="controls"><div class="shell">
+  <button class="c" id="prev" type="button">ย้อน</button>
+  <button class="c next-btn" id="next" type="button">ถัดไป</button>
+  <button class="c" id="play" type="button">เล่นเอง</button>
+  <span class="count" id="count"></span>
+  <div class="dots" id="dots"></div>
+</div></div>
+
+<script>
+const DATA = {"snips": {"webui_bat": {"path": "Ai Server/config/webui-user.bat", "lang": "bat", "start": 1, "lines": ["@echo off", "REM =========================================================", "REM  webui-user.bat - Luma AI Server (Windows)", "REM  เครื่อง: 172.20.57.51  พอร์ต: 8088", "REM  ก๊อปไฟล์นี้ไปวางทับใน root ของ stable-diffusion-webui", "REM =========================================================", "", "set PYTHON=", "set GIT=", "set VENV_DIR=", "", "REM --api --listen --port 8088 = สิ่งที่ Backend ต้องการ ห้ามลบ", "set COMMANDLINE_ARGS=--api --api-log --listen --port 8088 --cors-allow-origins=http://172.20.57.59,http://localhost:5173 --xformers --enable-insecure-extension-access", "", "REM VRAM น้อยกว่า 8GB ให้ปลดคอมเมนต์บรรทัดล่าง", "REM set COMMANDLINE_ARGS=%COMMANDLINE_ARGS% --medvram", "", "set CUDA_VISIBLE_DEVICES=0", "", "call webui.bat"]}, "gitignore": {"path": "Ai Server/.gitignore", "lang": "nginx", "start": 1, "lines": ["# ===== ไฟล์ model ขนาดใหญ่ ห้าม commit =====", "models/**/*.safetensors", "models/**/*.ckpt", "models/**/*.pt", "models/**/*.pth", "models/**/*.bin", "models/**/*.vae.pt", "", "# ===== ผลลัพธ์การทดสอบ =====", "outputs/", "*.png", "*.jpg", "*.jpeg", "", "# ===== ของ webui / python =====", "venv/", "__pycache__/", "*.pyc", ".env"]}, "ai_models": {"path": "backend/app/services/ai_client.py", "lang": "py", "start": 119, "lines": ["def fetch_available_models() -> list:", "    \"\"\"", "    ฟังก์ชันดึงรายชื่อโมเดล Checkpoints ทั้งหมดจาก Stable Diffusion AI Server", "    ยิงคำขอแบบ GET ไปที่ /sdapi/v1/sd-models โดยตรงจาก AI Server เท่านั้น (ไม่มีการสร้างโมเดลสำรอง)", "    ", "    :return: รายการโมเดลในรูปแบบ [{'title': '...', 'model_name': '...'}]", "    \"\"\"", "    # --------------------------------------------------------------------------", "    # [FALLBACK MOCK] หากต้องการบังคับส่งโมเดลจำลองกลับไปให้ Frontend ทันที (ไม่ต้องต่อ AI Server):", "    # ปลดเครื่องหมาย # ที่บรรทัดด้านล่างนี้:", "    #return [{\"title\": \"v1-5-pruned-emaonly.safetensors\", \"model_name\": \"v1-5-pruned-emaonly\"}]", "    # --------------------------------------------------------------------------", "", "    server_url = get_ai_server_url()", "    try:", "        # ยิงคำขอไปยัง AI Server ด้วย Timeout 10 วินาที", "        response = requests.get(f\"{server_url}/sdapi/v1/sd-models\", timeout=10)", "        ", "        # หาก AI Server ตอบกลับ HTTP 200 OK", "        if response.status_code == 200:", "            models_data = response.json()", "            if isinstance(models_data, list):", "                models_list = [", "                    {", "                        \"title\": m.get(\"title\") or m.get(\"model_name\", \"unknown\"),", "                        \"model_name\": m.get(\"model_name\") or m.get(\"title\", \"unknown\")", "                    }", "                    for m in models_data", "                ]", "                logger.info(\"Successfully fetched %d models directly from AI Server: %s\", len(models_list), server_url)", "                return models_list", "", "            raise AIServerErrorException(\"AI Server returned unexpected data format for models\")", "", "        # กรณี AI Server ตอบสถานะข้อผิดพลาด", "        raise AIServerErrorException(f\"AI Server returned status code {response.status_code}\")", "        ", "    except requests.exceptions.Timeout:", "        # [FALLBACK ON TIMEOUT] ปลด # ด้านล่างหากต้องการส่งโมเดลสำรองเมื่อ AI Server Timeout:", "        # return [{\"title\": \"v1-5-pruned-emaonly.safetensors\", \"model_name\": \"v1-5-pruned-emaonly\"}]", "        raise AIServerTimeoutException(f\"Connection to AI Server timed out at {server_url}\")", "", "    except requests.exceptions.RequestException as e:", "        # [FALLBACK ON ERROR] ปลด # ด้านล่างหากต้องการส่งโมเดลสำรองเมื่อต่อเน็ต AI Server ไม่ติด:", "        # return [{\"title\": \"v1-5-pruned-emaonly.safetensors\", \"model_name\": \"v1-5-pruned-emaonly\"}]", "        # ปัญหาการเชื่อมต่อเครือข่ายไปยัง AI Server", "        raise AIServerErrorException(f\"Cannot connect to AI Server at {server_url}: {str(e)}\")"]}, "ai_py": {"path": "backend/app/services/ai_client.py", "lang": "py", "start": 168, "lines": ["def generate_sd_image(payload: dict) -> tuple:", "    \"\"\"", "    ฟังก์ชันส่งคำขอสร้างรูปภาพไปยัง Stable Diffusion AI Server (/sdapi/v1/txt2img)", "    ", "    ✨ ระบบจัดการคิวงานพร้อมกัน (Concurrency Queue Management):", "    - เมื่อผู้ใช้หลายคนกดสร้างภาพพร้อมกัน คำขอจะถูกนำเข้าคิว", "    - คำขอแต่ละงานจะรอเข้า GPU อย่างเป็นระเบียบ ไม่ชนกัน และไม่สูญหาย", "    - จับเวลาจริงในการทำงานเพื่อส่งกลับเป็นค่าสถิติ", "    ", "    :param payload: ข้อมูลพารามิเตอร์การสร้างภาพจากผู้ใช้งาน", "    :return: Tuple ของ (base64_image_string, actual_duration_seconds, estimated_duration_seconds)", "    \"\"\"", "    global _waiting_jobs_count", "    server_url = get_ai_server_url()", "", "    # 1. คำนวณเวลาประเมินล่วงหน้าก่อนเข้าคิว", "    width = int(payload.get(\"width\", 512))", "    height = int(payload.get(\"height\", 512))", "    steps = int(payload.get(\"steps\", 20))", "    est_info = calculate_estimated_time(width=width, height=height, steps=steps)", "    estimated_duration = est_info[\"total_estimated_seconds\"]", "", "    # 2. บันทึกเพิ่มจำนวนคิวงานที่กำลังรอในระบบ", "    with _waiting_counter_lock:", "        _waiting_jobs_count += 1", "        current_queue_pos = _waiting_jobs_count", "", "    logger.info(\"New generation request queued (Position: %d, Estimated: %.1fs)\", current_queue_pos, estimated_duration)", "", "    # 3. รอเข้าคิวเพื่อขอสิทธิ์การใช้งาน GPU (กำหนดไว้ 40 วินาที เพื่อให้รวมกับ HTTP Timeout 75s แล้วไม่เกิน 115s < Nginx 120s)", "    lock_acquired = _gpu_lock.acquire(blocking=True, timeout=40)", "", "    # 4. เมื่อได้รับสิทธิ์หรือหลุดจากคิว ให้ลดจำนวนงานที่รอลง", "    with _waiting_counter_lock:", "        _waiting_jobs_count = max(0, _waiting_jobs_count - 1)", "", "    # หากรอคิวนานเกิน 40 วินาทีแล้วยังไม่ได้คิว ให้ตอบกลับ AI_SERVER_BUSY (409) ก่อน Nginx ตัด 504", "    if not lock_acquired:", "        logger.warning(\"Generation request timed out waiting for GPU lock (Server Busy)\")", "        raise AIServerBusyException(\"AI Server queue wait time exceeded (Server is busy)\")", "", "    logger.info(\"Acquired GPU lock. Sending txt2img request to AI Server: %s\", server_url)", "", "    # 5. เริ่มจับเวลาการประมวลผลจริง", "    start_time = time.time()", "", "    try:", "        # 6. แปลงโครงสร้างพารามิเตอร์ให้ตรงตามที่ Stable Diffusion WebUI API กำหนด", "        sd_payload = {", "            \"prompt\": payload.get(\"prompt\", \"\"),", "            \"negative_prompt\": payload.get(\"negative_prompt\", \"\"),", "            \"width\": width,", "            \"height\": height,", "            \"steps\": steps,", "            \"cfg_scale\": float(payload.get(\"cfg_scale\", 7.0)),", "            \"seed\": int(payload.get(\"seed\", -1)),", "            \"sampler_name\": payload.get(\"sampler\") or payload.get(\"sampler_name\") or \"Euler a\",", "        }", "", "        # หากมีการระบุชื่อโมเดล Checkpoint ให้ส่งไปใน override_settings", "        checkpoint_name = payload.get(\"checkpoint\")", "        if checkpoint_name:", "            sd_payload[\"override_settings\"] = {", "                \"sd_model_checkpoint\": checkpoint_name", "            }", "", "        # 7. ส่ง HTTP POST Request ไปยัง AI Server", "        timeout_seconds = get_ai_server_timeout()", "        response = requests.post(", "            f\"{server_url}/sdapi/v1/txt2img\",", "            json=sd_payload,", "            timeout=timeout_seconds", "        )", "", "        # 8. ตรวจสอบผลลัพธ์จาก AI Server", "        if response.status_code == 200:", "            result_data = response.json()", "            images_list = result_data.get(\"images\", [])", "            ", "            if images_list and len(images_list) > 0:", "                # คำนวณเวลาที่ใช้ไปจริง (หน่วย: วินาที)", "                actual_duration = round(time.time() - start_time, 2)", "                logger.info(\"Image generated successfully in %.2fs (Estimated was: %.1fs)\", actual_duration, estimated_duration)", "                # ส่งคืน Base64 ของภาพแรก, เวลาที่ใช้จริง, และเวลาประเมิน", "                return images_list[0], actual_duration, estimated_duration", "                ", "            logger.error(\"AI Server returned HTTP 200 but image data array was empty\")", "            raise AIServerErrorException(\"AI Server returned empty image data\")", "", "        logger.error(\"AI Server returned unexpected HTTP status %d\", response.status_code)", "        raise AIServerErrorException(f\"AI Server returned status code {response.status_code}\")", "", "    except requests.exceptions.Timeout:", "        logger.error(\"AI Server request timed out after %d seconds\", get_ai_server_timeout())", "        # กรณี AI Server ใช้เวลาเจนภาพนานเกินกำหนด", "        raise AIServerTimeoutException(f\"AI Server timed out after {get_ai_server_timeout()} seconds\")", "    except requests.exceptions.RequestException as e:", "        logger.error(\"Network communication error with AI Server: %s\", str(e))", "        # กรณีเกิดปัญหาเครือข่ายเชื่อมต่อไม่ได้", "        raise AIServerErrorException(f\"AI Server communication error: {str(e)}\")", "    finally:", "        # 9. ปลดปล่อย Lock บน GPU ทุกครั้ง เพื่อให้คำขอในคิวถัดไปเริ่มทำงานต่อได้ทันที", "        _gpu_lock.release()", "        logger.debug(\"GPU lock released\")"]}, "sd_models": {"path": "backend/app/routes/sd.py", "lang": "py", "start": 44, "lines": ["@sd_bp.route(\"/models\", methods=[\"GET\", \"OPTIONS\"])", "def get_models():", "    \"\"\"", "    GET /api/v1/models", "    ดึงรายชื่อโมเดล Checkpoints ทั้งหมดจาก Stable Diffusion AI Server", "    เพื่อให้ Frontend นำไปแสดงใน Dropdown สำหรับเลือกโมเดล", "    \"\"\"", "    # รองรับ CORS Preflight Request", "    if request.method == \"OPTIONS\":", "        return \"\", 200", "", "    try:", "        # เรียก Service ดึงรายชื่อโมเดลจาก AI Server โดยตรง", "        models_list = fetch_available_models()", "        return success_response({\"models\": models_list}, status_code=200)", "    except AIServerTimeoutException as exc:", "        return error_response(AI_SERVER_TIMEOUT, str(exc), 504)", "    except AIServerErrorException as exc:", "        return error_response(AI_SERVER_ERROR, str(exc), 503)", "    except Exception as exc:", "        return error_response(AI_SERVER_ERROR, f\"Unexpected error: {str(exc)}\", 500)"]}, "check_py": {"path": "Ai Server/scripts/check_server.py", "lang": "py", "start": 36, "lines": ["def main():", "    p = argparse.ArgumentParser(description=\"health check ของ AI Server\")", "    p.add_argument(\"--url\", default=DEFAULT_URL)", "    p.add_argument(\"--timeout\", type=int, default=10)", "    args = p.parse_args()", "    base = args.url.rstrip(\"/\")", "", "    print(f\"ตรวจ AI Server: {base}\\n\" + \"-\" * 60)", "    failed = False", "", "    # 1) เซิร์ฟเวอร์ตอบไหม", "    try:", "        res = get(base, \"/sdapi/v1/options\", args.timeout)", "    except requests.exceptions.RequestException as e:", "        sys.exit(f\"[FAIL] ต่อไม่ได้: {e}\\n       เช็ค: webui รันอยู่ไหม / --listen --port 8088 / firewall เปิดพอร์ต 8088 หรือยัง\")", "", "    if res.status_code == 404:", "        sys.exit(\"[FAIL] เซิร์ฟเวอร์ตอบ แต่ไม่มี /sdapi/v1/* — ลืมใส่ --api ใน COMMANDLINE_ARGS\")", "    if res.status_code != 200:", "        sys.exit(f\"[FAIL] /sdapi/v1/options -> HTTP {res.status_code}\")", "", "    opts = res.json()", "    print(\"[OK] API online\")", "    print(f\"     checkpoint ที่โหลดอยู่: {opts.get('sd_model_checkpoint')}\")", "", "    # 2) รายชื่อ model ที่ Backend จะเอาไปโชว์", "    try:", "        res = get(base, \"/sdapi/v1/sd-models\", args.timeout)", "        res.raise_for_status()", "        models = res.json()", "        if not models:", "            print(\"[WARN] ไม่มี checkpoint เลย — วางไฟล์ .safetensors ใน models/Stable-diffusion/ ก่อน\")", "            failed = True", "        else:", "            print(f\"[OK] sd-models: {len(models)} ตัว\")", "            for m in models:", "                print(f\"     - {m['model_name']}\")", "    except requests.exceptions.RequestException as e:", "        print(f\"[FAIL] /sdapi/v1/sd-models: {e}\")", "        failed = True", "", "    # 3) sampler ที่ใช้ได้จริง (backend default = 'Euler a')", "    try:", "        res = get(base, \"/sdapi/v1/samplers\", args.timeout)", "        res.raise_for_status()", "        names = [s[\"name\"] for s in res.json()]", "        print(f\"[OK] samplers: {len(names)} ตัว -> {', '.join(names[:8])}{' ...' if len(names) > 8 else ''}\")", "        if \"Euler a\" not in names:", "            print(\"[WARN] ไม่มี 'Euler a' ซึ่งเป็นค่า default ของ Backend — ต้องบอกพี่นายให้เปลี่ยน\")", "            failed = True", "    except requests.exceptions.RequestException as e:", "        print(f\"[FAIL] /sdapi/v1/samplers: {e}\")", "        failed = True", "", "    print(\"-\" * 60)", "    print(\"สรุป: \" + (\"มีบางอย่างต้องแก้ ดู [FAIL]/[WARN] ด้านบน\" if failed else \"AI Server พร้อมใช้งาน\"))", "    sys.exit(1 if failed else 0)"]}, "test_py": {"path": "Ai Server/scripts/test_txt2img.py", "lang": "py", "start": 54, "lines": ["def build_payload(a):", "    \"\"\"payload ต้องตรงกับ backend/app.py -> /api/generate\"\"\"", "    payload = {", "        \"prompt\": a.prompt,", "        \"negative_prompt\": a.negative_prompt,", "        \"steps\": a.steps,", "        \"width\": a.width,", "        \"height\": a.height,", "        \"cfg_scale\": a.cfg_scale,", "        \"sampler_name\": a.sampler_name,", "    }", "    if a.checkpoint:", "        payload[\"override_settings\"] = {\"sd_model_checkpoint\": a.checkpoint}", "    return payload", "", "", "def main():", "    a = parse_args()", "    base = a.url.rstrip(\"/\")", "    payload = build_payload(a)", "", "    print(f\"AI Server : {base}\")", "    print(f\"Payload   : {json.dumps(payload, ensure_ascii=False, indent=2)}\")", "    print(\"-\" * 60)", "", "    started = time.time()", "    try:", "        res = requests.post(f\"{base}/sdapi/v1/txt2img\", json=payload, timeout=a.timeout)", "    except requests.exceptions.Timeout:", "        sys.exit(f\"[FAIL] Timeout เกิน {a.timeout}s — steps/ขนาดรูปสูงไป หรือ GPU ยังโหลด model อยู่\")", "    except requests.exceptions.ConnectionError as e:", "        sys.exit(f\"[FAIL] ต่อ {base} ไม่ได้ — เช็คว่า webui รันด้วย --api --listen --port 8088 แล้วหรือยัง\\n{e}\")", "", "    elapsed = time.time() - started", "", "    if res.status_code != 200:", "        sys.exit(f\"[FAIL] HTTP {res.status_code}\\n{res.text[:2000]}\")", "", "    body = res.json()", "    images = body.get(\"images\") or []", "    if not images:", "        sys.exit(f\"[FAIL] ไม่มี images กลับมา: {body.get('detail', body)}\")", "", "    print(f\"[OK] สร้างรูปสำเร็จใน {elapsed:.1f}s  ({len(images)} รูป)\")", "", "    info = body.get(\"info\")", "    if info:", "        try:", "            i = json.loads(info)", "            print(f\"     model  : {i.get('sd_model_name')}\")", "            print(f\"     seed   : {i.get('seed')}\")", "            print(f\"     sampler: {i.get('sampler_name')}\")", "        except (ValueError, TypeError):", "            pass", "", "    if a.no_save:", "        return", "", "    os.makedirs(OUTPUT_DIR, exist_ok=True)", "    stamp = datetime.now().strftime(\"%Y%m%d_%H%M%S\")", "    for idx, b64 in enumerate(images):", "        # ตัด data URI prefix ถ้ามี (backend เป็นคนเติมเองตอนส่งให้ frontend)", "        raw = b64.split(\",\", 1)[-1] if b64.startswith(\"data:\") else b64", "        path = os.path.join(OUTPUT_DIR, f\"test_{stamp}_{idx}.png\")", "        with open(path, \"wb\") as f:", "            f.write(base64.b64decode(raw))"]}, "sizes": {"path": "frontend/luma-frontend/src/utils/modelSizes.js", "lang": "js", "start": 1, "lines": ["// Recommended [width, height] pairs for the current model (Counterfeit-V3.0, SD 1.5).", "// This list comes from Ice (confirmed sizes). When more models are added, or the", "// backend adds a native_size field to /models, switch to that here — this is the", "// only place that should change.", "export const RECOMMENDED_SIZES = [", "  [512, 1024],", "  [1024, 512],", "]", "", "export function isRecommendedSize(width, height) {", "  const w = Number(width)", "  const h = Number(height)", "  return RECOMMENDED_SIZES.some(([rw, rh]) => rw === w && rh === h)", "}"]}, "ngx": {"path": "nginx/conf/nginx.conf", "lang": "nginx", "start": 20, "lines": ["worker_processes  1;", "", "events {", "    worker_connections  1024;", "}", "", "http {", "    include       mime.types;", "    default_type  application/octet-stream;", "", "    # ---- ประสิทธิภาพเครือข่าย ------------------------------------------", "    sendfile      on;", "    tcp_nopush    on;", "    tcp_nodelay   on;", "    keepalive_timeout  65;", "", "    # ไม่โชว์เวอร์ชัน nginx ใน header / หน้า error, ปิด directory listing", "    server_tokens off;", "    autoindex     off;", "", "    # ---- Gzip: ลด bandwidth หน้าเว็บโหลดเร็วขึ้น (ดึงมาจาก config ของทีม) -----", "    gzip              on;", "    gzip_vary         on;", "    gzip_proxied      any;", "    gzip_comp_level   6;", "    gzip_min_length   256;", "    gzip_types", "        text/plain text/css text/xml text/javascript", "        application/json application/javascript application/xml", "        application/xml+rss image/svg+xml;", "", "    # ---- Log: เห็น IP จริงของคนที่ยิงเข้ามา (ไล่ดูว่าใครพยายามเข้าหลังบ้าน) ----", "    log_format  luma  '$remote_addr - [$time_local] \"$request\" '", "                      '$status $body_bytes_sent $request_time \"$http_user_agent\"';", "    access_log  logs/luma.access.log  luma;", "    error_log   logs/luma.error.log   warn;", "", "    # ---- Real client IP ผ่าน Cloudflare Tunnel (เดโมเท่านั้น) -----------------", "    #  cloudflared ต่อจาก 127.0.0.1 → เชื่อ header CF-Connecting-IP เฉพาะจาก localhost", "    #  ผลดี: rate limit นับแยก \"รายคนจริง\" (ไม่งั้นทุกคนที่มาทาง tunnel = 127.0.0.1 คนเดียว โดน 429 พร้อมกัน)", "    #        + allowlist / _dev ยังเห็น IP จริง → คนนอกโดน 403 เหมือนเดิม, log เห็น IP จริง", "    #  LAN ปกติไม่กระทบ: คน LAN ไม่ได้มาจาก 127.0.0.1 → header ถูกเมิน (กัน spoof)", "    set_real_ip_from  127.0.0.1;", "    real_ip_header    CF-Connecting-IP;", "    real_ip_recursive on;", "", "    # ---- Rate limit: กัน brute-force รหัสผ่าน / ยิง API รัว ๆ -----------------", "    limit_req_zone  $binary_remote_addr  zone=luma_auth:10m  rate=10r/m;   # login / register", "    limit_req_zone  $binary_remote_addr  zone=luma_api:10m   rate=120r/m;  # API ทั่วไป", "    limit_req_status 429;", "", "    # ---- Upstreams -----------------------------------------------------", "    upstream luma_backend {", "        server 192.168.1.169:5000;      # เครื่อง Backend (Flask ต้อง bind 0.0.0.0 — ดู backend/.env HOST)", "        keepalive 16;", "    }", "", "    upstream luma_ai_server {", "        server 192.168.1.160:8088;      # เครื่อง AI Server — ใช้แค่พอร์ต DEV :8089 (firewall เครื่อง AI ต้องอนุญาต IP เครื่อง nginx ด้วย)", "    }", "", "    # =====================================================================", "    #  1) พอร์ต 80 — ประตูสาธารณะ (ทุกคนในวง LAN)", "    # =====================================================================", "    server {", "        listen       80 default_server;", "        server_name  _;", "", "        # มีอัปโหลดรูปเข้า /process/* แล้ว — ให้ตรงกับ backend MAX_CONTENT_LENGTH (16 MB)", "        client_max_body_size  16m;", "", "        # ---- Security headers (รวมของทีม: เพิ่ม XSS-Protection) ----", "        add_header X-Content-Type-Options  \"nosniff\"          always;", "        add_header X-Frame-Options         \"SAMEORIGIN\"       always;", "        add_header X-XSS-Protection        \"1; mode=block\"    always;", "        add_header Referrer-Policy         \"same-origin\"      always;", "        add_header Cache-Control           \"no-store\"         always;", "", "        # ---- Frontend (React build) --------------------------------------", "        # รัน `npm run build` แล้วชี้ root มาที่โฟลเดอร์ dist (Windows ใส่ quote เพราะ path มีช่องว่าง)", "        # Linux: root /var/www/luma/dist;", "        root   \"D:/Peem/Computer_Engineering/image/Project_Flask/Image_Project/frontend/luma-frontend/dist\";", "        index  index.html;", "", "        location / {", "            try_files $uri $uri/ /index.html;", "        }", "", "        # ไฟล์ static ที่ vite ใส่ hash ในชื่อแล้ว → cache ได้ยาว", "        location /assets/ {", "            add_header Cache-Control \"public, max-age=31536000, immutable\";", "            try_files $uri =404;", "        }", "", "        # ---- ปิดทางเข้าไฟล์หลังบ้านผ่าน static root (กันคนเผลอเอา root ชี้ผิด) ----", "        location ~ /\\.(?!well-known) { deny all; access_log off; log_not_found off; }   # .env .git ฯลฯ", "        location ~* \\.(env|db|sqlite3?|bak|py|pyc|log|sql|ini|sh|bat|cmd|config)$ {", "            deny all; access_log off; log_not_found off;", "        }", "", "        # ---- Backend API: อนุญาตเฉพาะ /api/v1/ (9 endpoint ตาม spec) --------", "        # login / register: จำกัดถี่กว่าตัวอื่น กัน brute-force", "        location ~ ^/api/v1/(login|register)$ {", "            limit_req  zone=luma_auth  burst=5  nodelay;", "            include    luma_proxy_backend.conf;", "        }", "", "        location /api/v1/ {", "            limit_req  zone=luma_api  burst=40  nodelay;", "            include    luma_proxy_backend.conf;", "        }", "", "        # path อื่น ๆ ใต้ /api/ ที่ไม่ใช่ v1 → ไม่ต้องให้ Flask เห็นเลย", "        location /api/ { return 404; }", "", "        # ---- health check ให้ทีม (ไม่แตะ Flask) -------------------------------", "        location = /healthz {", "            default_type text/plain;", "            return 200 \"ok\\n\";", "        }", "", "        # ---- DEV only: ping Flask ตรง ๆ ผ่าน nginx (ไม่ต้องเปิดพอร์ต 5000) -------", "        location /_dev/backend/ {", "            include    dev_allowlist.conf;", "            auth_basic           \"LUMA DEV\";", "            auth_basic_user_file luma_dev.htpasswd;", "            proxy_pass http://luma_backend/;", "            proxy_set_header Host              $host;", "            proxy_set_header X-Real-IP         $remote_addr;", "            proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;", "            proxy_set_header X-Forwarded-Proto $scheme;", "        }", "", "        # หน้า error ให้เป็น JSON envelope เดียวกับ backend เวลา Flask ล่ม", "        error_page 502 503 504 = @backend_down;", "        location @backend_down {", "            default_type application/json;", "            return 503 '{\"success\":false,\"error\":{\"code\":\"INTERNAL_SERVER_ERROR\",\"message\":\"Backend is unavailable\"}}';", "        }", "    }", "", "    # =====================================================================", "    #  2) พอร์ต 8089 — ประตูหลังบ้านสำหรับทีม DEV เท่านั้น", "    #     → SD WebUI (Gradio) + /sdapi/v1/* ของ AI Server", "    #     คนนอก allowlist ได้ 403 ทันที, คนใน allowlist ต้องใส่รหัส basic auth อีกชั้น", "    #     (SD WebUI :8088 ต้องถูก firewall ปิดจาก LAN → ทางเดียวที่ DEV เข้าได้คือพอร์ตนี้)", "    # =====================================================================", "    server {", "        listen       8089;", "        server_name  _;", "", "        include              dev_allowlist.conf;", "        auth_basic           \"LUMA DEV — AI Server\";", "        auth_basic_user_file luma_dev.htpasswd;", "", "        # กัน extension ที่ติดตั้งผ่าน WebUI (--enable-insecure-extension-access) ขนาดใหญ่", "        client_max_body_size 200m;", "", "        # Gradio ใช้ websocket + SSE queue → ต้องปิด buffering และเปิด upgrade", "        location / {", "            proxy_pass http://luma_ai_server;", "            proxy_http_version 1.1;", "            proxy_set_header Upgrade    $http_upgrade;", "            proxy_set_header Connection \"upgrade\";", "            proxy_set_header Host       $host;", "            proxy_set_header X-Real-IP  $remote_addr;", "            proxy_buffering    off;", "            proxy_read_timeout 600s;", "            proxy_send_timeout 600s;", "        }", "    }", "}"]}, "proxy": {"path": "nginx/conf/luma_proxy_backend.conf", "lang": "nginx", "start": 1, "lines": ["# =====================================================================", "#  luma_proxy_backend.conf — ชุด proxy ไป Flask ที่ใช้ซ้ำทุก location /api/v1/*", "#  (include จาก nginx.conf — ไม่ต้องแก้ไฟล์นี้ตอนเปลี่ยน IP, ไปแก้ upstream แทน)", "# =====================================================================", "", "proxy_pass         http://luma_backend;", "proxy_http_version 1.1;", "proxy_set_header   Connection        \"\";", "proxy_set_header   Host              $host;", "proxy_set_header   X-Real-IP         $remote_addr;", "proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;", "proxy_set_header   X-Forwarded-Proto $scheme;", "", "# Backend → AI Server รอได้ 75s, Frontend รอ 90s → nginx ต้องรอนานกว่านั้น", "proxy_connect_timeout 5s;", "proxy_read_timeout    120s;", "proxy_send_timeout    120s;", "", "# ไม่ใช้ proxy_intercept_errors: ให้ error JSON ของ Flask (เช่น AI_SERVER_ERROR 503) ส่งถึง frontend ตรง ๆ", "# ถ้า nginx ต่อ Flask ไม่ได้เลย (502/504) error_page @backend_down ใน nginx.conf ยังทำงานเหมือนเดิม"]}, "allow": {"path": "nginx/conf/dev_allowlist.conf", "lang": "nginx", "start": 1, "lines": ["# =====================================================================", "#  dev_allowlist.conf — รายชื่อ IP ของทีม DEV ที่เข้า \"หลังบ้าน\" ได้", "#", "#  ถูก include ใน nginx.conf ทุก location ที่เป็น DEV-only", "#  (พอร์ต 8089 → SD WebUI / API ดิบของ AI Server, และ /_dev/ บนพอร์ต 80)", "#", "#  ⚠ IP ในวง LAN มหาลัยเป็น DHCP — เปลี่ยนเครื่อง/เปลี่ยนวันแล้ว IP อาจเปลี่ยน", "#    ถ้าใครเข้าไม่ได้ (403) ให้เช็ค `ipconfig` แล้วมาแก้ไฟล์นี้ + ดับเบิลคลิก START.bat", "#    ไฟล์นี้จึงเป็นด่านแรกเท่านั้น ด่านที่สองคือรหัสผ่าน (extras/make_htpasswd.sh)", "# =====================================================================", "", "allow 127.0.0.1;        # เครื่อง nginx เอง (เปิดผ่าน localhost)", "allow 192.168.1.171;    # เครื่อง nginx เอง (เปิดผ่าน IP ในวง LAN)", "", "# เติม IP เพื่อนในทีมที่ต้องเปิดหน้าหลังบ้าน (:8089 / /_dev/) แล้วดับเบิลคลิก START.bat ใหม่", "# allow 192.168.1.169;  # Backend", "# allow 192.168.1.160;  # AI Server", "", "# ทุกคนที่ไม่อยู่ในรายชื่อด้านบน", "deny all;"]}, "htpasswd": {"path": "nginx/extras/make_htpasswd.sh", "lang": "sh", "start": 1, "lines": ["#!/usr/bin/env bash", "# =====================================================================", "#  make_htpasswd.sh — สร้าง/เพิ่ม user ในไฟล์ luma_dev.htpasswd (basic auth ของหลังบ้าน)", "#", "#    bash nginx/extras/make_htpasswd.sh <username>          # ถามรหัสผ่าน (ไม่โชว์บนจอ)", "#    bash nginx/extras/make_htpasswd.sh <username> <pass>", "#", "#  ใช้ได้ทั้ง Git Bash (Windows) และ Linux — ต้องมี openssl", "#  ผลลัพธ์อยู่ที่ nginx/luma_dev.htpasswd → START.bat ก๊อปเข้า nginx ให้เองตอนเปิด", "# =====================================================================", "set -euo pipefail", "", "HERE=\"$(cd \"$(dirname \"$0\")/..\" && pwd)\"", "OUT=\"$HERE/luma_dev.htpasswd\"", "", "USER_NAME=\"${1:-}\"", "[ -z \"$USER_NAME\" ] && { echo \"usage: $0 <username> [password]\"; exit 1; }", "", "if [ -n \"${2:-}\" ]; then", "    PASS=\"$2\"", "else", "    read -r -s -p \"Password for $USER_NAME: \" PASS; echo", "fi", "[ \"${#PASS}\" -lt 8 ] && { echo \"รหัสผ่านต้องยาว >= 8 ตัวอักษร\"; exit 1; }", "", "HASH=\"$(openssl passwd -apr1 \"$PASS\")\"", "", "# ลบ user เดิม (ถ้ามี) แล้วเติมใหม่", "touch \"$OUT\"", "grep -v \"^${USER_NAME}:\" \"$OUT\" > \"$OUT.tmp\" || true", "echo \"${USER_NAME}:${HASH}\" >> \"$OUT.tmp\"", "mv \"$OUT.tmp\" \"$OUT\"", "", "echo \"เพิ่ม/อัปเดต user '$USER_NAME' ใน $OUT แล้ว\"", "echo \"อย่าลืม: nginx -s reload\""]}, "tunnel": {"path": "nginx/extras/demo-tunnel.ps1", "lang": "ps", "start": 17, "lines": ["$ErrorActionPreference = \"Stop\"", "$cf = Join-Path $PSScriptRoot \"..\\win\\cloudflared.exe\"", "if (-not (Test-Path $cf)) { $cf = \"C:\\nginx\\cloudflared.exe\" }", "", "if (-not (Test-Path $cf)) {", "    Write-Host \"cloudflared.exe not found - put it in nginx\\win\\\" -ForegroundColor Red", "    Write-Host \"Download: https://github.com/cloudflare/cloudflared/releases/latest\"", "    exit 1", "}", "", "# nginx :80 must be up", "$ok = Test-NetConnection 127.0.0.1 -Port 80 -InformationLevel Quiet -WarningAction SilentlyContinue", "if (-not $ok) {", "    Write-Host \"nginx :80 is not running - double-click nginx\\START.bat first\" -ForegroundColor Red", "    exit 1", "}", "", "Write-Host \"\"", "Write-Host \"===================================================================\" -ForegroundColor Cyan", "Write-Host \" Opening tunnel... the URL appears below (the trycloudflare.com line)\" -ForegroundColor Cyan", "Write-Host \" Share that URL - juniors can open it on any phone/PC, any network.\" -ForegroundColor Cyan", "Write-Host \" When done: press Ctrl+C in this window to close the tunnel.\" -ForegroundColor Yellow", "Write-Host \"===================================================================\" -ForegroundColor Cyan", "Write-Host \"\"", "", "# --url http://localhost:80 = front door (nginx) only; never :8089/:5000/:8088", "& $cf tunnel --url http://localhost:80"]}, "fw_be": {"path": "nginx/firewall/for-backend.ps1", "lang": "ps", "start": 1, "lines": ["﻿# =====================================================================", "#  for-backend.ps1 — รันบน \"เครื่อง Backend\" (ตอนนี้ 192.168.1.169) แบบ Run as Administrator", "#", "#  ผล:", "#    - พอร์ต 5000 (Flask) → รับจากเครื่อง nginx เท่านั้น", "#    - พอร์ต 5173 (Vite dev) → ปิด", "#  ต้องตั้ง HOST=0.0.0.0 ใน backend/.env (ถ้า 127.0.0.1 เครื่อง nginx จะต่อไม่ติด)", "#", "#  IP ของเครื่อง nginx ใส่ไว้ที่ $NginxIp ข้างล่าง (หรือส่งเข้ามา: -NginxIp x.x.x.x)", "#  ถอนออก:  Get-NetFirewallRule -DisplayName \"LUMA *\" | Remove-NetFirewallRule", "# =====================================================================", "#Requires -RunAsAdministrator", "param(", "    [string]$NginxIp = \"192.168.1.171\"", ")", "", "$ErrorActionPreference = \"Stop\"", "", "Get-NetFirewallRule -DisplayName \"LUMA *\" -ErrorAction SilentlyContinue | Remove-NetFirewallRule", "", "New-NetFirewallRule -DisplayName \"LUMA allow Flask 5000 from nginx\" -Direction Inbound -Protocol TCP -LocalPort 5000 `", "    -RemoteAddress $NginxIp -Action Allow -Profile Any | Out-Null", "$o = $NginxIp.Split('.')", "$before = \"{0}.{1}.{2}.{3}\" -f $o[0], $o[1], $o[2], ([int]$o[3] - 1)", "$after  = \"{0}.{1}.{2}.{3}\" -f $o[0], $o[1], $o[2], ([int]$o[3] + 1)", "New-NetFirewallRule -DisplayName \"LUMA block Flask 5000 others (low)\" -Direction Inbound -Protocol TCP -LocalPort 5000 `", "    -RemoteAddress \"0.0.0.1-$before\" -Action Block -Profile Any | Out-Null", "New-NetFirewallRule -DisplayName \"LUMA block Flask 5000 others (high)\" -Direction Inbound -Protocol TCP -LocalPort 5000 `", "    -RemoteAddress \"$after-255.255.255.254\" -Action Block -Profile Any | Out-Null", "New-NetFirewallRule -DisplayName \"LUMA block Vite 5173 from LAN\" -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Block -Profile Any | Out-Null", "", "Write-Host \"`nกฎ firewall ของ LUMA (เครื่อง Backend) — 5000 รับจาก $NginxIp เท่านั้น:\" -ForegroundColor Cyan", "Get-NetFirewallRule -DisplayName \"LUMA *\" |", "    Select-Object DisplayName, Direction, Action, Enabled |", "    Format-Table -AutoSize"]}, "fw_ai": {"path": "nginx/firewall/for-ai.ps1", "lang": "ps", "start": 1, "lines": ["﻿# =====================================================================", "#  for-ai.ps1 — รันบน \"เครื่อง AI Server\" (ตอนนี้ 192.168.1.160) แบบ Run as Administrator", "#", "#  ผล: พอร์ต 8088 (SD WebUI) รับได้จาก \"เครื่อง Backend\" เท่านั้น", "#      → เครื่องอื่นในวง LAN เปิด http://<IP เครื่อง AI>:8088 ไม่ได้", "#      → บนเครื่อง AI เองยังเปิด http://127.0.0.1:8088 ได้ปกติ", "#", "#  IP ของเครื่อง Backend ใส่ไว้ที่ $BackendIp ข้างล่าง (หรือส่งเข้ามา: -BackendIp x.x.x.x)", "#  ถอนออก:  Get-NetFirewallRule -DisplayName \"LUMA *\" | Remove-NetFirewallRule", "# =====================================================================", "#Requires -RunAsAdministrator", "param(", "    [string]$BackendIp = \"192.168.1.169\"", ")", "", "$ErrorActionPreference = \"Stop\"", "", "Get-NetFirewallRule -DisplayName \"LUMA *\" -ErrorAction SilentlyContinue | Remove-NetFirewallRule", "", "# 1) allow เฉพาะ backend", "New-NetFirewallRule -DisplayName \"LUMA allow SD 8088 from backend\" -Direction Inbound -Protocol TCP -LocalPort 8088 `", "    -RemoteAddress $BackendIp -Action Allow -Profile Any | Out-Null", "", "# 2) block ที่เหลือ — Block ชนะ Allow ดังนั้นต้องยกเว้น backend ออกจากกฎ block", "#    (Windows ไม่มี \"block all except\" ตรง ๆ → ใช้ RemoteAddress เป็นช่วง แล้วเว้น backend ไว้)", "$octets = $BackendIp.Split('.')", "$before = \"{0}.{1}.{2}.{3}\" -f $octets[0], $octets[1], $octets[2], ([int]$octets[3] - 1)", "$after  = \"{0}.{1}.{2}.{3}\" -f $octets[0], $octets[1], $octets[2], ([int]$octets[3] + 1)", "New-NetFirewallRule -DisplayName \"LUMA block SD 8088 others (low)\"  -Direction Inbound -Protocol TCP -LocalPort 8088 `", "    -RemoteAddress \"0.0.0.1-$before\" -Action Block -Profile Any | Out-Null", "New-NetFirewallRule -DisplayName \"LUMA block SD 8088 others (high)\" -Direction Inbound -Protocol TCP -LocalPort 8088 `", "    -RemoteAddress \"$after-255.255.255.254\" -Action Block -Profile Any | Out-Null", "", "Write-Host \"`nพอร์ต 8088 รับได้จาก $BackendIp เท่านั้น:\" -ForegroundColor Cyan", "Get-NetFirewallRule -DisplayName \"LUMA *\" |", "    Select-Object DisplayName, Direction, Action, Enabled |", "    Format-Table -AutoSize"]}, "fw_ngx": {"path": "nginx/firewall/for-nginx.ps1", "lang": "ps", "start": 1, "lines": ["﻿# =====================================================================", "#  for-nginx.ps1 — รันบน \"เครื่อง nginx\" (ตอนนี้ 192.168.1.171) แบบ Run as Administrator", "#", "#  ผล:", "#    - เปิดพอร์ต 80   ให้ทุกคนในวง LAN   (หน้าเว็บ + API ผ่าน nginx)", "#    - เปิดพอร์ต 8089 ให้ทุกคน แต่ nginx เป็นคนคัด IP เอง (conf/dev_allowlist.conf + รหัสผ่าน)", "#    - ปิดพอร์ต 5000 / 5173 / 8088 ของเครื่องนี้ (กันเผลอรัน Flask / Vite / SD เปิดออก LAN)", "#", "#  ใช้เมื่อ: เครื่องอื่นเปิด http://<IP เครื่องนี้>/ ไม่ได้ ทั้งที่ http://localhost/ เปิดได้", "#  ถอนออก:  Get-NetFirewallRule -DisplayName \"LUMA *\" | Remove-NetFirewallRule", "# =====================================================================", "#Requires -RunAsAdministrator", "", "$ErrorActionPreference = \"Stop\"", "", "# ล้างกฎเดิมของ LUMA ก่อน (รันซ้ำได้)", "Get-NetFirewallRule -DisplayName \"LUMA *\" -ErrorAction SilentlyContinue | Remove-NetFirewallRule", "", "New-NetFirewallRule -DisplayName \"LUMA allow nginx 80\"  -Direction Inbound -Protocol TCP -LocalPort 80   -Action Allow -Profile Any | Out-Null", "New-NetFirewallRule -DisplayName \"LUMA allow nginx dev 8089\" -Direction Inbound -Protocol TCP -LocalPort 8089 -Action Allow -Profile Any | Out-Null", "", "# Block ชนะ Allow เสมอใน Windows Firewall → ต่อให้ Python มีกฎ allow อยู่ก็เข้าไม่ได้", "New-NetFirewallRule -DisplayName \"LUMA block Flask 5000 from LAN\" -Direction Inbound -Protocol TCP -LocalPort 5000 -Action Block -Profile Any | Out-Null", "New-NetFirewallRule -DisplayName \"LUMA block Vite 5173 from LAN\"  -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Block -Profile Any | Out-Null", "# SD WebUI รันเครื่องเดียวกัน (--listen เปิด 0.0.0.0:8088) → ปิดจาก LAN, DEV เข้าผ่าน nginx :8089 แทน", "New-NetFirewallRule -DisplayName \"LUMA block SD WebUI 8088 from LAN\" -Direction Inbound -Protocol TCP -LocalPort 8088 -Action Block -Profile Any | Out-Null", "", "Write-Host \"`nกฎ firewall ของ LUMA ตอนนี้:\" -ForegroundColor Cyan", "Get-NetFirewallRule -DisplayName \"LUMA *\" |", "    Select-Object DisplayName, Direction, Action, Enabled |", "    Format-Table -AutoSize"]}, "start_bat": {"path": "nginx/START.bat", "lang": "bat", "start": 1, "lines": ["@echo off", "setlocal", "rem ==================================================================", "rem  START.bat - start nginx for LUMA (or reload it after editing conf\\)", "rem    1) copy nginx\\conf\\*.conf into the nginx program folder", "rem    2) test the config", "rem    3) start nginx, or reload it if it is already running", "rem ==================================================================", "set \"HERE=%~dp0\"", "set \"NGX=\"", "for /d %%D in (\"%HERE%win\\nginx-*\") do set \"NGX=%%D\"", "if not defined NGX goto :no_nginx", "if not exist \"%NGX%\\nginx.exe\" goto :no_nginx", "", "if not exist \"%HERE%..\\frontend\\luma-frontend\\dist\\index.html\" (", "  echo [!] Website not built yet - double-click BUILD-WEB.bat first.", "  echo.", ")", "", "echo [1/3] Copy config from nginx\\conf ...", "copy /Y \"%HERE%conf\\*.conf\" \"%NGX%\\conf\\\" >nul || goto :fail", "if exist \"%HERE%luma_dev.htpasswd\" copy /Y \"%HERE%luma_dev.htpasswd\" \"%NGX%\\conf\\\" >nul", "", "cd /d \"%NGX%\" || goto :fail", "echo [2/3] Test config ...", "nginx.exe -t", "if errorlevel 1 goto :fail", "", "echo [3/3] Start or reload nginx ...", "tasklist /FI \"IMAGENAME eq nginx.exe\" 2>nul | find /I \"nginx.exe\" >nul", "if %errorlevel%==0 goto :reload", "", "netstat -ano | findstr /R /C:\":80 .*LISTENING\" >nul", "if %errorlevel%==0 echo [!] Port 80 is already used by another program - nginx may fail to start.", "start \"\" nginx.exe", "timeout /t 2 >nul", "tasklist /FI \"IMAGENAME eq nginx.exe\" 2>nul | find /I \"nginx.exe\" >nul", "if errorlevel 1 goto :fail", "echo nginx started.", "goto :done", "", ":reload", "nginx.exe -s reload", "if errorlevel 1 goto :fail", "echo nginx was already running - reloaded with the new config.", "", ":done", "echo.", "echo   This PC : http://localhost/", "echo   Others  : http://THIS-PC-IP/   - run ipconfig to see the IPv4 address", "echo   Health  : http://localhost/api/v1/health", "echo.", "pause", "exit /b 0", "", ":no_nginx", "echo [X] nginx program not found.", "echo     Download the Windows zip from https://nginx.org/en/download.html", "echo     and unzip it into nginx\\win\\  so you get  nginx\\win\\nginx-x.y.z\\nginx.exe", "pause", "exit /b 1", "", ":fail", "echo.", "echo [X] Failed. Read the message above, or the log: nginx\\win\\nginx-*\\logs\\error.log", "pause", "exit /b 1"]}, "proxyfix": {"path": "backend/app/__init__.py", "lang": "py", "start": 151, "lines": ["    # 7. ครอบ wsgi_app ด้วย ProxyFix เพื่อให้อ่านค่าจาก Nginx Reverse Proxy ถูกต้อง", "    #    (x_for=1, x_proto=1, x_host=1) ทำให้ request.remote_addr เป็น IP จริงของผู้ใช้", "    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)"]}, "upload": {"path": "backend/config.py", "lang": "py", "start": 67, "lines": ["    # จำกัดขนาดไฟล์อัปโหลดสูงสุด 16 MB ป้องกัน DoS และปัญหา Out-of-Memory (OOM)", "    MAX_CONTENT_LENGTH = 16 * 1024 * 1024"]}, "run_py": {"path": "backend/run.py", "lang": "py", "start": 1, "lines": ["# ==============================================================================", "# ชื่อไฟล์: backend/run.py", "# หน้าที่: จุดเริ่มต้นการทำงานของระบบ Backend (Application Entry Point)", "# สถาปัตยกรรม: รันบน \"เครื่อง Backend แยกต่างหาก\" เพื่อรอรับคำขอจาก Nginx Gateway", "# ==============================================================================", "", "import os", "import sys", "from app import create_app", "", "# รองรับการแสดงผลข้อความภาษาไทย/UTF-8 บน Windows Console ป้องกันปัญหาฟอนต์เพี้ยน", "if sys.platform == \"win32\":", "    try:", "        sys.stdout.reconfigure(encoding=\"utf-8\")", "    except Exception:", "        pass", "", "# 1. สร้าง Flask Application Instance ผ่าน Factory Function", "app = create_app()", "", "if __name__ == \"__main__\":", "    # 2. อ่านค่า host และ port จากตัวแปรสภาพแวดล้อม (.env) หรือใช้ค่าเริ่มต้น", "    host = os.getenv(\"HOST\", \"0.0.0.0\")", "    port = int(os.getenv(\"PORT\", 5000))", "", "    # ปิด Debug Mode เพื่อความปลอดภัย (ห้ามเปิด Werkzeug debugger เมื่อเปิดรับทราฟฟิกข้าม LAN)", "    debug = os.getenv(\"FLASK_DEBUG\", \"false\").lower() in (\"true\", \"1\")", "", "    # ตรวจสอบสถานะไฟล์โมเดล AI ล่วงหน้า", "    backend_dir = os.path.dirname(os.path.abspath(__file__))", "    model1 = os.path.join(backend_dir, \"models\", \"selfie_multiclass_256x256.tflite\")", "    model2 = os.path.join(backend_dir, \"models\", \"gesture_recognizer.task\")", "    models_ready = os.path.isfile(model1) and os.path.isfile(model2)", "", "    # 3. แสดงข้อความแจ้งเตือนสถานะการเริ่มทำงานของเซิร์ฟเวอร์", "    print(\"=\" * 70)", "    print(f\"[*] LUMA Backend API Server is running on: http://{host}:{port}\")", "    print(f\"[*] Debug Mode:       {'ON (Development only)' if debug else 'OFF (Production / Behind Proxy)'}\")", "    print(f\"[*] Local Access:     http://127.0.0.1:{port}/api/v1\")", "    print(f\"[*] Health Check:     http://127.0.0.1:{port}/api/v1/health\")", "    print(f\"[*] Disk Storage:     {app.config.get('UPLOAD_FOLDER', 'backend/uploads')}\")", "    print(f\"[*] AI Models Status: {'[READY] All models present' if models_ready else '[!] Missing models! Run python backend/scripts/download_models.py'}\")", "    print(f\"[*] Network Access:   Ready to receive requests from Nginx Gateway ({host}:{port})\")", "    print(\"=\" * 70)", "    ", "    # 4. สั่งเริ่มทำงานบน Host '0.0.0.0' เพื่อรับการเชื่อมต่อจาก Nginx ที่อยู่คนละเครื่อง", "    app.run(host=host, port=port, debug=debug)"]}}, "lessons": [{"id": "a0", "group": "AI Server", "title": "AI Server คืออะไร", "short": "AI คืออะไร", "intro": "AI Server คือเครื่องที่มีการ์ดจอ รันโปรแกรม Stable Diffusion WebUI (AUTOMATIC1111) ไว้วาดภาพจากข้อความ ห้องครัว (Flask) เป็นคนเดียวที่ไปสั่งงาน", "stage": {"h": 270, "nodes": [{"id": "flask", "x": 20, "y": 103, "t": "Flask", "a": "ห้องครัว (ผู้สั่ง)", "s": ".169 : 5000"}, {"id": "ai", "x": 300, "y": 103, "t": "SD WebUI", "a": "เชฟพิเศษ", "s": ".160 : 8088"}, {"id": "gpu", "x": 580, "y": 28, "t": "GPU / VRAM", "a": "เตา", "s": "การ์ดจอ NVIDIA"}, {"id": "models", "x": 580, "y": 178, "t": "models/", "a": "ตู้สูตรอาหาร", "s": ".safetensors"}], "edges": [["flask", "ai"], ["ai", "gpu"], ["ai", "models"], ["models", "gpu"]]}, "steps": [{"t": "ใน repo ไม่มีตัว AI", "at": "ai", "say": "โฟลเดอร์ Ai Server/ ในโปรเจคไม่ได้เก็บโปรแกรม WebUI หรือไฟล์โมเดล เพราะใหญ่หลาย GB เก็บแค่ไฟล์ตั้งค่า สคริปต์ทดสอบ และเอกสาร", "code": {"k": "gitignore", "hl": [2, 3, 10], "focus": [{"l": 2, "n": 1, "tr": "ไฟล์โมเดลห้ามขึ้น git"}, {"l": 3, "n": 1, "tr": "โมเดลแบบเก่าก็ห้าม"}, {"l": 10, "n": 1, "tr": "รูปที่ได้จากการทดสอบก็ไม่เก็บ"}]}, "more": "<p>ตัว WebUI clone จาก GitHub ของ AUTOMATIC1111 ไปติดตั้งบนเครื่อง AI ต่างหาก แล้วเอาไฟล์ <code>webui-user.bat<\/code> ของโปรเจคไปวางทับ<\/p>"}, {"t": "เปิด WebUI ให้เป็น API", "at": "ai", "say": "ปกติ WebUI เป็นหน้าเว็บให้คนกด เราต้องเปิดโหมด API ให้โปรแกรมอื่น (Flask) สั่งงานผ่าน HTTP ได้ และเปิดรับจากเครื่องอื่นในวง LAN", "code": {"k": "webui_bat", "hl": [12, 13, 20], "focus": [{"l": 12, "n": 1, "tr": "คอมเมนต์ย้ำ: 3 ตัวนี้ห้ามลบ ไม่งั้น Backend เรียกไม่ได้"}, {"l": 13, "n": 1, "tr": "--api = เปิด /sdapi/v1/* · --listen = รับจากเครื่องอื่น · --port 8088 = พอร์ต"}, {"l": 20, "n": 1, "tr": "เริ่มรัน WebUI ด้วยค่าที่ตั้งไว้"}]}, "more": "<p>ไม่มี <code>--api<\/code> → Flask ได้ 404 · ไม่มี <code>--listen<\/code> → WebUI รับเฉพาะ 127.0.0.1 เครื่อง Backend ต่อไม่ได้ · พอร์ตต้องตรงกับ <code>AI_SERVER_URL<\/code> ใน <code>backend/.env<\/code><\/p>"}, {"t": "ตั้งค่าให้เข้ากับการ์ดจอ", "at": "gpu", "say": "--xformers ทำให้คำนวณเร็วขึ้นและกินหน่วยความจำการ์ดจอ (VRAM) น้อยลง ถ้าการ์ดจอมี VRAM น้อยกว่า 8 GB ให้เปิด --medvram", "code": {"k": "webui_bat", "hl": [13, 16, 18], "focus": [{"l": 13, "n": 1, "tr": "--xformers อยู่ท้ายบรรทัดนี้"}, {"l": 16, "n": 1, "tr": "ปิดไว้ก่อน ถ้า VRAM ไม่พอค่อยเอา REM ออก"}, {"l": 18, "n": 1, "tr": "ใช้การ์ดจอใบแรก"}]}, "more": "<p>อาการ VRAM ไม่พอคือ error <code>CUDA out of memory<\/code> แก้ได้ด้วย <code>--medvram<\/code>/<code>--lowvram<\/code> หรือลดขนาดภาพ<\/p>"}, {"t": "flag ที่ต้องระวัง", "at": "ai", "say": "--enable-insecure-extension-access ให้ติดตั้ง extension ผ่านหน้าเว็บได้ extension คือโค้ด Python ใครเข้าหน้า WebUI ได้ก็สั่งรันโค้ดบนเครื่อง AI ได้", "code": {"k": "webui_bat", "hl": [13], "focus": [{"l": 13, "n": 1, "tr": "--enable-insecure-extension-access อยู่ท้ายบรรทัดนี้"}]}, "more": "<p>โปรเจคป้องกันด้วย firewall ให้พอร์ต 8088 รับเฉพาะเครื่อง Backend และให้ทีม DEV เข้าหน้า WebUI ผ่าน nginx :8089 ที่มีรายชื่อ IP + รหัสผ่าน (ดูบท nginx)<\/p>"}, {"t": "ไฟล์โมเดล (checkpoint)", "move": ["ai", "models", "gpu"], "label": "โหลดโมเดลเข้า VRAM", "say": "โมเดลคือไฟล์ .safetensors หลาย GB วางไว้ในโฟลเดอร์ models/Stable-diffusion/ ของ WebUI ตอนใช้งานต้องโหลดทั้งไฟล์เข้า VRAM ก่อน", "box": {"โมเดลที่ใช้": "Counterfeit-V3.0 (ตระกูล SD 1.5)", "ที่อยู่": "models/Stable-diffusion/*.safetensors"}, "code": {"k": "gitignore", "hl": [2], "focus": [{"l": 2, "n": 1, "tr": "ไฟล์โมเดลอยู่ใต้ models/ แต่ไม่ขึ้น git"}]}, "more": "<p>เพิ่มโมเดลใหม่: วางไฟล์ → เรียก <code>POST /sdapi/v1/refresh-checkpoints<\/code> หรือ restart WebUI → รัน <code>check_server.py<\/code> ดูว่าชื่อขึ้น แล้ว dropdown หน้า Generate จะเห็นเอง<\/p>"}]}, {"id": "a1", "group": "AI Server", "title": "Flask คุยกับ AI อย่างไร", "short": "API ที่ใช้", "intro": "Flask ใช้ WebUI แค่ 2 อย่าง: ขอรายชื่อโมเดล กับ สั่งวาดภาพ ทั้งสองเป็น HTTP ธรรมดา ส่งและรับ JSON", "stage": {"h": 270, "nodes": [{"id": "flask", "x": 20, "y": 103, "t": "Flask", "a": "ห้องครัว (ผู้สั่ง)", "s": ".169 : 5000"}, {"id": "ai", "x": 300, "y": 103, "t": "SD WebUI", "a": "เชฟพิเศษ", "s": ".160 : 8088"}, {"id": "gpu", "x": 580, "y": 28, "t": "GPU / VRAM", "a": "เตา", "s": "การ์ดจอ NVIDIA"}, {"id": "models", "x": 580, "y": 178, "t": "models/", "a": "ตู้สูตรอาหาร", "s": ".safetensors"}], "edges": [["flask", "ai"], ["ai", "gpu"], ["ai", "models"], ["models", "gpu"]]}, "steps": [{"t": "ขอรายชื่อโมเดล", "move": ["flask", "ai"], "label": "GET /sdapi/v1/sd-models", "say": "ตอนผู้ใช้เปิดหน้า Generate หน้าเว็บขอ /api/v1/models จาก Flask แล้ว Flask ถามต่อไปที่ AI", "box": {"URL": "http://192.168.1.160:8088/sdapi/v1/sd-models", "รอได้": "10 วินาที"}, "code": {"k": "ai_models", "hl": [135], "focus": [{"l": 135, "n": 1, "tr": "ถาม AI ว่ามีโมเดลอะไรบ้าง"}]}, "more": "<p>endpoint <code>/models<\/code> ของ Flask ไม่ต้อง login เพราะรายชื่อโมเดลไม่ใช่ความลับ<\/p>"}, {"t": "ได้รายชื่อกลับมา", "move": ["ai", "flask"], "label": "[{ title, model_name }]", "say": "AI ส่งรายการโมเดลกลับมา Flask เลือกเก็บแค่ 2 ช่อง title (ชื่อเต็ม) กับ model_name (ชื่อสั้นที่ใช้สั่งงาน)", "box": {"title": "counterfeitV30.safetensors [cbfba64e66]", "model_name": "counterfeitV30"}, "code": {"k": "ai_models", "hl": [143, 144], "focus": [{"l": 143, "n": 1, "tr": "ชื่อเต็ม ใช้แสดงใน dropdown"}, {"l": 144, "n": 1, "tr": "ชื่อสั้น ใช้ส่งกลับมาตอนสั่งวาด"}]}, "more": ""}, {"t": "ถ้า AI ไม่ตอบ", "move": ["flask", "ai"], "label": "✕ timeout / ต่อไม่ติด", "bad": true, "say": "ถ้า AI ปิดอยู่ หรือ firewall บล็อก Flask แปลงปัญหาเป็นรหัส error ที่หน้าเว็บเข้าใจ", "box": {"รอเกิน 10 วิ": "AI_SERVER_TIMEOUT (504)", "ต่อไม่ติด": "AI_SERVER_ERROR (503)"}, "code": {"k": "ai_models", "hl": [156, 159, 165], "focus": [{"l": 156, "n": 1, "tr": "รอนานเกิน → ..."}, {"l": 159, "n": 1, "tr": "...โยน error แบบ timeout"}, {"l": 165, "n": 1, "tr": "ต่อไม่ติดเลย → โยน error แบบ server error"}]}, "more": "<p>route <code>/models<\/code> ใน <code>sd.py<\/code> จับ exception แล้วตอบ 504 หรือ 503 ตามชนิด มีโค้ด fallback โมเดลปลอมที่ comment ไว้ สำหรับทดสอบตอนไม่มีเครื่อง AI<\/p>"}, {"t": "สั่งวาดภาพ", "move": ["flask", "ai"], "label": "POST /sdapi/v1/txt2img", "say": "Flask ส่งใบสั่งเป็น JSON: ข้อความ ขนาด จำนวนรอบ ฯลฯ และบอกว่าใช้โมเดลไหนผ่าน override_settings", "box": {"prompt": "a cat astronaut", "width × height": "512 × 1024", "steps": "20", "cfg_scale": "7", "sampler_name": "DPM++ 2M Karras", "seed": "-1", "override_settings": "{ sd_model_checkpoint: 'counterfeitV30' }"}, "code": {"k": "ai_py", "hl": [216, 231, 236], "focus": [{"l": 216, "n": 1, "tr": "ใบสั่งที่จะส่ง"}, {"l": 231, "n": 1, "tr": "บอกให้ใช้โมเดลนี้"}, {"l": 236, "n": 1, "tr": "ส่งไป /sdapi/v1/txt2img รอได้ 75 วินาที"}]}, "more": "<p>txt2img = text to image สร้างภาพจากข้อความ WebUI ยังมี img2img (แก้ภาพเดิม) แต่โปรเจคไม่ได้ใช้<\/p>"}, {"t": "โหลดโมเดลถ้ายังไม่ได้โหลด", "move": ["ai", "models", "gpu"], "label": "counterfeitV30 → VRAM", "say": "ถ้าโมเดลที่ขอเป็นคนละตัวกับที่อยู่ใน VRAM ตอนนี้ WebUI ต้องโหลดใหม่ ภาพแรกหลังสลับจะช้าขึ้น 10-30 วินาที", "code": {"k": "ai_py", "hl": [230], "focus": [{"l": 230, "n": 1, "tr": "สั่งสลับโมเดลชั่วคราวเฉพาะคำขอนี้"}]}, "more": "<p>ถ้าผู้ใช้หลายคนเลือกโมเดลสลับกันไปมา จะเสียเวลาโหลดทุกครั้ง และอาจชน timeout 75 วินาที<\/p>"}, {"t": "GPU วาดภาพ", "move": ["ai", "gpu", "ai"], "label": "20 รอบลบ noise", "say": "การ์ดจอคำนวณลบ noise 20 รอบ (ดูบทถัดไปว่าทำอะไรในแต่ละรอบ) แล้วแปลงผลเป็นไฟล์ PNG", "code": {"k": "ai_py", "hl": [243], "focus": [{"l": 243, "n": 1, "tr": "รอจนได้คำตอบ"}]}, "more": ""}, {"t": "ได้ภาพกลับเป็น base64", "move": ["ai", "flask"], "label": "{ images: [\"iVBOR…\"], info }", "say": "JSON ใส่ไฟล์ตรง ๆ ไม่ได้ WebUI จึงแปลงรูปเป็นตัวอักษร (base64) ใส่ในช่อง images และใส่รายละเอียด (รวม seed จริง) ในช่อง info", "box": {"images[0]": "iVBORw0KGgoAAAANSUhEUg… (ยาวมาก)", "info": "\"{\\\"seed\\\": 3141592, …}\""}, "code": {"k": "ai_py", "hl": [245, 252], "focus": [{"l": 245, "n": 1, "tr": "หยิบรูปออกมา"}, {"l": 252, "n": 1, "tr": "ส่งรูปแรกต่อให้ route ไป decode และบันทึก"}]}, "more": "<p>โค้ดไม่ได้อ่าน seed จริงจาก <code>info<\/code> ถ้าผู้ใช้เลือกสุ่ม (-1) ฐานข้อมูลจะเก็บ -1 จึงสร้างภาพเดิมซ้ำไม่ได้ นี่เป็นจุดที่ปรับปรุงได้<\/p>"}]}, {"id": "a2", "group": "AI Server", "title": "Stable Diffusion วาดภาพยังไง", "short": "วาดภาพยังไง", "lab": "sd", "intro": "แนวคิดคร่าว ๆ: เริ่มจากภาพ noise แล้วค่อย ๆ ลบ noise ทีละรอบ โดยมีข้อความ (prompt) คอยบอกทิศทาง ภาพในหน้านี้เป็นภาพจำลองแนวคิด ไม่ได้รันโมเดลจริง ลองเล่นกับตัวจำลองด้านล่างได้", "stage": {"h": 270, "nodes": [{"id": "flask", "x": 20, "y": 103, "t": "Flask", "a": "ห้องครัว (ผู้สั่ง)", "s": ".169 : 5000"}, {"id": "ai", "x": 300, "y": 103, "t": "SD WebUI", "a": "เชฟพิเศษ", "s": ".160 : 8088"}, {"id": "gpu", "x": 580, "y": 28, "t": "GPU / VRAM", "a": "เตา", "s": "การ์ดจอ NVIDIA"}, {"id": "models", "x": 580, "y": 178, "t": "models/", "a": "ตู้สูตรอาหาร", "s": ".safetensors"}], "edges": [["flask", "ai"], ["ai", "gpu"], ["ai", "models"], ["models", "gpu"]]}, "steps": [{"t": "seed สร้าง noise เริ่มต้น", "at": "gpu", "viz": "sd_0", "say": "seed คือเลขตั้งต้นของการสุ่ม ได้ภาพ noise มั่ว ๆ ออกมาหนึ่งภาพ seed เดิม = noise เดิม", "vars": {"seed": "-1 → WebUI สุ่มให้ เช่น 3141592"}, "code": {"k": "ai_py", "hl": [223], "focus": [{"l": 223, "n": 1, "tr": "ส่ง seed ไป (-1 = ให้สุ่ม)"}]}, "more": "<p>ทุกอย่างอื่นเหมือนเดิม + seed เดิม = ภาพเดิมทุกพิกเซล นี่คือเหตุผลที่ควรเก็บ seed จริงไว้<\/p>"}, {"t": "รอบที่ 5: เริ่มเห็นรูปร่าง", "at": "gpu", "viz": "sd_5", "say": "แต่ละรอบ โมเดล (U-Net) ทายว่า noise ส่วนไหนควรลบออกให้ภาพตรงกับ prompt แล้วลบออกนิดหนึ่ง", "vars": {"steps": "20", "ตอนนี้": "รอบที่ 5"}, "code": {"k": "ai_py", "hl": [221], "focus": [{"l": 221, "n": 1, "tr": "จำนวนรอบทั้งหมด"}]}, "more": "<p>prompt ถูกแปลงเป็นตัวเลขด้วยตัวเข้ารหัสข้อความ (CLIP) แล้วป้อนให้ U-Net ทุกรอบ เพื่อบอกว่าภาพควรเป็นอะไร<\/p>"}, {"t": "รอบที่ 12: รายละเอียดมาแล้ว", "at": "gpu", "viz": "sd_12", "say": "รอบแรก ๆ วางโครงใหญ่ รอบหลัง ๆ เติมรายละเอียด steps มากขึ้น = ช้าลงแบบเส้นตรง แต่หลัง 30-50 รอบคุณภาพแทบไม่ดีขึ้น", "vars": {"ตอนนี้": "รอบที่ 12 / 20"}, "code": {"k": "ai_py", "hl": [224], "focus": [{"l": 224, "n": 1, "tr": "sampler = สูตรคำนวณว่าแต่ละรอบลบ noise เท่าไร"}]}, "more": "<p>sampler ต่างกันได้ผลต่างกันเล็กน้อยและเร็วไม่เท่ากัน เช่น Euler a, DPM++ 2M Karras<\/p>"}, {"t": "รอบที่ 20: เสร็จ", "at": "gpu", "viz": "sd_20", "say": "จริง ๆ ทุกรอบทำบน “ภาพย่อ” (latent) ที่เล็กกว่าภาพจริง 8 เท่า รอบสุดท้ายใช้ตัวถอดรหัส (VAE) ขยายเป็นภาพเต็ม", "vars": {"ภาพ 512×1024": "latent 64×128"}, "code": {"k": "ai_py", "hl": [219], "focus": [{"l": 219, "n": 1, "tr": "ขนาดภาพ ต้องหารด้วย 8 ลงตัว เพราะ latent เล็กกว่า 8 เท่า"}]}, "more": "<p>ทำงานบน latent เพราะเร็วกว่าและใช้ VRAM น้อยกว่าทำบนพิกเซลจริงมาก<\/p>"}, {"t": "CFG scale: เชื่อ prompt แค่ไหน", "at": "gpu", "viz": "sd_cfg", "say": "ค่าต่ำ = ภาพจืด ไม่ค่อยตาม prompt · ค่ากลาง (7) = พอดี · ค่าสูงมาก = สีจัด ภาพแข็ง เพี้ยน", "vars": {"cfg_scale": "1-20 (ค่าเริ่มต้น 7)"}, "code": {"k": "ai_py", "hl": [222], "focus": [{"l": 222, "n": 1, "tr": "ส่งค่า CFG"}]}, "more": "<p>ทุกรอบโมเดลทาย 2 แบบ: มี prompt กับ ไม่มี prompt แล้วขยายผลต่างระหว่างสองแบบด้วยค่า CFG (Classifier-Free Guidance) negative prompt ไปแทนที่ช่อง “ไม่มี prompt” จึงผลักภาพออกจากสิ่งที่ไม่อยากได้<\/p>"}, {"t": "ขนาดภาพที่แนะนำ", "at": "gpu", "say": "โมเดล SD 1.5 ถูกฝึกด้วยภาพราว 512 px ถ้าขอใหญ่ทั้งสองด้าน (1024×1024) มักได้ภาพหัวซ้ำ ตัวซ้ำ และใช้เวลา/VRAM มากขึ้นตามจำนวนพิกเซล", "code": {"k": "sizes", "hl": [6, 7, 10], "focus": [{"l": 6, "n": 1, "tr": "แนะนำ 512×1024"}, {"l": 7, "n": 1, "tr": "หรือ 1024×512"}, {"l": 10, "n": 1, "tr": "หน้า Generate ใช้ฟังก์ชันนี้แสดงคำเตือนถ้าเลือกขนาดอื่น"}]}, "more": "<p>backend ยอมรับแค่ 512, 768, 1024 ต่อด้าน กันค่าแปลก ๆ ที่ทำให้ VRAM เต็มหรือเกิน timeout<\/p>"}]}, {"id": "a3", "group": "AI Server", "title": "คิว GPU: ทีละงาน", "short": "คิว GPU", "intro": "GPU ใบเดียววาดได้ทีละภาพ Flask จึงมี “กุญแจเตา” (lock) ให้ถือทีละคน", "stage": {"h": 270, "nodes": [{"id": "a", "x": 20, "y": 28, "t": "ผู้ใช้ A", "a": "ลูกค้าคนแรก", "s": "กดก่อน"}, {"id": "b", "x": 20, "y": 178, "t": "ผู้ใช้ B", "a": "ลูกค้าคนที่สอง", "s": "กดตามมา"}, {"id": "flask", "x": 300, "y": 103, "t": "Flask", "a": "ห้องครัว + กุญแจเตา", "s": "_gpu_lock"}, {"id": "ai", "x": 580, "y": 103, "t": "SD WebUI", "a": "เตาเดียว", "s": "GPU 1 ใบ"}], "edges": [["a", "flask"], ["b", "flask"], ["flask", "ai"]]}, "steps": [{"t": "A ได้กุญแจ", "move": ["a", "flask", "ai"], "label": "งานของ A", "say": "ไม่มีใครถือกุญแจ A ได้ทันทีแล้วส่งงานไป AI", "vars": {"กุญแจ": "A ถือ", "คนรอ": "0"}, "code": {"k": "ai_py", "hl": [192, 198], "focus": [{"l": 192, "n": 1, "tr": "นับคนรอ"}, {"l": 198, "n": 1, "tr": "ขอกุญแจ รอได้ 40 วินาที"}]}, "more": "<p>Flask รับคำขอหลายอันพร้อมกันได้ (thread ละคำขอ) lock ทำให้เฉพาะส่วนที่ใช้ GPU ทำทีละงาน<\/p>"}, {"t": "B ต้องยืนรอ", "move": ["b", "flask"], "label": "งานของ B", "say": "B มาถึงบรรทัดเดียวกัน แต่กุญแจอยู่กับ A B จึงหยุดรอตรงบรรทัด acquire", "vars": {"กุญแจ": "A ถือ", "คนรอ": "1 (B)"}, "code": {"k": "ai_py", "hl": [198], "focus": [{"l": 198, "n": 1, "tr": "B หยุดรอตรงนี้"}]}, "more": ""}, {"t": "A เสร็จ คืนกุญแจ → B ได้คิว", "move": ["ai", "flask", "b"], "label": "B ได้กุญแจ", "say": "finally ทำงานเสมอ A คืนกุญแจ B ที่รออยู่ได้ไปต่อทันที", "vars": {"กุญแจ": "B ถือ"}, "code": {"k": "ai_py", "hl": [268, 270], "focus": [{"l": 268, "n": 1, "tr": "ทำเสมอ ทั้งสำเร็จและ error"}, {"l": 270, "n": 1, "tr": "คืนกุญแจ"}]}, "more": ""}, {"t": "รอเกิน 40 วินาที = เตาไม่ว่าง", "move": ["flask", "b"], "label": "409 AI_SERVER_BUSY", "bad": true, "say": "ถ้า B รอครบ 40 วินาทีแล้วยังไม่ได้กุญแจ จะได้ error ว่าเตาไม่ว่าง ให้ลองใหม่", "box": {"error.code": "AI_SERVER_BUSY", "HTTP": "409"}, "code": {"k": "ai_py", "hl": [205, 207], "focus": [{"l": 205, "n": 1, "tr": "รอจนหมดเวลา"}, {"l": 207, "n": 1, "tr": "แจ้งว่า AI ไม่ว่าง"}]}, "more": "<p>รอคิว 40 + รอ AI 75 = 115 วินาที น้อยกว่า nginx 120 วินาที backend จึงตอบได้ก่อน nginx ตัดสาย gunicorn ใช้ <code>workers = 1<\/code> เพราะ lock อยู่ในหน่วยความจำของโปรเซสเดียว<\/p>"}]}, {"id": "a4", "group": "AI Server", "title": "ทดสอบและหาว่าพังที่ไหน", "short": "ทดสอบ AI", "intro": "ถ้าหน้าเว็บสร้างภาพไม่ได้ ให้รันสคริปต์ทดสอบที่ยิงตรงเข้า AI โดยไม่ผ่าน Backend ผ่าน = ปัญหาอยู่ฝั่ง Backend/Frontend ไม่ผ่าน = ปัญหาอยู่ฝั่ง AI", "stage": {"h": 270, "nodes": [{"id": "script", "x": 20, "y": 103, "t": "สคริปต์ทดสอบ", "a": "ผู้ตรวจ", "s": "check_server.py"}, {"id": "ai", "x": 300, "y": 103, "t": "SD WebUI", "a": "เชฟพิเศษ", "s": ".160 : 8088"}, {"id": "gpu", "x": 580, "y": 28, "t": "GPU / VRAM", "a": "เตา", "s": "การ์ดจอ"}, {"id": "models", "x": 580, "y": 178, "t": "models/", "a": "ตู้สูตรอาหาร", "s": ".safetensors"}], "edges": [["script", "ai"], ["ai", "gpu"], ["ai", "models"]]}, "steps": [{"t": "ด่าน 1: AI ตอบไหม เปิด --api หรือยัง", "move": ["script", "ai", "script"], "label": "GET /sdapi/v1/options", "say": "ถามค่าตั้งของ WebUI ต่อไม่ติดเลย = WebUI ไม่ได้รันหรือ firewall บล็อก · ได้ 404 = ลืมใส่ --api", "box": {"ต่อไม่ติด": "WebUI ไม่รัน / ผิดพอร์ต / firewall", "404": "ลืม --api"}, "code": {"k": "check_py", "hl": [48, 52, 59], "focus": [{"l": 48, "n": 1, "tr": "ถามค่าตั้ง"}, {"l": 52, "n": 1, "tr": "404 → ลืม --api"}, {"l": 59, "n": 1, "tr": "ผ่าน → บอกว่าโมเดลไหนโหลดอยู่"}]}, "more": "<p>รัน: <code>python scripts/check_server.py --url http://192.168.1.160:8088<\/code><\/p>"}, {"t": "ด่าน 2: มีโมเดลไหม", "move": ["script", "ai", "models", "ai", "script"], "label": "GET /sdapi/v1/sd-models", "say": "ขอรายชื่อโมเดล (endpoint เดียวกับที่ Backend ใช้) ถ้าว่าง = ยังไม่ได้วางไฟล์ .safetensors", "code": {"k": "check_py", "hl": [63, 66], "focus": [{"l": 63, "n": 1, "tr": "ขอรายชื่อโมเดล"}, {"l": 66, "n": 1, "tr": "ไม่มีเลย → เตือนให้วางไฟล์"}]}, "more": ""}, {"t": "ด่าน 3: มี sampler ที่ Backend ใช้ไหม", "move": ["script", "ai", "script"], "label": "GET /sdapi/v1/samplers", "say": "Backend ใช้ 'Euler a' เป็นค่าเริ่มต้น ถ้า WebUI ไม่มีชื่อนี้ จะสร้างภาพไม่ได้", "code": {"k": "check_py", "hl": [79, 83, 92], "focus": [{"l": 79, "n": 1, "tr": "ขอรายชื่อ sampler"}, {"l": 83, "n": 1, "tr": "ไม่มี Euler a → เตือน"}, {"l": 92, "n": 1, "tr": "จบ: exit code 0 = ผ่าน, 1 = มีปัญหา"}]}, "more": "<p>WebUI เวอร์ชันใหม่แยก sampler กับ scheduler ชื่ออย่าง “DPM++ 2M Karras” อาจไม่ตรง ใช้สคริปต์นี้ดูชื่อจริง<\/p>"}, {"t": "ลองวาดจริง ไม่ผ่าน Backend", "move": ["script", "ai", "gpu", "ai", "script"], "label": "POST txt2img", "say": "test_txt2img.py ส่งใบสั่งแบบเดียวกับที่ Backend ส่ง แล้วเซฟรูปลงโฟลเดอร์ outputs/", "code": {"k": "test_py", "hl": [66, 81, 119], "focus": [{"l": 66, "n": 1, "tr": "เลือกโมเดลแบบเดียวกับ Backend"}, {"l": 81, "n": 1, "tr": "สั่งวาด"}, {"l": 119, "n": 1, "tr": "แปลง base64 กลับเป็นไฟล์ แล้วเซฟ"}]}, "more": "<p>ตัวอย่าง: <code>python scripts/test_txt2img.py -p \"a cat astronaut\" --steps 30<\/code><\/p>"}, {"t": "อ่านอาการ แล้วรู้ว่าแก้ตรงไหน", "at": "ai", "say": "สรุปอาการที่เจอบ่อย กับสาเหตุ", "vars": {"ต่อเครื่องตัวเองได้ เครื่องอื่นไม่ได้": "ลืม --listen หรือ firewall", "404 ที่ /sdapi": "ลืม --api", "CUDA out of memory": "VRAM ไม่พอ → --medvram / ลดขนาด", "Sampler not found": "ชื่อ sampler ไม่ตรง", "หน้าเว็บได้ AI_SERVER_TIMEOUT": "steps/ขนาดสูงไป หรือเพิ่งสลับโมเดล"}, "code": {"k": "check_py", "hl": [91], "focus": [{"l": 91, "n": 1, "tr": "สคริปต์สรุปผลให้"}]}, "more": "<p>ตารางเต็มอยู่ใน <code>Ai Server/README.md<\/code> หัวข้อ 6<\/p>"}]}, {"id": "n0", "group": "nginx", "title": "nginx คืออะไร ทำไมต้องมี", "short": "nginx คืออะไร", "intro": "nginx เป็นโปรแกรมเว็บเซิร์ฟเวอร์ ในโปรเจคนี้ทำหน้าที่ “พนักงานต้อนรับ” ยืนหน้าประตูเดียวของระบบ ผู้ใช้คุยกับ nginx เท่านั้น", "stage": {"h": 270, "nodes": [{"id": "user", "x": 20, "y": 103, "t": "ผู้ใช้ใน LAN", "a": "ลูกค้า", "s": "เบราว์เซอร์"}, {"id": "nginx", "x": 300, "y": 103, "t": "nginx", "a": "พนักงานต้อนรับ", "s": ".171 : 80"}, {"id": "dist", "x": 580, "y": 28, "t": "โฟลเดอร์ dist", "a": "ชั้นวางเมนู", "s": "ไฟล์หน้าเว็บ"}, {"id": "flask", "x": 580, "y": 178, "t": "Flask", "a": "ห้องครัว", "s": ".169 : 5000"}], "edges": [["user", "nginx"], ["nginx", "dist"], ["nginx", "flask"], ["user", "flask"]]}, "steps": [{"t": "ประตูเดียว พอร์ต 80", "at": "nginx", "say": "ผู้ใช้พิมพ์แค่ http://192.168.1.171/ (พอร์ต 80 ไม่ต้องพิมพ์) nginx รอรับอยู่ที่นี่", "code": {"k": "ngx", "hl": [85, 86, 89], "focus": [{"l": 85, "n": 1, "tr": "รอรับที่พอร์ต 80"}, {"l": 86, "n": 1, "tr": "รับทุกชื่อโดเมน/IP"}, {"l": 89, "n": 1, "tr": "ไฟล์อัปโหลดใหญ่สุด 16 MB"}]}, "more": "<p>ไฟล์ config อยู่ที่ <code>nginx/conf/nginx.conf<\/code> ส่วนตัวโปรแกรม nginx อยู่ใน <code>nginx/win/<\/code> (ไม่ขึ้น git)<\/p>"}, {"t": "ขอหน้าเว็บ → หยิบไฟล์ให้เอง", "move": ["user", "nginx", "dist", "nginx", "user"], "label": "GET /", "say": "ถ้าขอหน้าเว็บ nginx หยิบไฟล์จากโฟลเดอร์ dist (ผลจาก npm run build) ส่งให้เลย ไม่ต้องรบกวนห้องครัว", "box": {"ขอ": "GET /", "ได้": "index.html + ไฟล์ JS/CSS"}, "code": {"k": "ngx", "hl": [101, 104, 105], "focus": [{"l": 101, "n": 1, "tr": "โฟลเดอร์ที่เก็บไฟล์หน้าเว็บ"}, {"l": 104, "n": 1, "tr": "คำขอทั่วไปเข้าห้องนี้"}, {"l": 105, "n": 1, "tr": "หาไฟล์ ไม่เจอให้ index.html"}]}, "more": "<p>nginx ส่งไฟล์ static เร็วกว่า Flask มาก และ Flask จะได้ทำแค่งานคำนวณ<\/p>"}, {"t": "ขอข้อมูล → ส่งต่อเข้าครัว", "move": ["user", "nginx", "flask", "nginx", "user"], "label": "GET /api/v1/history", "say": "URL ที่ขึ้นต้น /api/v1/ คือขอข้อมูล nginx ส่งต่อให้ Flask แล้วรับคำตอบมาส่งให้ผู้ใช้ เรียกว่า reverse proxy", "box": {"ขอ": "GET /api/v1/history", "ได้": "{ success: true, data: … }"}, "code": {"k": "ngx", "hl": [73, 127, 128, 129], "focus": [{"l": 73, "n": 1, "tr": "ห้องครัวอยู่เครื่องนี้"}, {"l": 127, "n": 3, "tr": "ห้องของคำขอข้อมูล"}]}, "more": "<p>ผู้ใช้ไม่รู้เลยว่า Flask อยู่เครื่องไหน เห็นแต่ nginx และเพราะหน้าเว็บกับ API มาจากที่เดียวกัน จึงไม่ติดปัญหา CORS<\/p>"}, {"t": "แอบเข้าครัวตรง ๆ ไม่ได้", "move": ["user", "flask"], "label": "✕ :5000 ถูกปิด", "bad": true, "say": "ถ้ามีคนรู้ IP เครื่อง Flask แล้วพยายามเข้าพอร์ต 5000 ตรง ๆ firewall ของเครื่อง Flask จะบล็อก รับเฉพาะเครื่อง nginx", "code": {"k": "fw_be", "hl": [21], "focus": [{"l": 21, "n": 1, "tr": "5000 รับเฉพาะเครื่อง nginx"}]}, "more": "<p>ถ้าเข้าตรงได้ จะข้าม rate limit และการป้องกันทั้งหมดของ nginx (รายละเอียดอยู่บท Firewall)<\/p>"}, {"t": "งานเสริมของพนักงานต้อนรับ", "at": "nginx", "say": "บีบอัดไฟล์ให้เล็กลง (gzip) ซ่อนเวอร์ชันโปรแกรม จด log ว่าใครมา และใส่ header ความปลอดภัยให้ทุกคำตอบ", "code": {"k": "ngx", "hl": [37, 41, 54, 93], "focus": [{"l": 37, "n": 1, "tr": "ไม่บอกเวอร์ชัน nginx (คนร้ายจะหาช่องโหว่ยากขึ้น)"}, {"l": 41, "n": 1, "tr": "บีบอัด JS/CSS/JSON ให้โหลดเร็ว"}, {"l": 54, "n": 1, "tr": "จดทุกคำขอ: IP, เวลา, URL, ผลลัพธ์"}, {"l": 93, "n": 1, "tr": "ห้ามเว็บอื่นเอาหน้าเราไปฝังใน iframe"}]}, "more": "<p>ดู log แบบสด ๆ ได้ด้วย <code>nginx/LOGS.bat<\/code><\/p>"}]}, {"id": "n1", "group": "nginx", "title": "nginx เลือกห้อง (location)", "short": "location", "lab": "loc", "intro": "nginx ดู path ของ URL แล้วเลือกว่าจะให้ “ห้อง” (location) ไหนดูแล กติกา: ตรงเป๊ะ (=) ก่อน → ลอง regex (~) ตามลำดับในไฟล์ ตัวแรกที่ตรงชนะ → ถ้าไม่มี regex ตรง ใช้ prefix ที่ยาวที่สุด ลองพิมพ์ URL เองในตัวทดลองด้านล่างได้", "stage": {"h": 270, "nodes": [{"id": "user", "x": 20, "y": 103, "t": "ผู้ใช้ใน LAN", "a": "ลูกค้า", "s": "เบราว์เซอร์"}, {"id": "nginx", "x": 300, "y": 103, "t": "nginx", "a": "พนักงานต้อนรับ", "s": ".171 : 80"}, {"id": "dist", "x": 580, "y": 28, "t": "โฟลเดอร์ dist", "a": "ชั้นวางเมนู", "s": "ไฟล์หน้าเว็บ"}, {"id": "flask", "x": 580, "y": 178, "t": "Flask", "a": "ห้องครัว", "s": ".169 : 5000"}], "edges": [["user", "nginx"], ["nginx", "dist"], ["nginx", "flask"], ["user", "flask"]]}, "steps": [{"t": "/healthz → ตอบเองเลย", "move": ["user", "nginx", "user"], "label": "GET /healthz → ok", "say": "location แบบ = ต้องตรงเป๊ะ เจอแล้วจบทันที ห้องนี้ nginx ตอบ 'ok' เอง ไม่แตะ Flask ใช้เช็คว่า nginx ยังทำงาน", "code": {"k": "ngx", "hl": [136, 138], "focus": [{"l": 136, "n": 1, "tr": "ตรงเป๊ะกับ /healthz"}, {"l": 138, "n": 1, "tr": "ตอบ ok ทันที"}]}, "more": ""}, {"t": "/history → หน้าเว็บ", "move": ["user", "nginx", "dist", "nginx", "user"], "label": "GET /history", "say": "ไม่มีห้อง = ตรง ไม่มี regex ตรง prefix ที่ยาวที่สุดที่ตรงคือ / → หาไฟล์ไม่เจอ → ส่ง index.html แล้ว React แสดงหน้า History", "code": {"k": "ngx", "hl": [104, 105], "focus": [{"l": 104, "n": 1, "tr": "prefix / ตรงกับทุก path"}, {"l": 105, "n": 1, "tr": "ไม่มีไฟล์ชื่อ history → index.html"}]}, "more": ""}, {"t": "/assets/index-a1b2.js → ไฟล์ JS", "move": ["user", "nginx", "dist", "nginx", "user"], "label": "GET /assets/…js", "say": "prefix /assets/ ยาวกว่า / จึงชนะ ไฟล์พวกนี้ให้ browser จำไว้ได้ 1 ปี เพราะชื่อไฟล์เปลี่ยนทุกครั้งที่ build ใหม่", "code": {"k": "ngx", "hl": [109, 110, 111], "focus": [{"l": 109, "n": 1, "tr": "prefix ที่ยาวกว่า"}, {"l": 110, "n": 1, "tr": "cache 1 ปี"}, {"l": 111, "n": 1, "tr": "ไม่มีไฟล์ → 404 (ไม่ส่ง index.html)"}]}, "more": "<p>จุดที่ควรรู้: location นี้มี <code>add_header<\/code> ของตัวเอง nginx จึงไม่สืบทอด header ความปลอดภัยจากระดับ server มาให้ไฟล์ใน /assets/<\/p>"}, {"t": "/api/v1/login → regex ชนะ", "move": ["user", "nginx", "flask"], "label": "POST /api/v1/login", "say": "prefix ที่ยาวที่สุดคือ /api/v1/ แต่ nginx ลอง regex ก่อน และ regex ของ login ตรง จึงเข้าห้อง login ซึ่งจำกัดความถี่เข้มกว่า", "code": {"k": "ngx", "hl": [122, 123], "focus": [{"l": 122, "n": 1, "tr": "regex: ^ ขึ้นต้น, $ จบ, (a|b) = a หรือ b"}, {"l": 123, "n": 1, "tr": "จำกัด 10 ครั้ง/นาที"}]}, "more": ""}, {"t": "/api/v1/history → prefix /api/v1/", "move": ["user", "nginx", "flask"], "label": "GET /api/v1/history", "say": "ไม่มี regex ไหนตรง จึงใช้ prefix ที่ยาวที่สุดคือ /api/v1/ ส่งต่อให้ Flask", "code": {"k": "ngx", "hl": [127, 128, 129], "focus": [{"l": 127, "n": 3, "tr": "prefix /api/v1/"}]}, "more": ""}, {"t": "/api/v2/test → ปฏิเสธ", "move": ["user", "nginx", "user"], "label": "404", "bad": true, "say": "prefix ที่ยาวที่สุดที่ตรงคือ /api/ ห้องนี้ตอบ 404 ทันที Flask ไม่เห็นคำขอนี้เลย", "code": {"k": "ngx", "hl": [133], "focus": [{"l": 133, "n": 1, "tr": "API แบบอื่นไม่ให้ผ่าน"}]}, "more": "<p>Flask มี route แบบไม่มี /api/v1 นำหน้า (alias) ด้วย แต่ผ่าน nginx เข้าไม่ถึง เพราะห้องนี้กันไว้<\/p>"}, {"t": "/.env → ห้าม", "move": ["user", "nginx", "user"], "label": "403", "bad": true, "say": "regex แรกจับไฟล์ที่ชื่อขึ้นต้นด้วยจุด (.env, .git) ตอบ 403 กันไว้เผื่อตั้ง root ผิดไปชี้โฟลเดอร์โปรเจค", "code": {"k": "ngx", "hl": [115], "focus": [{"l": 115, "n": 1, "tr": "ไฟล์ขึ้นต้นด้วยจุด → deny (ยกเว้น .well-known)"}]}, "more": "<p><code>.env<\/code> มี secret ของ JWT ถ้าหลุดไป ใครก็ปลอม token ได้<\/p>"}, {"t": "/api/v1/backup.sql → regex นามสกุลชนะ", "move": ["user", "nginx", "user"], "label": "403", "bad": true, "say": "ถึงจะขึ้นต้น /api/v1/ แต่ regex นามสกุลไฟล์ (.sql .db .py …) อยู่ก่อนในไฟล์และตรง จึงชนะ ตอบ 403", "code": {"k": "ngx", "hl": [116], "focus": [{"l": 116, "n": 1, "tr": "นามสกุลอันตราย → deny"}]}, "more": "<p>นี่คือผลของกติกา “regex ก่อน prefix”: ห้อง /api/v1/ ไม่ได้ทำงานเลย<\/p>"}]}, {"id": "n2", "group": "nginx", "title": "ส่งต่อให้ Flask (reverse proxy)", "short": "proxy", "intro": "ดูว่า nginx ส่งคำขอต่อให้ Flask อย่างไร ใส่อะไรเพิ่ม รอนานแค่ไหน และทำอะไรเมื่อ Flask ล่ม", "stage": {"h": 270, "nodes": [{"id": "user", "x": 20, "y": 103, "t": "ผู้ใช้ใน LAN", "a": "ลูกค้า", "s": "เบราว์เซอร์"}, {"id": "nginx", "x": 300, "y": 103, "t": "nginx", "a": "พนักงานต้อนรับ", "s": ".171 : 80"}, {"id": "dist", "x": 580, "y": 28, "t": "โฟลเดอร์ dist", "a": "ชั้นวางเมนู", "s": "ไฟล์หน้าเว็บ"}, {"id": "flask", "x": 580, "y": 178, "t": "Flask", "a": "ห้องครัว", "s": ".169 : 5000"}], "edges": [["user", "nginx"], ["nginx", "dist"], ["nginx", "flask"], ["user", "flask"]]}, "steps": [{"t": "ประกาศว่าห้องครัวอยู่ที่ไหน", "at": "nginx", "say": "upstream คือการตั้งชื่อกลุ่มเซิร์ฟเวอร์ เวลา IP เปลี่ยนแก้ที่นี่ที่เดียว keepalive เก็บสายไว้ใช้ซ้ำ ไม่ต้องต่อใหม่ทุกครั้ง", "code": {"k": "ngx", "hl": [72, 73, 74], "focus": [{"l": 72, "n": 1, "tr": "ตั้งชื่อว่า luma_backend"}, {"l": 73, "n": 1, "tr": "อยู่ที่เครื่องนี้ พอร์ตนี้"}, {"l": 74, "n": 1, "tr": "เก็บการเชื่อมต่อค้างไว้ได้ 16 เส้น"}]}, "more": ""}, {"t": "ส่งต่อ", "move": ["user", "nginx", "flask"], "label": "proxy_pass", "say": "ทุกห้อง /api/v1/ ใช้ชุดคำสั่งเดียวกันในไฟล์ luma_proxy_backend.conf", "code": {"k": "proxy", "hl": [6, 7, 8], "focus": [{"l": 6, "n": 1, "tr": "ส่งต่อไปกลุ่ม luma_backend"}, {"l": 7, "n": 1, "tr": "ใช้ HTTP/1.1 …"}, {"l": 8, "n": 1, "tr": "…และล้าง header Connection เพื่อให้ keepalive ใช้ได้"}]}, "more": "<p>ค่าเริ่มต้น nginx คุยกับ upstream ด้วย HTTP/1.0 และสั่งปิดสายทุกครั้ง ต้องตั้งสองบรรทัดนี้คู่กับ keepalive<\/p>"}, {"t": "แปะป้ายว่าใครส่งมา", "move": ["nginx", "flask"], "label": "X-Forwarded-For: IP ผู้ใช้", "say": "Flask เห็นคำขอมาจาก nginx เสมอ nginx จึงแปะ IP จริงของผู้ใช้ไปใน header แล้ว Flask ใช้ ProxyFix อ่าน", "box": {"X-Real-IP": "192.168.1.55", "X-Forwarded-For": "192.168.1.55", "X-Forwarded-Proto": "http"}, "code": {"k": "proxy", "hl": [10, 11, 12], "focus": [{"l": 10, "n": 1, "tr": "IP ของผู้ใช้"}, {"l": 11, "n": 1, "tr": "ต่อท้ายรายการ IP ที่ผ่านมา"}, {"l": 12, "n": 1, "tr": "ผู้ใช้เข้ามาด้วย http หรือ https"}]}, "more": "<p>ฝั่ง Flask: <code>ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)<\/code> เลข 1 = เชื่อ proxy 1 ชั้น ถ้าตั้งมากเกิน คนปลอม header หลอก IP ได้<\/p>"}, {"t": "รอนานแค่ไหน", "at": "nginx", "say": "ต่อสายให้ติดภายใน 5 วินาที และรอคำตอบได้ 120 วินาที ตั้งไว้ให้นานกว่าที่ Flask อาจรอ AI (40 + 75 = 115)", "vars": {"ต่อสาย": "5 วิ", "รอคำตอบ": "120 วิ", "Flask รอ AI สูงสุด": "115 วิ"}, "code": {"k": "proxy", "hl": [15, 16], "focus": [{"l": 15, "n": 1, "tr": "ต่อไม่ติดใน 5 วิ = Flask ล่ม"}, {"l": 16, "n": 1, "tr": "รอคำตอบได้ 120 วิ"}]}, "more": "<p>หลักคือชั้นในต้องหมดเวลาก่อนชั้นนอก Flask จะได้ตอบ error ที่มีความหมาย (เช่น AI_SERVER_TIMEOUT) ก่อนที่ nginx จะตัดสายเอง<\/p>"}, {"t": "ไฟล์ใหญ่เกิน", "move": ["user", "nginx", "user"], "label": "20 MB → 413", "bad": true, "say": "nginx จำกัดไฟล์ 16 MB เท่ากับ Flask ไฟล์ 20 MB จะถูกปฏิเสธตั้งแต่หน้าประตู ไม่เปลืองแรง Flask", "code": {"k": "ngx", "hl": [89], "focus": [{"l": 89, "n": 1, "tr": "ใหญ่สุด 16 MB (ค่าเริ่มต้นของ nginx คือ 1 MB)"}]}, "more": "<p>Flask ตั้งไว้เท่ากันที่ <code>MAX_CONTENT_LENGTH = 16 * 1024 * 1024<\/code> ถ้าไม่ตั้งที่ nginx รูป 2 MB ก็อัปโหลดไม่ได้แล้ว<\/p>"}, {"t": "Flask ล่ม", "move": ["nginx", "flask"], "label": "✕ ต่อไม่ติด (502)", "bad": true, "say": "ถ้า Flask ปิดอยู่ nginx ต่อไม่ติด แทนที่จะส่งหน้า error HTML ของ nginx ให้ผู้ใช้ …", "code": {"k": "ngx", "hl": [154], "focus": [{"l": 154, "n": 1, "tr": "error ที่ nginx เจอเอง → ไปห้อง @backend_down"}]}, "more": ""}, {"t": "ตอบเป็น JSON แบบเดียวกับ Flask", "move": ["nginx", "user"], "label": "503 { success: false }", "say": "… nginx ตอบ JSON หน้าตาเดียวกับ error ของ Flask หน้าเว็บจึงแสดงข้อความ “Backend is unavailable” ได้ตามปกติ", "box": {"success": "false", "error.code": "INTERNAL_SERVER_ERROR", "message": "Backend is unavailable"}, "code": {"k": "ngx", "hl": [155, 157], "focus": [{"l": 155, "n": 1, "tr": "ห้องพิเศษ (ชื่อขึ้นต้นด้วย @ เข้าจาก URL ไม่ได้)"}, {"l": 157, "n": 1, "tr": "ตอบ JSON"}]}, "more": "<p>ถ้า Flask เป็นคนตอบ error เอง (เช่น 503 AI_SERVER_ERROR) nginx ส่งผ่านไปตรง ๆ เพราะไม่ได้เปิด <code>proxy_intercept_errors<\/code> หน้าเว็บจึงได้รหัส error ที่ถูกต้อง<\/p>"}]}, {"id": "n3", "group": "nginx", "title": "กันคนยิงรัว (rate limit)", "short": "rate limit", "lab": "rate", "intro": "nginx นับว่าแต่ละ IP ยิงมาถี่แค่ไหน เกินกำหนดตอบ 429 ทันที กันคนเดารหัสผ่านซ้ำ ๆ ลองกดยิงในตัวจำลองด้านล่างได้", "stage": {"h": 270, "nodes": [{"id": "user", "x": 20, "y": 103, "t": "ผู้ใช้ใน LAN", "a": "ลูกค้า", "s": "เบราว์เซอร์"}, {"id": "nginx", "x": 300, "y": 103, "t": "nginx", "a": "พนักงานต้อนรับ", "s": ".171 : 80"}, {"id": "dist", "x": 580, "y": 28, "t": "โฟลเดอร์ dist", "a": "ชั้นวางเมนู", "s": "ไฟล์หน้าเว็บ"}, {"id": "flask", "x": 580, "y": 178, "t": "Flask", "a": "ห้องครัว", "s": ".169 : 5000"}], "edges": [["user", "nginx"], ["nginx", "dist"], ["nginx", "flask"], ["user", "flask"]]}, "steps": [{"t": "ตั้งสมุดจดความถี่", "at": "nginx", "say": "สร้าง “สมุด” 2 เล่ม จดแยกตาม IP: เล่มของ login/register ยอม 10 ครั้งต่อนาที เล่มของ API ทั่วไปยอม 120 ครั้งต่อนาที", "code": {"k": "ngx", "hl": [67, 68, 69], "focus": [{"l": 67, "n": 1, "tr": "login: 10 ครั้ง/นาที (= 1 ครั้งทุก 6 วิ) ใช้หน่วยความจำ 10 MB"}, {"l": 68, "n": 1, "tr": "API ทั่วไป: 120 ครั้ง/นาที (= 2 ครั้ง/วิ)"}, {"l": 69, "n": 1, "tr": "เกินแล้วตอบ 429 Too Many Requests"}]}, "more": "<p><code>$binary_remote_addr<\/code> เก็บ IP เป็นเลขฐานสองขนาดเล็ก 10 MB จดได้ราว 160,000 IP<\/p>"}, {"t": "burst = ยอมให้เกินได้ช่วงสั้น ๆ", "move": ["user", "nginx", "flask"], "label": "login ครั้งที่ 1-6 ผ่าน", "say": "คนจริงอาจกดพลาดติดกันหลายครั้ง burst=5 ยอมให้เกินได้อีก 5 ครั้ง nodelay = ไม่ต้องรอ ส่งต่อทันที รวมแล้วยิงติดกันได้ 6 ครั้ง", "code": {"k": "ngx", "hl": [123], "focus": [{"l": 123, "n": 1, "tr": "ใช้สมุด luma_auth เผื่อ 5 ครั้ง ไม่หน่วง"}]}, "more": "<p>ไม่มี nodelay: คำขอส่วนเกินจะถูกพักไว้แล้วปล่อยทีละ 6 วินาที<\/p>"}, {"t": "ครั้งที่ 7 ติดกัน → 429", "move": ["user", "nginx", "user"], "label": "429", "bad": true, "say": "ยิงครั้งที่ 7 ทันที เกินโควตา nginx ตอบ 429 Flask ไม่ได้ทำงานเลย ต้องรอประมาณ 6 วินาทีถึงจะได้อีก 1 ครั้ง", "code": {"k": "ngx", "hl": [69], "focus": [{"l": 69, "n": 1, "tr": "ตอบ 429"}]}, "more": "<p>คนเดารหัสจึงลองได้แค่ประมาณ 10 รหัสต่อนาที แทนที่จะเป็นหลายพันรหัส<\/p>"}, {"t": "API ทั่วไปหลวมกว่า", "at": "nginx", "say": "หน้า History โหลดรูปทีละหลายใบพร้อมกัน จึงให้ API ทั่วไป 120 ครั้ง/นาที และ burst 40", "code": {"k": "ngx", "hl": [128], "focus": [{"l": 128, "n": 1, "tr": "API ทั่วไป เผื่อ 40"}]}, "more": "<p>ตอนเดโมผ่าน Cloudflare Tunnel ทุกคนจะดูเหมือนมาจาก IP เดียว (127.0.0.1) ต้องอ่าน IP จริงก่อน ไม่งั้นทุกคนโดน 429 พร้อมกัน (ดูบท Tunnel)<\/p>"}]}, {"id": "n4", "group": "nginx", "title": "ประตูหลังร้าน :8089", "short": "DEV :8089", "intro": "ทีม DEV ต้องเข้าหน้า WebUI ของ AI เพื่อตั้งค่า แต่พอร์ต 8088 ถูก firewall ปิดจาก LAN จึงเปิดประตูหลังที่ nginx พอร์ต 8089 มีสองด่าน: รายชื่อ IP และรหัสผ่าน", "stage": {"h": 270, "nodes": [{"id": "dev", "x": 20, "y": 28, "t": "ทีม DEV", "a": "พนักงานในร้าน", "s": "IP อยู่ใน allowlist"}, {"id": "other", "x": 20, "y": 178, "t": "คนอื่นใน LAN", "a": "คนนอก", "s": "IP ไม่อยู่ในรายชื่อ"}, {"id": "nginx", "x": 300, "y": 103, "t": "nginx :8089", "a": "ประตูหลังร้าน", "s": "allowlist + รหัส"}, {"id": "ai", "x": 580, "y": 103, "t": "SD WebUI", "a": "ห้องเชฟ", "s": ".160 : 8088"}], "edges": [["dev", "nginx"], ["other", "nginx"], ["nginx", "ai"]]}, "steps": [{"t": "ด่าน 1: IP ไม่อยู่ในรายชื่อ", "move": ["other", "nginx", "other"], "label": "403", "bad": true, "say": "nginx เช็ค IP ก่อน ไม่อยู่ในรายชื่อได้ 403 ทันที ไม่ถึงขั้นถามรหัส", "code": {"k": "allow", "hl": [12, 13, 20], "focus": [{"l": 12, "n": 1, "tr": "ตัวเครื่อง nginx เอง"}, {"l": 13, "n": 1, "tr": "ตัวเครื่อง nginx ผ่าน IP วง LAN"}, {"l": 20, "n": 1, "tr": "นอกนั้นห้ามหมด"}]}, "more": "<p>IP ในวง LAN มหาวิทยาลัยเปลี่ยนได้ (DHCP) ถ้าเพื่อนเข้าไม่ได้ให้เช็ค <code>ipconfig<\/code> แล้วเพิ่ม <code>allow<\/code> แล้วกด START.bat<\/p>"}, {"t": "ด่าน 2: ถามรหัสผ่าน", "move": ["dev", "nginx", "dev"], "label": "401 ขอรหัส", "say": "IP ผ่านแล้ว แต่ต้องใส่ชื่อและรหัสผ่านอีกชั้น (basic auth) เบราว์เซอร์จะเด้งกล่องให้กรอก", "code": {"k": "ngx", "hl": [171, 172, 173], "focus": [{"l": 171, "n": 1, "tr": "ด่าน 1: รายชื่อ IP"}, {"l": 172, "n": 2, "tr": "ด่าน 2: ถามรหัส โดยเทียบกับไฟล์ luma_dev.htpasswd (เก็บรหัสแบบ hash)"}]}, "more": "<p>สร้างไฟล์รหัสด้วย <code>bash nginx/extras/make_htpasswd.sh &lt;ชื่อ&gt;<\/code> ใช้ <code>openssl passwd -apr1<\/code> แปลงรหัสเป็น hash ไม่เก็บรหัสจริง<\/p>"}, {"t": "ผ่านสองด่าน → เข้า WebUI", "move": ["dev", "nginx", "ai"], "label": "หน้า WebUI (Gradio)", "say": "nginx ส่งต่อไป WebUI ที่เครื่อง AI หน้า WebUI ใช้การเชื่อมต่อแบบค้างสาย (WebSocket) จึงต้องตั้งค่าเพิ่ม", "code": {"k": "ngx", "hl": [180, 182, 186, 187], "focus": [{"l": 180, "n": 1, "tr": "ส่งต่อไปเครื่อง AI"}, {"l": 182, "n": 1, "tr": "อนุญาตให้เปลี่ยนเป็น WebSocket"}, {"l": 186, "n": 1, "tr": "ส่งข้อมูลทันที ไม่พักไว้ (ดูความคืบหน้าสด ๆ)"}, {"l": 187, "n": 1, "tr": "รอได้ 10 นาที"}]}, "more": "<p>ต้องตั้ง firewall ของเครื่อง AI ให้ยอมรับเครื่อง nginx ด้วย ไม่งั้นด่านนี้ผ่านแต่ต่อ AI ไม่ได้<\/p>"}, {"t": "ทางลัดไปหา Flask สำหรับ DEV", "at": "nginx", "say": "บนพอร์ต 80 ก็มีห้อง /_dev/backend/ ให้ DEV ทดสอบ Flask โดยไม่ต้องเปิดพอร์ต 5000 มีสองด่านเหมือนกัน", "code": {"k": "ngx", "hl": [142, 143, 144], "focus": [{"l": 142, "n": 1, "tr": "ห้องสำหรับ DEV บนพอร์ต 80"}, {"l": 143, "n": 1, "tr": "ด่าน IP"}, {"l": 144, "n": 1, "tr": "ด่านรหัส"}]}, "more": ""}]}, {"id": "n5", "group": "nginx", "title": "เปิดให้คนนอก LAN เข้า (Cloudflare Tunnel)", "short": "Tunnel", "intro": "ตอนเดโม อยากให้คนที่ไม่ได้อยู่วง Wi-Fi เดียวกันเข้าได้ชั่วคราว ใช้ Cloudflare Tunnel ต่อท่อจากอินเทอร์เน็ตเข้ามาที่ nginx พอร์ต 80 อย่างเดียว", "stage": {"h": 270, "nodes": [{"id": "out", "x": 20, "y": 28, "t": "คนนอกวง LAN", "a": "ลูกค้าจากที่อื่น", "s": "มือถือ / เน็ตบ้าน"}, {"id": "lan", "x": 20, "y": 178, "t": "คนใน LAN", "a": "ลูกค้าในร้าน", "s": "192.168.1.x"}, {"id": "cf", "x": 210, "y": 28, "t": "Cloudflare", "a": "ไปรษณีย์กลาง", "s": "xxx.trycloudflare.com"}, {"id": "cfd", "x": 400, "y": 28, "t": "cloudflared", "a": "ท่อในเครื่อง nginx", "s": "127.0.0.1"}, {"id": "nginx", "x": 590, "y": 103, "t": "nginx :80", "a": "พนักงานต้อนรับ", "s": "ประตูหน้า"}], "edges": [["out", "cf"], ["cf", "cfd"], ["cfd", "nginx"], ["lan", "nginx"]]}, "steps": [{"t": "เปิดท่อ", "at": "cfd", "say": "รันสคริปต์ demo-tunnel.ps1 โปรแกรม cloudflared ต่อออกไปหา Cloudflare แล้วได้ URL แบบ https://xxx.trycloudflare.com", "code": {"k": "tunnel", "hl": [28, 43], "focus": [{"l": 28, "n": 1, "tr": "เช็คก่อนว่า nginx เปิดอยู่"}, {"l": 43, "n": 1, "tr": "เปิดท่อ ชี้เข้า nginx พอร์ต 80 เท่านั้น"}]}, "more": "<p>ไม่ต้องเปิดพอร์ตที่ router เพราะ cloudflared เป็นฝ่ายต่อออกไปเอง ปิดหน้าต่าง (Ctrl+C) แล้ว URL ใช้ไม่ได้ทันที<\/p>"}, {"t": "คนนอกเข้ามาทางท่อ", "move": ["out", "cf", "cfd", "nginx"], "label": "https → http://localhost:80", "say": "คำขอเดินจากมือถือ → Cloudflare → cloudflared ในเครื่อง → nginx ช่วง Cloudflare เป็น HTTPS จึงปลอดภัยกว่าใน LAN", "box": {"CF-Connecting-IP": "IP จริงของคนนอก เช่น 49.228.x.x", "nginx เห็นว่ามาจาก": "127.0.0.1"}, "code": {"k": "tunnel", "hl": [43], "focus": [{"l": 43, "n": 1, "tr": "ปลายท่อคือ nginx พอร์ต 80"}]}, "more": ""}, {"t": "อ่าน IP จริง", "at": "nginx", "say": "ทุกคนที่มาทางท่อดูเหมือนมาจาก 127.0.0.1 nginx จึงอ่าน IP จริงจาก header CF-Connecting-IP ที่ Cloudflare แนบมา rate limit จะได้นับแยกรายคน", "code": {"k": "ngx", "hl": [62, 63], "focus": [{"l": 62, "n": 1, "tr": "เชื่อ header นี้เฉพาะคำขอที่มาจาก 127.0.0.1 (cloudflared)"}, {"l": 63, "n": 1, "tr": "อ่าน IP จริงจาก header นี้"}]}, "more": "<p>ถ้าไม่ทำ ทุกคนนับเป็น IP เดียว คนที่ 7 ที่กด login ภายในนาทีเดียวกันจะได้ 429 ทั้งที่เพิ่งกดครั้งแรก<\/p>"}, {"t": "คนใน LAN ปลอม header ไม่ได้", "move": ["lan", "nginx"], "label": "CF-Connecting-IP: ปลอม", "say": "คนใน LAN ใส่ header CF-Connecting-IP ปลอมมาได้ แต่ไม่ได้มาจาก 127.0.0.1 nginx จึงไม่สนใจ header นั้น ใช้ IP จริงของเขา", "code": {"k": "ngx", "hl": [62], "focus": [{"l": 62, "n": 1, "tr": "เชื่อเฉพาะจาก 127.0.0.1"}]}, "more": "<p>ถ้าเชื่อจากทุกที่ คนร้ายจะเปลี่ยน IP ตัวเองได้เรื่อย ๆ เพื่อหลบ rate limit และ allowlist<\/p>"}, {"t": "หลังบ้านไม่ออกไปนอก", "move": ["out", "cf", "cfd"], "label": "✕ :8089 / :5000 / :8088", "bad": true, "say": "ท่อชี้เข้า nginx :80 อย่างเดียว พอร์ตหลังบ้านไม่ออกไปอินเทอร์เน็ต ต่อให้เดา /_dev/ ได้ก็เจอ 403 เพราะ IP ไม่อยู่ในรายชื่อ", "code": {"k": "tunnel", "hl": [43], "focus": [{"l": 43, "n": 1, "tr": "มีแค่ :80"}]}, "more": ""}]}, {"id": "n6", "group": "nginx", "title": "Firewall: ใครคุยกับใครได้", "short": "Firewall", "intro": "nginx กันได้เฉพาะคนที่มาทางประตูหน้า ส่วน firewall ของ Windows แต่ละเครื่องกันคนที่พยายามอ้อมไปหาเครื่องหลังบ้านตรง ๆ", "stage": {"h": 270, "nodes": [{"id": "user", "x": 15, "y": 28, "t": "ผู้ใช้ใน LAN", "a": "ลูกค้า", "s": "เบราว์เซอร์"}, {"id": "other", "x": 15, "y": 178, "t": "เครื่องแปลกหน้า", "a": "คนแอบเข้าครัว", "s": "อยู่ใน LAN เดียวกัน"}, {"id": "nginx", "x": 205, "y": 103, "t": "เครื่อง nginx", "a": "ประตูหน้า", "s": ".171 เปิด 80"}, {"id": "flask", "x": 395, "y": 103, "t": "เครื่อง Backend", "a": "ห้องครัว", "s": ".169 รับ 5000"}, {"id": "ai", "x": 585, "y": 103, "t": "เครื่อง AI", "a": "ห้องเชฟ", "s": ".160 รับ 8088"}], "edges": [["user", "nginx"], ["nginx", "flask"], ["flask", "ai"], ["other", "flask"], ["other", "ai"]]}, "steps": [{"t": "ทางที่ถูกต้อง", "move": ["user", "nginx", "flask", "ai"], "label": "80 → 5000 → 8088", "say": "ผู้ใช้ → nginx (พอร์ต 80) → Flask (5000 รับจาก nginx เท่านั้น) → AI (8088 รับจาก Flask เท่านั้น) ทุกเครื่องรับจากเครื่องก่อนหน้าเครื่องเดียว", "code": {"k": "fw_ngx", "hl": [19, 20], "focus": [{"l": 19, "n": 1, "tr": "เครื่อง nginx เปิดพอร์ต 80 ให้ทุกคน"}, {"l": 20, "n": 1, "tr": "เปิด 8089 ด้วย (nginx คัด IP เอง)"}]}, "more": "<p>สคริปต์ทุกตัวต้องรันแบบ Run as Administrator และลบกฎเก่าที่ชื่อขึ้นต้น “LUMA” ก่อน รันซ้ำได้ไม่ซ้อนกัน<\/p>"}, {"t": "อ้อมไปหา Flask", "move": ["other", "flask"], "label": "✕ :5000", "bad": true, "say": "เครื่องแปลกหน้าพยายามยิงพอร์ต 5000 ตรง firewall ของเครื่อง Backend ยอมรับแค่ IP ของเครื่อง nginx", "code": {"k": "fw_be", "hl": [14, 21, 26, 30], "focus": [{"l": 14, "n": 1, "tr": "IP ของเครื่อง nginx (เปลี่ยนได้ตอนรัน)"}, {"l": 21, "n": 1, "tr": "อนุญาตเฉพาะ nginx"}, {"l": 26, "n": 1, "tr": "บล็อกช่วง IP ที่ต่ำกว่า"}, {"l": 30, "n": 1, "tr": "ปิดพอร์ต dev ของ Vite ด้วย"}]}, "more": ""}, {"t": "ทำไมต้องบล็อกเป็นสองช่วง", "at": "flask", "say": "ใน Windows Firewall ถ้ามีทั้งกฎอนุญาตและกฎบล็อก กฎบล็อกชนะเสมอ “บล็อกทุกคน” จะบล็อก nginx ไปด้วย จึงบล็อกเป็นสองช่วงที่เว้น IP ของ nginx ไว้", "vars": {"ช่วงต่ำ": "0.0.0.1 – 192.168.1.170", "เว้นไว้": "192.168.1.171 (nginx)", "ช่วงสูง": "192.168.1.172 – 255.255.255.254"}, "code": {"k": "fw_be", "hl": [24, 25], "focus": [{"l": 24, "n": 1, "tr": "IP ก่อน nginx 1 ตัว"}, {"l": 25, "n": 1, "tr": "IP หลัง nginx 1 ตัว"}]}, "more": ""}, {"t": "อ้อมไปหา AI", "move": ["other", "ai"], "label": "✕ :8088", "bad": true, "say": "เครื่อง AI ใช้วิธีเดียวกัน พอร์ต 8088 ยอมรับเฉพาะเครื่อง Backend กันคนเข้าหน้า WebUI ไปติดตั้ง extension", "code": {"k": "fw_ai", "hl": [21, 29], "focus": [{"l": 21, "n": 1, "tr": "อนุญาตเฉพาะ Backend"}, {"l": 29, "n": 1, "tr": "บล็อกคนอื่นทั้งหมด"}]}, "more": "<p>ถ้าใช้ประตูหลัง :8089 ด้วย ต้องเพิ่ม IP ของเครื่อง nginx ในกฎอนุญาตของเครื่อง AI<\/p>"}, {"t": "Flask ต้องเปิดรับจากเครื่องอื่น", "at": "flask", "say": "ถ้า Flask รับแค่ 127.0.0.1 เครื่อง nginx จะต่อไม่ติดเลย จึงต้องตั้ง HOST=0.0.0.0 แล้วให้ firewall เป็นคนคัดว่าใครเข้าได้", "code": {"k": "run_py", "hl": [23, 27, 47], "focus": [{"l": 23, "n": 1, "tr": "รับจากทุกการ์ดเครือข่าย"}, {"l": 27, "n": 1, "tr": "debug ปิดเสมอ (หน้า debug ของ Flask รันโค้ดได้)"}, {"l": 47, "n": 1, "tr": "เริ่มรัน"}]}, "more": ""}]}, {"id": "n7", "group": "nginx", "title": "เปิดระบบและแก้ config", "short": "เปิดระบบ", "intro": "ขั้นตอนใช้งานจริงบนเครื่อง nginx: build หน้าเว็บ แล้วกด START.bat ทุกครั้งหลังแก้ไฟล์ใน conf/", "stage": {"h": 270, "nodes": [{"id": "user", "x": 20, "y": 103, "t": "ผู้ใช้ใน LAN", "a": "ลูกค้า", "s": "เบราว์เซอร์"}, {"id": "nginx", "x": 300, "y": 103, "t": "nginx", "a": "พนักงานต้อนรับ", "s": ".171 : 80"}, {"id": "dist", "x": 580, "y": 28, "t": "โฟลเดอร์ dist", "a": "ชั้นวางเมนู", "s": "ไฟล์หน้าเว็บ"}, {"id": "flask", "x": 580, "y": 178, "t": "Flask", "a": "ห้องครัว", "s": ".169 : 5000"}], "edges": [["user", "nginx"], ["nginx", "dist"], ["nginx", "flask"], ["user", "flask"]]}, "steps": [{"t": "ลำดับการเปิด", "at": "flask", "say": "เปิดจากหลังไปหน้า: AI Server → Backend → nginx ถ้าเปิด nginx ก่อน คนที่เข้ามาจะเจอ “Backend is unavailable”", "vars": {"1": "AI: webui-user.bat", "2": "Backend: python run.py", "3": "nginx: START.bat", "เช็ค": "http://localhost/api/v1/health → healthy"}, "code": {"k": "start_bat", "hl": [51], "focus": [{"l": 51, "n": 1, "tr": "START.bat บอกลิงก์ให้เช็คเลย"}]}, "more": "<p><code>/healthz<\/code> = nginx ยังทำงาน (ไม่แตะ Flask) · <code>/api/v1/health<\/code> = ผ่าน nginx ไปถึง Flask ได้<\/p>"}, {"t": "build หน้าเว็บ", "move": ["nginx", "dist"], "label": "npm run build → dist/", "say": "หลัง git pull ที่มีการแก้หน้าเว็บ ดับเบิลคลิก BUILD-WEB.bat ได้โฟลเดอร์ dist ใหม่ refresh เบราว์เซอร์ได้เลย ไม่ต้อง restart nginx", "code": {"k": "start_bat", "hl": [15], "focus": [{"l": 15, "n": 1, "tr": "START.bat เตือนถ้ายังไม่ได้ build"}]}, "more": ""}, {"t": "START.bat ทำอะไร", "at": "nginx", "say": "ก๊อปไฟล์จาก conf/ ไปไว้ในโฟลเดอร์โปรแกรม nginx → ตรวจว่าเขียนถูกไหม (nginx -t) → ถ้ายังไม่รันก็เปิด ถ้ารันอยู่แล้วก็โหลด config ใหม่", "code": {"k": "start_bat", "hl": [21, 26, 35, 43], "focus": [{"l": 21, "n": 1, "tr": "ก๊อป config"}, {"l": 26, "n": 1, "tr": "ตรวจ config ก่อน ผิดแล้วหยุด"}, {"l": 35, "n": 1, "tr": "ยังไม่รัน → เปิด"}, {"l": 43, "n": 1, "tr": "รันอยู่ → โหลดใหม่ (คนที่ใช้อยู่ไม่หลุด)"}]}, "more": "<p>อย่าแก้ไฟล์ใน <code>nginx/win/nginx-x.y.z/conf/<\/code> ตรง ๆ เพราะ START.bat จะก๊อปทับทุกครั้ง แก้ที่ <code>nginx/conf/<\/code> เสมอ<\/p>"}, {"t": "IP เปลี่ยน ต้องแก้ที่ไหน", "at": "nginx", "say": "IP อยู่หลายที่ ต้องแก้ให้ครบตามเครื่องที่เปลี่ยน แล้วกด START.bat", "vars": {"เครื่อง Backend เปลี่ยน": "nginx.conf upstream luma_backend + for-ai.ps1 -BackendIp", "เครื่อง AI เปลี่ยน": "backend/.env AI_SERVER_URL + upstream luma_ai_server", "เครื่อง nginx เปลี่ยน": "for-backend.ps1 -NginxIp + CORS_ORIGINS + dev_allowlist.conf"}, "code": {"k": "ngx", "hl": [73, 78], "focus": [{"l": 73, "n": 1, "tr": "IP Backend"}, {"l": 78, "n": 1, "tr": "IP AI"}]}, "more": "<p>ตารางนี้อยู่ใน <code>nginx/README.md<\/code> หัวข้อ “IP เปลี่ยน ต้องแก้ที่ไหน”<\/p>"}]}]};
+const LESSONS = DATA.lessons, SN = DATA.snips;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
+const NW = 140, NH = 72;
+let li = 0, si = 0, playing = false, timer = null, anim = null, curSnip = null, nodeMap = {}, builtFor = -1;
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ---------- syntax colouring ---------- */
+const KW = {
+  py: 'def|return|if|elif|else|for|in|not|and|or|is|None|True|False|try|except|finally|with|as|import|from|raise|global|lambda|while|class|pass',
+  js: 'function|return|if|else|const|let|var|await|async|try|catch|finally|new|throw|export|default|import|from|for|of|typeof|instanceof|null|undefined|true|false',
+  bat: 'set|call|if|not|exist|goto|echo|for|in|do|copy|start|exit|pause|setlocal|errorlevel|off',
+  ps: 'param|if|else|foreach|return|exit|string',
+  sh: 'if|then|fi|echo|read|set|grep|mv|touch|exit',
+  sql: 'CREATE|TABLE|IF|NOT|EXISTS|INTEGER|PRIMARY|KEY|AUTOINCREMENT|VARCHAR|NULL|UNIQUE|DEFAULT|TEXT|DATETIME|FLOAT|BIGINT|BLOB|FOREIGN|REFERENCES|ON|DELETE|CASCADE|INDEX|PRAGMA|CURRENT_TIMESTAMP',
+  nginx: 'location|server|listen|proxy_pass|proxy_set_header|proxy_http_version|include|try_files|add_header|limit_req|return|deny|allow|root|index|proxy_read_timeout|proxy_send_timeout|proxy_connect_timeout|access_log|log_not_found|client_max_body_size|error_page',
+};
+function colour(line, lang, st){
+  if (lang === 'py' && (st.doc || line.includes('"""'))) {
+    const n = (line.match(/"""/g) || []).length;
+    if (n % 2 === 1) st.doc = !st.doc;
+    return '<span class="st">' + esc(line) + '</span>';
+  }
+  const com = lang === 'js' ? '\\/\\/.*$|\\/\\*.*?\\*\\/' : lang === 'sql' ? '--.*$' : lang === 'bat' ? '^\\s*(?:REM|rem|::).*$' : '#.*$';
+  const re = new RegExp('(' + com + ')|("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|`(?:\\\\.|[^`\\\\])*`)|\\b(' + KW[lang] + ')\\b|\\b(\\d+(?:\\.\\d+)?)\\b', 'g');
+  let out = '', last = 0, m;
+  while ((m = re.exec(line))) {
+    out += esc(line.slice(last, m.index));
+    const cls = m[1] ? 'cm' : m[2] ? 'st' : m[3] ? 'kw' : 'nu';
+    out += '<span class="' + cls + '">' + esc(m[0]) + '</span>';
+    last = re.lastIndex;
+    if (m[0] === '') re.lastIndex++;
+  }
+  return out + esc(line.slice(last));
+}
+
+
+
+/* ---------- lesson tabs (grouped) ---------- */
+{ let lastGroup = null;
+  LESSONS.forEach((L, i) => {
+    if (L.group !== lastGroup) { const g = document.createElement('span'); g.className = 'grp'; g.textContent = L.group; $('lessonTabs').appendChild(g); lastGroup = L.group; }
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = '<span class="n">' + L.id.toUpperCase() + '</span>' + esc(L.short);
+    b.onclick = () => { stop(); go(i, 0); };
+    $('lessonTabs').appendChild(b);
+  }); }
+
+/* ---------- stage ---------- */
+function center(id){ const n = nodeMap[id]; return [n.x + NW/2, n.y + NH/2]; }
+function buildStage(L){
+  const svg = $('svg'), st = L.stage;
+  svg.setAttribute('viewBox', '0 0 740 ' + st.h);
+  nodeMap = {}; st.nodes.forEach(n => nodeMap[n.id] = n);
+  let h = '';
+  st.edges.forEach(([a, b]) => { const [x1,y1] = center(a), [x2,y2] = center(b);
+    h += `<line class="edge" data-e="${a}|${b}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; });
+  st.nodes.forEach(n => {
+    h += `<g class="node" data-n="${n.id}"><rect x="${n.x}" y="${n.y}" width="${NW}" height="${NH}" rx="10"/>` +
+      `<text class="t" x="${n.x+12}" y="${n.y+23}">${esc(n.t)}</text><text class="a" x="${n.x+12}" y="${n.y+43}">${esc(n.a)}</text>` +
+      `<text class="s" x="${n.x+12}" y="${n.y+61}">${esc(n.s)}</text></g>`;
+  });
+  h += '<g class="pk" id="pk" visibility="hidden"><rect id="pkr" rx="6" height="22"/><circle r="8"/><text id="pkt"></text></g>';
+  svg.innerHTML = h;
+  builtFor = LESSONS.indexOf(L);
+}
+function placePacket(x, y){
+  const r = $('pkr'), t = $('pkt'), w = t.getComputedTextLength() + 16;
+  const c = $('pk').querySelector('circle'); c.setAttribute('cx', x); c.setAttribute('cy', y);
+  let lx = Math.min(Math.max(x - w/2, 2), 738 - w), ly = y - 38;
+  if (ly < 2) ly = y + 14;
+  r.setAttribute('x', lx); r.setAttribute('y', ly); r.setAttribute('width', w);
+  t.setAttribute('x', lx + 8); t.setAttribute('y', ly + 15);
+}
+function animateMove(ids, label, bad){
+  if (anim) cancelAnimationFrame(anim);
+  const pk = $('pk');
+  if (!ids) { pk.setAttribute('visibility', 'hidden'); return 0; }
+  pk.classList.toggle('bad', !!bad);
+  $('pkt').textContent = label || '';
+  pk.setAttribute('visibility', 'visible');
+  let pts = ids.map(center);
+  // a blocked hop stops 60% of the way, at the "wall"
+  if (bad && ids[ids.length-1] !== ids[0]) { const a = pts[pts.length-2], b = pts[pts.length-1]; pts[pts.length-1] = [a[0] + (b[0]-a[0])*.62, a[1] + (b[1]-a[1])*.62]; }
+  const seg = 900, total = seg * (pts.length - 1);
+  if (reduce) { placePacket(...pts[pts.length - 1]); return 0; }
+  const t0 = performance.now();
+  const ease = (t) => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+  const frame = (now) => {
+    const e = Math.min(now - t0, total), k = Math.min(Math.floor(e / seg), pts.length - 2);
+    const f = ease((e - k*seg) / seg), a = pts[k], b = pts[k+1];
+    placePacket(a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f);
+    if (e < total) anim = requestAnimationFrame(frame);
+  };
+  anim = requestAnimationFrame(frame);
+  return total;
+}
+
+/* ---------- code ---------- */
+function codeLines(sn, from, to){
+  const st = {doc:false}; let out = '';
+  sn.lines.forEach((l, i) => { const no = sn.start + i, html = colour(l, sn.lang, st) || ' ';
+    if (no >= from && no <= to) out += `<div class="ln"><span class="no">${no}</span><span class="tx">${html}</span></div>`; });
+  return out;
+}
+function showCode(c){
+  const sn = SN[c.k];
+  $('cPath').textContent = sn.path;
+  let h = '', prev = null;
+  c.focus.forEach(f => {
+    if (prev !== null && f.l > prev + 1) h += `<div class="gap">⋮ ข้าม ${f.l - prev - 1} บรรทัด</div>`;
+    h += `<div class="fx"><div class="fx-code"><pre>${codeLines(sn, f.l, f.l + f.n - 1)}</pre></div><div class="fx-tr">${esc(f.tr)}</div></div>`;
+    prev = f.l + f.n - 1;
+  });
+  $('focus').innerHTML = h;
+  if (curSnip !== c.k) {
+    const st = {doc:false};
+    $('cPre').innerHTML = sn.lines.map((l, i) =>
+      `<div class="ln" data-l="${sn.start+i}"><span class="no">${sn.start+i}</span><span class="tx">${colour(l, sn.lang, st) || ' '}</span></div>`).join('');
+    curSnip = c.k;
+  }
+  const set = new Set(c.hl);
+  $('cPre').querySelectorAll('.ln').forEach(el => el.classList.toggle('hl', set.has(+el.dataset.l)));
+  scrollFull();
+}
+function scrollFull(){
+  if (!$('full').open) return;
+  const first = $('cPre').querySelector('.ln.hl'), body = $('cBody');
+  if (first) body.scrollTop = Math.max(0, first.offsetTop - body.clientHeight * 0.25);
+}
+$('full').addEventListener('toggle', scrollFull);
+function nextInfo(){
+  const L = LESSONS[li], cur = L.steps[si].code;
+  if (si === L.steps.length - 1)
+    return li < LESSONS.length - 1 ? 'จบบทนี้แล้ว · บทถัดไป: <b>' + esc(LESSONS[li+1].title) + '</b>' : 'จบทุกบทแล้ว';
+  const nx = L.steps[si+1].code, sn = SN[nx.k], line = nx.focus[0].l;
+  if (sn.path === SN[cur.k].path) return 'ขั้นถัดไปยังอยู่ในไฟล์นี้ → บรรทัด <b>' + line + '</b>';
+  return 'ขั้นถัดไปไปที่ไฟล์ <b>' + esc(sn.path) + '</b> บรรทัด <b>' + line + '</b>';
+}
+
+/* ---------- render ---------- */
+function render(){
+  const L = LESSONS[li], S = L.steps[si];
+  document.querySelectorAll('#lessonTabs button').forEach((b, i) => b.setAttribute('aria-current', i === li));
+  $('intro').innerHTML = '<b>' + esc(L.id.toUpperCase()) + ' · ' + esc(L.title) + '</b>' + esc(L.intro);
+  const at = S.at || (S.move ? (S.bad ? S.move[S.move.length - 2] : S.move[S.move.length - 1]) : null);
+  const target = S.bad && S.move ? S.move[S.move.length - 1] : null;
+  document.querySelectorAll('.node').forEach(g => { g.classList.toggle('on', g.dataset.n === at); g.classList.toggle('badon', !!target && target !== at && g.dataset.n === target); });
+  const hot = new Set();
+  if (S.move) for (let i = 0; i < S.move.length - 1; i++) { hot.add(S.move[i] + '|' + S.move[i+1]); hot.add(S.move[i+1] + '|' + S.move[i]); }
+  document.querySelectorAll('.edge').forEach(e => { const h = hot.has(e.dataset.e); e.classList.toggle('hot', h && !S.bad); e.classList.toggle('hotbad', h && !!S.bad); });
+  const dur = animateMove(S.move || null, S.label, S.bad);
+
+  const where = at ? nodeMap[at] : null;
+  const content = S.box || S.vars;
+  let box = '';
+  if (content) {
+    const isBox = !!S.box;
+    box = `<div class="box${isBox ? '' : ' mem'}"><h3>${isBox ? 'ของในกล่องที่กำลังส่ง' : 'ค่า / ข้อมูลสรุป'}</h3><dl>` +
+      Object.entries(content).map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl></div>';
+  }
+  $('story').innerHTML =
+    `<div class="stepno">ขั้นที่ ${si + 1} จาก ${L.steps.length}` + (where ? ` <span class="chip">อยู่ที่ ${esc(where.t)} (${esc(where.a)})</span>` : '') +
+    (S.bad ? ' <span class="chip bad">ถูกปฏิเสธ</span>' : '') + '</div>' +
+    '<h2>' + esc(S.t) + '</h2><p class="say">' + esc(S.say) + '</p>' + box +
+    (S.more ? '<details class="more"><summary>อธิบายละเอียดขึ้น</summary><div>' + S.more + '</div></details>' : '');
+  showCode(S.code);
+  $('nextInfo').innerHTML = nextInfo();
+  $('stage').classList.toggle('with-viz', !!S.viz);
+  if (S.viz) { $('viz').hidden = false; drawAny(S.viz); } else $('viz').hidden = true;
+  ['loc', 'rate', 'sd'].forEach(k => $('lab-' + k).hidden = L.lab !== k);
+  $('count').textContent = L.id.toUpperCase() + ' · ' + (si + 1) + '/' + L.steps.length;
+  $('dots').innerHTML = L.steps.map((s, i) => `<button type="button" aria-label="ขั้นที่ ${i+1}: ${esc(s.t)}" class="${i < si ? 'done' : i === si ? 'cur' : ''}" data-i="${i}"></button>`).join('');
+  $('prev').disabled = li === 0 && si === 0;
+  $('next').disabled = li === LESSONS.length - 1 && si === L.steps.length - 1;
+  try { history.replaceState(null, '', '#' + L.id + '-' + (si + 1)); } catch (e) {}
+  if (playing) { clearTimeout(timer); timer = setTimeout(() => { if (!step(1)) stop(); }, dur + 6500); }
+}
+function go(l, s){ li = l; si = s; if (builtFor !== li) buildStage(LESSONS[li]); render(); }
+function step(d){
+  const L = LESSONS[li];
+  if (si + d >= 0 && si + d < L.steps.length) { go(li, si + d); return true; }
+  if (d > 0 && li < LESSONS.length - 1) { go(li + 1, 0); return true; }
+  if (d < 0 && li > 0) { go(li - 1, LESSONS[li - 1].steps.length - 1); return true; }
+  return false;
+}
+function stop(){ playing = false; clearTimeout(timer); $('play').textContent = 'เล่นเอง'; }
+$('prev').onclick = () => { stop(); step(-1); };
+$('next').onclick = () => { stop(); step(1); };
+$('play').onclick = () => { if (playing) stop(); else { playing = true; $('play').textContent = 'หยุด'; render(); } };
+$('dots').onclick = (e) => { const b = e.target.closest('button'); if (b) { stop(); go(li, +b.dataset.i); } };
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input,textarea,select')) return;
+  if (e.key === 'ArrowRight') { stop(); step(1); }
+  else if (e.key === 'ArrowLeft') { stop(); step(-1); }
+  else if (e.key === ' ' && !e.target.closest('button,summary')) { e.preventDefault(); $('play').click(); }
+});
+
+/* =====================================================================
+   Image visualisations — computed live at 320×200
+   ===================================================================== */
+const VW = 320, VH = 200, N = VW * VH;
+const ctx = $('cv').getContext('2d');
+const cache = {};
+function rng(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function toRGB(img){ const r = new Float32Array(N), g = new Float32Array(N), b = new Float32Array(N);
+  for (let i = 0; i < N; i++) { r[i] = img.data[i*4]; g[i] = img.data[i*4+1]; b[i] = img.data[i*4+2]; } return [r, g, b]; }
+function put(ch, fn){ const out = ctx.createImageData(VW, VH);
+  for (let i = 0; i < N; i++) { const [r, g, b, a] = fn ? fn(i) : [ch[0][i], ch[1][i], ch[2][i], 255];
+    out.data[i*4] = r; out.data[i*4+1] = g; out.data[i*4+2] = b; out.data[i*4+3] = a === undefined ? 255 : a; }
+  ctx.putImageData(out, 0, 0); }
+function boxPass(src, dst, r, horiz){
+  const w = VW, h = VH, len = horiz ? w : h, lines = horiz ? h : w, step = horiz ? 1 : w, d = 2*r + 1;
+  for (let L = 0; L < lines; L++) {
+    const base = horiz ? L*w : L; let acc = 0;
+    for (let k = -r; k <= r; k++) acc += src[base + Math.min(len-1, Math.max(0, k))*step];
+    for (let p = 0; p < len; p++) {
+      dst[base + p*step] = acc / d;
+      acc += src[base + Math.min(len-1, p + r + 1)*step] - src[base + Math.max(0, p - r)*step];
+    }
+  }
+}
+function gauss(ch, r){ let a = Float32Array.from(ch), b = new Float32Array(N);
+  for (let i = 0; i < 3; i++) { boxPass(a, b, r, true); boxPass(b, a, r, false); } return a; }
+
+/* ---- street scene (spot blur + cartoonize) ---- */
+function scene(){
+  if (cache.scene) return cache.scene;
+  const c = document.createElement('canvas'); c.width = VW; c.height = VH; const g = c.getContext('2d');
+  let gr = g.createLinearGradient(0, 0, 0, 150); gr.addColorStop(0, '#7fb8f0'); gr.addColorStop(1, '#d6ebfb');
+  g.fillStyle = gr; g.fillRect(0, 0, VW, 150);
+  g.fillStyle = '#c99a6e'; g.fillRect(16, 28, 112, 124);
+  g.fillStyle = '#a97a52'; g.fillRect(16, 28, 112, 8);
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) { g.fillStyle = '#e8eef3'; g.fillRect(26 + k*25, 46 + r*25, 17, 17); g.fillStyle = '#35587a'; g.fillRect(28 + k*25, 48 + r*25, 13, 13); }
+  g.fillStyle = '#6b4423'; g.fillRect(150, 92, 10, 58);
+  [['#3f8f3a',155,78,26],['#4fa34a',138,92,19],['#4fa34a',172,90,19],['#367d32',156,98,16]].forEach(([col,x,y,r]) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); });
+  g.fillStyle = '#585d65'; g.fillRect(0, 150, VW, 50);
+  g.fillStyle = '#e5e7eb'; for (let x = 6; x < VW; x += 34) g.fillRect(x, 174, 18, 3);
+  g.fillStyle = '#2f6fb5'; g.beginPath(); g.roundRect ? g.roundRect(191, 112, 48, 62, 14) : g.rect(191, 112, 48, 62); g.fill();
+  g.fillStyle = '#f0c29b'; g.fillRect(209, 104, 12, 12);
+  g.beginPath(); g.arc(215, 92, 21, 0, 7); g.fill();
+  g.fillStyle = '#3b2a20'; g.beginPath(); g.arc(215, 88, 22, Math.PI*1.05, Math.PI*1.95); g.fill();
+  g.fillStyle = '#1f2937'; g.beginPath(); g.arc(207, 92, 2.6, 0, 7); g.arc(223, 92, 2.6, 0, 7); g.fill();
+  g.strokeStyle = '#8b3a2b'; g.lineWidth = 2; g.beginPath(); g.arc(215, 99, 7, 0.2, Math.PI - 0.2); g.stroke();
+  g.fillStyle = '#f8fafc'; g.fillRect(252, 58, 58, 30); g.strokeStyle = '#111827'; g.lineWidth = 2; g.strokeRect(252, 58, 58, 30);
+  g.fillStyle = '#111827'; g.font = 'bold 13px sans-serif'; g.fillText('LUMA', 263, 78);
+  g.fillStyle = '#4b5563'; g.fillRect(278, 88, 5, 62);
+  const img = g.getImageData(0, 0, VW, VH), R = rng(7);
+  for (let i = 0; i < N; i++) { const n = (R() - .5) * 22; for (let k = 0; k < 3; k++) img.data[i*4+k] = Math.max(0, Math.min(255, img.data[i*4+k] + n)); }
+  return cache.scene = toRGB(img);
+}
+const CIRCLES = [[205,88,14],[215,85,14],[226,90,14],[215,101,14],[204,100,13],[226,101,13]];
+function sbMask(soft){
+  const m = new Float32Array(N);
+  for (let y = 0; y < VH; y++) for (let x = 0; x < VW; x++)
+    if (CIRCLES.some(([cx, cy, r]) => (x-cx)**2 + (y-cy)**2 <= r*r)) m[y*VW + x] = 1;
+  return soft ? gauss(m, 4) : m;
+}
+
+/* ---- cartoonize, real algorithms at small scale ---- */
+function bilateral(ch, rad, sc, ss){
+  const out = [new Float32Array(N), new Float32Array(N), new Float32Array(N)];
+  const ws = []; for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) ws.push([dx, dy, Math.exp(-(dx*dx + dy*dy) / (2*ss*ss))]);
+  const k2 = 1 / (2*sc*sc);
+  for (let y = 0; y < VH; y++) for (let x = 0; x < VW; x++) {
+    const i = y*VW + x; let sr = 0, sg = 0, sb = 0, sw = 0;
+    for (const [dx, dy, w0] of ws) {
+      const xx = Math.min(VW-1, Math.max(0, x+dx)), yy = Math.min(VH-1, Math.max(0, y+dy)), j = yy*VW + xx;
+      const dr = ch[0][j]-ch[0][i], dg = ch[1][j]-ch[1][i], db = ch[2][j]-ch[2][i];
+      const w = w0 * Math.exp(-(dr*dr + dg*dg + db*db) * k2);
+      sr += ch[0][j]*w; sg += ch[1][j]*w; sb += ch[2][j]*w; sw += w;
+    }
+    out[0][i] = sr/sw; out[1][i] = sg/sw; out[2][i] = sb/sw;
+  }
+  return out;
+}
+function cartoon(){
+  if (cache.ct) return cache.ct;
+  const src = scene();
+  let col = bilateral(src, 3, 38, 3); col = bilateral(col, 3, 38, 3);
+  const K = 8, R = rng(3), cen = [];
+  for (let k = 0; k < K; k++) { const j = Math.floor(R() * N); cen.push([col[0][j], col[1][j], col[2][j]]); }
+  const lab = new Uint8Array(N);
+  for (let it = 0; it < 10; it++) {
+    const sum = cen.map(() => [0, 0, 0, 0]);
+    for (let i = 0; i < N; i++) { let best = 0, bd = 1e12;
+      for (let k = 0; k < K; k++) { const d = (col[0][i]-cen[k][0])**2 + (col[1][i]-cen[k][1])**2 + (col[2][i]-cen[k][2])**2; if (d < bd) { bd = d; best = k; } }
+      lab[i] = best; const s = sum[best]; s[0] += col[0][i]; s[1] += col[1][i]; s[2] += col[2][i]; s[3]++; }
+    sum.forEach((s, k) => { if (s[3]) cen[k] = [s[0]/s[3], s[1]/s[3], s[2]/s[3]]; });
+  }
+  const gray = new Float32Array(N); for (let i = 0; i < N; i++) gray[i] = .299*src[0][i] + .587*src[1][i] + .114*src[2][i];
+  const med = new Float32Array(N), win = [];
+  for (let y = 0; y < VH; y++) for (let x = 0; x < VW; x++) { win.length = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) win.push(gray[Math.min(VH-1, Math.max(0, y+dy))*VW + Math.min(VW-1, Math.max(0, x+dx))]);
+    win.sort((a, b) => a - b); med[y*VW + x] = win[12]; }
+  const mean = Float32Array.from(med); { const t = new Float32Array(N); boxPass(mean, t, 4, true); boxPass(t, mean, 4, false); }
+  const edge = new Uint8Array(N); for (let i = 0; i < N; i++) edge[i] = med[i] > mean[i] - 2 ? 255 : 0;
+  const ero = new Uint8Array(N);
+  for (let y = 0; y < VH; y++) for (let x = 0; x < VW; x++) { let m = 255;
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) m = Math.min(m, edge[Math.min(VH-1, y+dy)*VW + Math.min(VW-1, x+dx)]);
+    ero[y*VW + x] = m; }
+  return cache.ct = {col, cen, lab, edge, ero};
+}
+
+/* ---- remove background, analytic stand-in scene ---- */
+const sdC = (x, y, cx, cy, r) => Math.hypot(x-cx, y-cy) - r;
+const sdB = (x, y, cx, cy, hw, hh) => { const dx = Math.abs(x-cx) - hw, dy = Math.abs(y-cy) - hh; return Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0); };
+const sdE = (x, y, cx, cy, rx, ry) => (Math.hypot((x-cx)/rx, (y-cy)/ry) - 1) * Math.min(rx, ry);
+const sig = (v) => 1 / (1 + Math.exp(-v));
+const cov = (sd, w) => Math.min(1, Math.max(0, .5 - sd / w));
+const mix = (a, b, t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+const RECT = [70, 18, 180, 182], STROKE = [[144, 44], [176, 44]], SR = 10;
+function rbAt(x, y){
+  const head = sdC(x, y, 160, 72, 20), neck = sdB(x, y, 160, 95, 7, 6), body = sdE(x, y, 160, 162, 44, 62);
+  const hat = Math.min(sdB(x, y, 160, 52, 26, 4), sdB(x, y, 160, 41, 15, 10));
+  const bush = sdE(x, y, 42, 172, 34, 24);
+  const person = Math.min(head, neck, body), obj = Math.min(person, hat);
+  const n = Math.sin(x*1.7 + y*.9) * Math.sin(y*2.3 - x*.4);
+  let bg = y < 96 ? mix([170, 214, 240], [214, 236, 248], y / 96) : mix([118, 186, 92], [86, 156, 66], (y - 96) / 104);
+  bg = bg.map(v => v + n * (y < 96 ? 3 : 14));
+  if (bush < 2) bg = mix(bg, [44, 98, 40].map(v => v + n*16), cov(bush, 2));
+  let F = hat < person ? [140, 58, 43] : (body < Math.min(head, neck) ? [232, 116, 46] : [233, 182, 143]);
+  if (hat >= person && body < Math.min(head, neck)) F = F.map(v => v + n*6);
+  const p = Math.max(sig(-person / 2.5), .22 * cov(hat, 2), .78 * sig(-bush / 3)) ;
+  return {person, hat, obj, bush, bg, F, p: Math.min(1, Math.max(0, p + n * .04))};
+}
+function checker(x, y){ return ((x >> 3) + (y >> 3)) & 1 ? [255, 255, 255] : [214, 219, 227]; }
+function inStroke(x, y){ const [a, b] = STROKE; const t = Math.max(0, Math.min(1, ((x-a[0])*(b[0]-a[0]) + (y-a[1])*(b[1]-a[1])) / ((b[0]-a[0])**2 + (b[1]-a[1])**2)));
+  return Math.hypot(x - (a[0] + (b[0]-a[0])*t), y - (a[1] + (b[1]-a[1])*t)) <= SR; }
+function rbRender(fn, view){
+  const out = ctx.createImageData(VW, VH);
+  for (let py = 0; py < VH; py++) for (let px = 0; px < VW; px++) {
+    const x = view ? view[0] + px * view[2] / VW : px, y = view ? view[1] + py * view[3] / VH : py;
+    const c = fn(rbAt(x, y), x, y, px, py), i = (py*VW + px) * 4;
+    out.data[i] = c[0]; out.data[i+1] = c[1]; out.data[i+2] = c[2]; out.data[i+3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+}
+function rbPhoto(s){ return mix(s.bg, s.F, cov(s.obj, 1.2)); }
+function heat(t){ const st = [[0,[13,8,41]],[.35,[91,26,110]],[.6,[192,57,43]],[.8,[243,156,18]],[1,[253,230,138]]];
+  for (let k = 1; k < st.length; k++) if (t <= st[k][0]) return mix(st[k-1][1], st[k][1], (t - st[k-1][0]) / (st[k][0] - st[k-1][0])); return st[4][1]; }
+const TRI = {BGD: [27, 31, 42], PR_BGD: [120, 128, 142], PR_FGD: [125, 196, 252], FGD: [29, 78, 216]};
+function triAt(s, x, y, strokes){
+  const inside = x >= RECT[0] && x < RECT[0] + RECT[2] && y >= RECT[1] && y < RECT[1] + RECT[3];
+  if (strokes && inStroke(x, y)) return TRI.FGD;
+  if (!inside) return TRI.BGD;
+  return s.p > .9 ? TRI.FGD : s.p > .5 ? TRI.PR_FGD : TRI.PR_BGD;
+}
+function legend(items){ return items.map(([c, t]) => `<span class="sw"><i style="background:rgb(${c.join(',')})"></i>${t}</span>`).join(''); }
+function overlayText(t){ ctx.font = '600 10px "JetBrains Mono", monospace'; const w = ctx.measureText(t).width + 10;
+  ctx.fillStyle = 'rgba(15,20,27,.78)'; ctx.fillRect(6, VH - 22, w, 16); ctx.fillStyle = '#fff'; ctx.fillText(t, 11, VH - 10); }
+
+function drawViz(key){
+  let cap = '';
+  if (key.startsWith('sb_')) {
+    const sc = scene();
+    if (key === 'sb_orig') { put(sc); cap = 'ภาพหลัง <code>imdecode</code>: array ขนาด H×W×3'; }
+    if (key === 'sb_paint') { put(sc); ctx.fillStyle = 'rgba(13,148,136,.5)';
+      CIRCLES.forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); });
+      overlayText('บนจอ 400 px  ×4  →  รูปจริง 1600 px'); cap = 'วงสีเขียวคือวงกลมที่ผู้ใช้ระบายทับใบหน้า (overlay บน canvas)'; }
+    if (key === 'sb_blurall') { const b = cache.sbb || (cache.sbb = sc.map(c => gauss(c, 4))); put(b); cap = 'Gaussian blur ทั้งภาพ (ยังไม่ได้ใช้ ต้องรอ mask)'; }
+    if (key === 'sb_mask') { const m = sbMask(false); put(null, i => [m[i]*255, m[i]*255, m[i]*255]); cap = 'mask: ขาว = 1 (เบลอ) · ดำ = 0 (คงเดิม)'; }
+    if (key === 'sb_softmask') { const m = cache.sbs || (cache.sbs = sbMask(true)); put(null, i => [m[i]*255, m[i]*255, m[i]*255]); cap = 'mask หลังเบลอขอบ: ค่าระหว่าง 0-1 ที่ขอบ'; }
+    if (key === 'sb_result') { const b = cache.sbb || (cache.sbb = sc.map(c => gauss(c, 4))), m = cache.sbs || (cache.sbs = sbMask(true));
+      put(null, i => [sc[0][i]*(1-m[i]) + b[0][i]*m[i], sc[1][i]*(1-m[i]) + b[1][i]*m[i], sc[2][i]*(1-m[i]) + b[2][i]*m[i]]);
+      cap = 'out = img·(1−mask) + blurred·mask → เบลอเฉพาะใบหน้า'; }
+  }
+  if (key.startsWith('ct_')) {
+    const sc = scene();
+    if (key === 'ct_orig') { put(sc); cap = 'ภาพต้นฉบับ (มี noise เหมือนภาพถ่ายจริง)'; }
+    else {
+      const ct = cartoon();
+      if (key === 'ct_bilateral') { put(ct.col); cap = 'หลัง bilateral 2 รอบ: noise หาย ผิวเรียบ แต่ขอบหน้าต่าง ใบหน้า ป้าย ยังคม'; }
+      if (key === 'ct_kmeans') { put(null, i => [...ct.cen[ct.lab[i]]]); cap = 'เหลือ 8 สี: ' + ct.cen.map(c => `<span class="sw"><i style="background:rgb(${c.map(Math.round).join(',')})"></i></span>`).join(''); }
+      if (key === 'ct_edges') { put(null, i => [ct.edge[i], ct.edge[i], ct.edge[i]]); cap = 'adaptive threshold (block 9, C 2): เส้นดำบนพื้นขาว'; }
+      if (key === 'ct_erode') { put(null, i => [ct.ero[i], ct.ero[i], ct.ero[i]]); cap = 'หลัง erode kernel 2×2: เส้นหนาขึ้น'; }
+      if (key === 'ct_final') { put(null, i => ct.ero[i] ? [...ct.cen[ct.lab[i]]] : [0, 0, 0]); cap = 'bitwise_and(สี 8 สี, เส้น) = ภาพการ์ตูน'; }
+    }
+  }
+  if (key.startsWith('rb_')) {
+    if (key === 'rb_orig') { rbRender(rbPhoto); cap = 'ภาพหลังย่อ (ภาพจำลอง: คนใส่หมวกยืนในสนาม มีพุ่มไม้มุมซ้าย)'; }
+    if (key === 'rb_input') { rbRender((s, x, y) => { let c = rbPhoto(s); if (inStroke(x, y)) c = mix(c, [34, 197, 94], .6); return c; });
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.strokeRect(...RECT); ctx.setLineDash([]);
+      cap = legend([[[253, 224, 71], 'กรอบ rect'], [[34, 197, 94], 'แปรง keep']]); }
+    if (key === 'rb_prob') { rbRender(s => heat(s.p)); cap = legend([[heat(0), '0 = พื้นหลัง'], [heat(.5), '0.5'], [heat(1), '1 = คน']]) + ' หมวกค่าต่ำ (AI พลาด) · พุ่มไม้ค่าสูง (ทายผิด)'; }
+    if (key === 'rb_ai_only') { rbRender((s, x, y) => { const a = s.bush < s.person ? 0 : Math.min(1, Math.max(0, (s.p - .3) / .4)); return mix(checker(x, y), s.F, a); });
+      cap = 'largest blob ทิ้งพุ่มไม้ได้ แต่หมวกหายไปด้วย'; }
+    if (key === 'rb_trimap' || key === 'rb_strokes') { const k = key === 'rb_strokes'; rbRender((s, x, y) => triAt(s, x, y, k));
+      cap = legend([[TRI.BGD, 'BGD'], [TRI.PR_BGD, 'PR_BGD'], [TRI.PR_FGD, 'PR_FGD'], [TRI.FGD, 'FGD']]) + (k ? ' แปรง keep ทำให้หมวกเป็น FGD' : ''); }
+    if (key === 'rb_grabcut') { rbRender(s => { const v = cov(s.obj, 1) * 255; return [v, v, v]; }); cap = 'ผล GrabCut + largest blob: ได้ทั้งคนและหมวก ไม่มีพุ่มไม้'; }
+    if (key === 'rb_halo') { const V = [118, 30, 84, 52.5], dark = [32, 36, 44];
+      rbRender((s, x, y, px) => { const a = cov(s.obj, 4), I = mix(s.bg, s.F, a);
+        if (px === VW/2) return [255, 255, 255];
+        return px < VW/2 ? mix(dark, I, a) : mix(dark, s.F, a); }, V);
+      ctx.font = '600 11px "IBM Plex Sans Thai", sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('ใช้สีเดิม I (ขอบเขียว)', 8, 16); ctx.fillText('แก้สมการหา F', VW/2 + 8, 16);
+      cap = 'ซูมที่ขอบหัวไหล่ วางบนพื้นมืด: ซ้ายเห็นขอบสีสนามติดมา ขวาสะอาด'; }
+    if (key === 'rb_final') { rbRender((s, x, y) => mix(checker(x, y), s.F, cov(s.obj, 1.4))); cap = 'PNG 4 ช่อง (BGRA): ลายตารางคือส่วนโปร่งใส'; }
+  }
+  $('vizCap').innerHTML = cap;
+}
+
+
+
+/* =====================================================================
+   Stable Diffusion concept simulation
+   ===================================================================== */
+const sdNoiseCache = {};
+function sdNoise(seed){
+  if (sdNoiseCache[seed]) return sdNoiseCache[seed];
+  const R = rng(seed), n = [new Float32Array(N), new Float32Array(N), new Float32Array(N)];
+  for (let c = 0; c < 3; c++) for (let i = 0; i < N; i++) { const u = Math.max(1e-6, R()), v = R(); n[c][i] = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  return sdNoiseCache[seed] = n;
+}
+function sdPixels(k, total, seed, cfg){
+  const T = scene(), nz = sdNoise(seed), sa = Math.pow(Math.sin(k / total * Math.PI / 2), 2), g = .45 + cfg * .08;
+  const mean = [0, 0, 0]; for (let c = 0; c < 3; c++) { let s = 0; for (let i = 0; i < N; i += 7) s += T[c][i]; mean[c] = s / Math.ceil(N / 7); }
+  return (i) => { const o = [0, 0, 0];
+    for (let c = 0; c < 3; c++) { const t = Math.max(0, Math.min(255, mean[c] + (T[c][i] - mean[c]) * g)); o[c] = sa * t + (1 - sa) * (128 + nz[c][i] * 64); }
+    return o; };
+}
+function sdDraw(c2d, k, total, seed, cfg){
+  const f = sdPixels(k, total, seed, cfg), img = c2d.createImageData(VW, VH);
+  for (let i = 0; i < N; i++) { const p = f(i); img.data[i*4] = p[0]; img.data[i*4+1] = p[1]; img.data[i*4+2] = p[2]; img.data[i*4+3] = 255; }
+  c2d.putImageData(img, 0, 0);
+}
+function drawAny(key){
+  if (!key.startsWith('sd_')) return drawViz(key);
+  if (key === 'sd_cfg') {
+    const fs = [2, 7, 18].map(c => sdPixels(20, 20, 11, c)), img = ctx.createImageData(VW, VH), w3 = VW / 3;
+    for (let i = 0; i < N; i++) { const x = i % VW, p = fs[Math.min(2, Math.floor(x / w3))](i);
+      img.data[i*4] = p[0]; img.data[i*4+1] = p[1]; img.data[i*4+2] = p[2]; img.data[i*4+3] = 255; }
+    ctx.putImageData(img, 0, 0);
+    ctx.fillStyle = 'rgba(15,20,27,.8)'; ctx.font = '600 11px "JetBrains Mono", monospace';
+    ['CFG 2', 'CFG 7', 'CFG 18'].forEach((t, j) => { ctx.fillRect(j * w3 + 4, 4, 52, 16); ctx.fillStyle = '#fff'; ctx.fillText(t, j * w3 + 9, 16); ctx.fillStyle = 'rgba(15,20,27,.8)'; });
+    $('vizCap').textContent = 'ภาพจำลอง: ซ้ายจืด กลางพอดี ขวาสีจัดจนเพี้ยน';
+    return;
+  }
+  const k = +key.slice(3);
+  sdDraw(ctx, k, 20, 11, 7);
+  $('vizCap').textContent = 'ภาพจำลองแนวคิด · ลบ noise ไปแล้ว ' + k + ' จาก 20 รอบ';
+}
+
+/* ---------- lab: SD ---------- */
+const sdCtx = $('sdCv').getContext('2d');
+let sdSeed = 11;
+function sdLab(){ const k = +$('sdK').value, c = +$('sdC').value;
+  $('sdKo').textContent = k + ' / 20' + (k === 0 ? ' (noise ล้วน)' : k === 20 ? ' (เสร็จ)' : '');
+  $('sdCo').textContent = c + (c < 4 ? ' (จืด ไม่ค่อยตาม prompt)' : c > 12 ? ' (จัดเกิน)' : ' (พอดี)');
+  $('sdSo').textContent = 'seed = ' + sdSeed;
+  sdDraw(sdCtx, k, 20, sdSeed, c); }
+$('sdK').oninput = sdLab; $('sdC').oninput = sdLab;
+$('sdS').onclick = () => { sdSeed = Math.floor(Math.random() * 99999) + 1; sdLab(); };
+
+/* ---------- lab: location matcher (mirrors nginx.conf port 80) ---------- */
+const LOCS = [
+  {kind: '=', key: '/healthz', show: 'location = /healthz', go: 'nginx ตอบ “ok” เอง ไม่แตะ Flask', ok: true},
+  {kind: 'p', key: '/', show: 'location /', go: 'ส่งไฟล์จาก dist ถ้าไม่มีไฟล์ → index.html (React จัดการต่อ)', ok: true},
+  {kind: 'p', key: '/assets/', show: 'location /assets/', go: 'ส่งไฟล์ JS/CSS (cache 1 ปี) ไม่มีไฟล์ → 404', ok: true},
+  {kind: 'p', key: '/api/v1/', show: 'location /api/v1/', go: 'ส่งต่อให้ Flask · จำกัด 120 ครั้ง/นาที', ok: true},
+  {kind: 'p', key: '/api/', show: 'location /api/', go: 'ตอบ 404 ทันที Flask ไม่เห็น', ok: false},
+  {kind: 'p', key: '/_dev/backend/', show: 'location /_dev/backend/', go: 'ต้องอยู่ใน allowlist + ใส่รหัส ถึงจะส่งต่อ Flask', ok: false},
+  {kind: '~', re: /\/\.(?!well-known)/, show: 'location ~ /\\.(?!well-known)', go: '403 ห้ามเข้า (ไฟล์ขึ้นต้นด้วยจุด)', ok: false},
+  {kind: '~', re: /\.(env|db|sqlite3?|bak|py|pyc|log|sql|ini|sh|bat|cmd|config)$/i, show: 'location ~* \\.(env|db|…|sql|…)$', go: '403 ห้ามเข้า (นามสกุลอันตราย)', ok: false},
+  {kind: '~', re: /^\/api\/v1\/(login|register)$/, show: 'location ~ ^/api/v1/(login|register)$', go: 'ส่งต่อให้ Flask · จำกัด 10 ครั้ง/นาที', ok: true},
+];
+function locRun(){
+  let p = ($('locIn').value || '').trim().split('?')[0].split('#')[0];
+  if (!p.startsWith('/')) p = '/' + p;
+  const out = [];
+  const exact = LOCS.find(l => l.kind === '=' && l.key === p);
+  out.push([exact ? 'y' : 'x', exact ? `ตรงเป๊ะกับ <code>${esc(exact.show)}</code> → จบเลย` : 'ไม่มี location แบบ <code>=</code> ที่ตรงเป๊ะ']);
+  let win = exact;
+  if (!win) {
+    const prefixes = LOCS.filter(l => l.kind === 'p' && p.startsWith(l.key)).sort((a, b) => b.key.length - a.key.length);
+    const best = prefixes[0];
+    out.push(['s', `prefix ที่ยาวที่สุดที่ตรง: <code>${esc(best.show)}</code> (จำไว้ก่อน ยังไม่ใช้)`]);
+    for (const l of LOCS.filter(l => l.kind === '~')) {
+      const m = l.re.test(p);
+      out.push([m ? 'y' : 'x', `regex <code>${esc(l.show)}</code> ${m ? '→ ตรง! ใช้ตัวนี้ หยุดเช็ค' : 'ไม่ตรง'}`]);
+      if (m) { win = l; break; }
+    }
+    if (!win) { win = best; out.push(['y', `ไม่มี regex ตรง → ใช้ prefix <code>${esc(best.show)}</code>`]); }
+  }
+  $('locSteps').innerHTML = out.map(([c, t], i) => `<li><span class="m ${c}">${c === 'y' ? '✓' : c === 'x' ? '✗' : (i + 1)}</span><span>${t}</span></li>`).join('');
+  $('locVerdict').className = 'verdict ' + (win.ok ? 'go' : 'no');
+  $('locVerdict').innerHTML = '<b>' + esc(p) + '</b> → ' + esc(win.go);
+}
+$('locIn').addEventListener('input', locRun);
+['/healthz', '/history', '/assets/index-a1b2.js', '/api/v1/login', '/api/v1/history', '/api/v2/test', '/.env', '/api/v1/backup.sql', '/_dev/backend/health'].forEach(u => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 't'; b.textContent = u;
+  b.onclick = () => { $('locIn').value = u; locRun(); }; $('locChips').appendChild(b); });
+locRun();
+
+/* ---------- lab: rate limit (nginx leaky bucket, burst + nodelay) ---------- */
+const RATE = 10 / 60, BURST = 5;
+let rtState = null, rtN = 0;
+function rtExcess(now){ return rtState ? Math.max(0, rtState.ex - RATE * (now - rtState.t) / 1000) : 0; }
+function rtHit(){
+  const now = performance.now(); let ok;
+  if (!rtState) { rtState = {ex: 0, t: now}; ok = true; }
+  else { const ex = rtExcess(now) + 1; ok = ex <= BURST; if (ok) rtState = {ex, t: now}; }
+  rtN++;
+  const s = document.createElement('span'); s.className = ok ? 'a' : 'r'; s.textContent = '#' + rtN + ' ' + (ok ? '200' : '429');
+  $('rtLog').appendChild(s);
+}
+function rtTick(){
+  const ex = rtExcess(performance.now()), pct = Math.min(100, ex / BURST * 100);
+  $('rtGauge').firstElementChild.style.width = pct + '%';
+  $('rtGauge').classList.toggle('full', ex > BURST - 1);
+  $('rtText').textContent = 'ในถังตอนนี้ ≈ ' + ex.toFixed(1) + ' / ' + BURST + (ex > BURST - 1 ? ' · ยิงอีกจะได้ 429 รอให้ถังรั่วลงก่อน (~6 วินาที/ครั้ง)' : ' · ยังยิงได้');
+  if (!$('lab-rate').hidden) requestAnimationFrame(rtTick); else rtLoop = false;
+}
+let rtLoop = false;
+function rtStart(){ if (!rtLoop) { rtLoop = true; requestAnimationFrame(rtTick); } }
+$('rtOne').onclick = () => { rtHit(); rtStart(); };
+$('rtTen').onclick = () => { for (let i = 0; i < 10; i++) rtHit(); rtStart(); };
+$('rtReset').onclick = () => { rtState = null; rtN = 0; $('rtLog').innerHTML = ''; rtStart(); };
+new MutationObserver(() => { if (!$('lab-rate').hidden) rtStart(); if (!$('lab-sd').hidden) sdLab(); }).observe(document.querySelector('main'), {attributes: true, subtree: true, attributeFilter: ['hidden']});
+
+(function init(){
+  const m = (location.hash || '').slice(1).match(/^([an]\d)(?:-(\d+))?$/);
+  let l = 0, s = 0;
+  if (m) { const k = LESSONS.findIndex(L => L.id === m[1]); if (k >= 0) { l = k; s = Math.max(0, Math.min(LESSONS[k].steps.length, +(m[2] || 1)) - 1); } }
+  go(l, s);
+  if (!$('lab-sd').hidden) sdLab();
+})();
+</script>

@@ -1,0 +1,483 @@
+<title>คลังคำถามสอบ LUMA</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: exam-paper column, sticky section tabs on top, one "page" per section switched by #hash */
+:root{
+  --paper:#f5f6f8; --sheet:#ffffff; --ink:#1a2130; --ink-dim:#5a6476; --rule:#dfe3ea;
+  --pen:#2b55c9; --pen-soft:#e7edfb; --mark:#b8402b; --mark-soft:#fbeae6;
+  --lv-b:#3d7a55; --lv-b-bg:#e6f2ea; --lv-c:#2b55c9; --lv-c-bg:#e7edfb; --lv-d:#7a4bb3; --lv-d-bg:#f0e9f8;
+  --f-display:"Bai Jamjuree","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#12161f; --sheet:#1a202b; --ink:#e4e8f0; --ink-dim:#9aa4b6; --rule:#2c3442;
+  --pen:#7f9ef0; --pen-soft:#22305a; --mark:#ef8a74; --mark-soft:#3d2520;
+  --lv-b:#7cc499; --lv-b-bg:#1f3529; --lv-c:#7f9ef0; --lv-c-bg:#22305a; --lv-d:#b994e6; --lv-d-bg:#33264a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#12161f; --sheet:#1a202b; --ink:#e4e8f0; --ink-dim:#9aa4b6; --rule:#2c3442;
+  --pen:#7f9ef0; --pen-soft:#22305a; --mark:#ef8a74; --mark-soft:#3d2520;
+  --lv-b:#7cc499; --lv-b-bg:#1f3529; --lv-c:#7f9ef0; --lv-c-bg:#22305a; --lv-d:#b994e6; --lv-d-bg:#33264a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.7;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding-inline:16px}
+header.top{padding-block:28px 18px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim)}
+h1{font-family:var(--f-display);font-size:clamp(26px,4.5vw,36px);line-height:1.25;margin:.2em 0 .3em;text-wrap:balance}
+.lede{color:var(--ink-dim);max-width:65ch;margin:0}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--rule)}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;padding-block:8px}
+nav.tabs a{flex:0 0 auto;display:flex;align-items:baseline;gap:8px;padding:8px 14px;border-radius:8px;color:var(--ink-dim);text-decoration:none;font-family:var(--f-display);font-weight:600;font-size:15px}
+nav.tabs a .n{font-family:var(--f-mono);font-size:12px;font-weight:500}
+nav.tabs a:hover{background:var(--sheet);color:var(--ink)}
+nav.tabs a[aria-current="page"]{background:var(--pen);color:#fff}
+nav.tabs a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--pen);outline-offset:2px}
+main{padding-block:22px 60px}
+.page-head{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between;margin-bottom:8px}
+.page-head h2{font-family:var(--f-display);font-size:26px;margin:0;line-height:1.3}
+.page-head p{margin:.2em 0 0;color:var(--ink-dim);max-width:62ch}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+button.tb{font:500 14px var(--f-body);padding:7px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);cursor:pointer}
+button.tb:hover{border-color:var(--pen);color:var(--pen)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--ink-dim);margin:14px 0 6px}
+.legend span{display:flex;align-items:center;gap:6px}
+.chip{display:inline-block;font:500 12px var(--f-body);padding:1px 9px;border-radius:999px;white-space:nowrap}
+.lv-b{color:var(--lv-b);background:var(--lv-b-bg)}
+.lv-c{color:var(--lv-c);background:var(--lv-c-bg)}
+.lv-d{color:var(--lv-d);background:var(--lv-d-bg)}
+.lv-w{color:var(--mark);background:var(--mark-soft)}
+section.group{margin-top:30px}
+section.group h3{font-family:var(--f-display);font-size:18px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;gap:12px}
+section.group h3 small{font:400 13px var(--f-mono);color:var(--ink-dim);align-self:flex-end}
+ol.qs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+li.q{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;min-width:0}
+.qhead{display:flex;gap:12px;align-items:flex-start}
+.qno{font-family:var(--f-mono);font-size:13px;color:var(--ink-dim);padding-top:3px;min-width:3.4em;font-variant-numeric:tabular-nums}
+.qbody{flex:1;min-width:0}
+.qtext{font-weight:500;margin:0}
+.qmeta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
+.ref{font-family:var(--f-mono);font-size:12.5px;color:var(--ink-dim);overflow-wrap:anywhere}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--pen);font-size:14px;font-weight:500;width:fit-content}
+.ans{margin-top:8px;padding:10px 14px;border-left:3px solid var(--pen);background:var(--pen-soft);border-radius:0 8px 8px 0;font-size:15px;overflow-wrap:anywhere}
+.ans p{margin:0 0 .5em}.ans p:last-child{margin:0}
+.ans ul,.ans ol{margin:.2em 0 .4em;padding-left:1.3em}
+code{font-family:var(--f-mono);font-size:.86em;background:var(--paper);border:1px solid var(--rule);padding:0 4px;border-radius:4px;overflow-wrap:anywhere}
+.page[hidden]{display:none}
+footer{color:var(--ink-dim);font-size:13px;padding-block:20px 40px;border-top:1px solid var(--rule)}
+@media (max-width:520px){.qno{min-width:2.8em}li.q{padding:12px}}
+@media print{nav.tabs,.tools{display:none}.page[hidden]{display:block!important}.page{break-before:page}details{display:block}details>.ans{display:block}li.q{break-inside:avoid}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<header class="top"><div class="wrap">
+  <div class="eyebrow">LUMA · Image Processing Final Project</div>
+  <h1>คลังคำถามสอบโปรเจค LUMA</h1>
+  <p class="lede">คำถามแบบที่อาจารย์ถามตอนสอบ เรียงจากภาพรวมไปจนถึงการไล่โค้ดเชิงลึก แต่ละข้อบอกไฟล์ที่ต้องเปิดดู และมีแนวคำตอบซ่อนไว้ ให้ลองตอบเองก่อนแล้วค่อยกดดู ข้อที่ติดป้าย “จุดอ่อน” คือจุดที่อาจารย์มักจับผิด ควรเตรียมคำอธิบายกับวิธีแก้ไว้ให้พร้อม</p>
+</div></header>
+
+<nav class="tabs" aria-label="ส่วนของคำถาม"><div class="wrap" id="tabs"></div></nav>
+
+<main><div class="wrap" id="pages"></div></main>
+
+<footer><div class="wrap">ทำจากโค้ดใน branch <code>main</code> (commit 87b1ebb) · แนวคำตอบสรุปจากโค้ดจริง ก่อนสอบควรเปิดไฟล์ตาม ref แล้วไล่ด้วยตัวเองอีกรอบ</div></footer>
+
+<script>
+const LV = {b:['พื้นฐาน','lv-b'], c:['ไล่โค้ด','lv-c'], d:['เชิงลึก','lv-d'], w:['จุดอ่อน','lv-w']};
+
+const SECTIONS = [
+{id:'frontend', no:'1', prefix:'F', title:'Frontend',
+ desc:'React 18 + Vite, React Router, axios, Context API และเครื่องมือแต่งภาพบน canvas (frontend/luma-frontend/src)',
+ groups:[
+ {name:'ภาพรวมและโครงสร้างโปรเจค', qs:[
+  ['b',`Frontend ใช้เทคโนโลยีอะไรบ้าง แต่ละตัวมีหน้าที่อะไร และทำไมเลือก Vite`,`package.json, vite.config.js`,
+   `<p>React 18 (UI), react-router-dom 6 (routing), axios (เรียก API + interceptor), motion (animation หน้า Features), lucide-react (ไอคอน), vitest + jsdom (เทสต์)</p><p>Vite ใช้ native ES modules ตอน dev จึงเปิดเร็วและ HMR เร็ว ตอน build ได้ไฟล์ static ใน <code>dist/</code> ที่มี hash ในชื่อ ให้ nginx เสิร์ฟได้เลย</p>`],
+  ['c',`ไล่ลำดับการโหลดแอปตั้งแต่ index.html → main.jsx → App.jsx ว่ามี Provider ห่อกันกี่ชั้น เรียงยังไง และทำไม ErrorBoundary อยู่นอกสุด`,`index.html, src/main.jsx, src/App.jsx`,
+   `<p><code>StrictMode → ErrorBoundary → ThemeProvider → LayoutProvider → ToastProvider → App</code> และใน App มี <code>AuthProvider → BrowserRouter → Routes</code></p><p>ErrorBoundary อยู่นอกสุดเพื่อจับ error ที่เกิดตอน render ของทุก Provider ข้างใน <code>ToastContainer</code> อยู่ใน ToastProvider เพราะต้องใช้ context เดียวกับ <code>showToast</code></p>`],
+  ['c',`อธิบาย route ทั้งหมดใน App.jsx และการซ้อน <code>&lt;Route element={&lt;ProtectedRoute/&gt;}&gt;</code> กับ <code>&lt;Layout/&gt;</code> ที่ไม่มี path ทำงานอย่างไร`,`src/App.jsx, components/ProtectedRoute.jsx, components/Layout.jsx`,
+   `<p>เป็น layout route: ไม่มี path ของตัวเอง แต่ render <code>&lt;Outlet/&gt;</code> ให้ route ลูก ProtectedRoute เช็ค <code>isAuthenticated</code> ถ้าไม่ผ่านจะ <code>&lt;Navigate to="/login" replace/&gt;</code> ถ้าผ่านจะ render Layout (sidebar) แล้ว Outlet ของ Layout แสดงหน้าจริง</p><p><code>/login</code> และ <code>/register</code> อยู่นอก ProtectedRoute ส่วน <code>path="*"</code> redirect ไป <code>/</code></p>`],
+  ['d',`ถ้าผู้ใช้กด refresh ที่ <code>/history</code> ทำไมหน้าไม่ 404 ทั้งที่ไม่มีไฟล์ history อยู่ในเซิร์ฟเวอร์`,`nginx/conf/nginx.conf (location /)`,
+   `<p>BrowserRouter ใช้ History API ทำ routing ฝั่ง client ทั้งหมด nginx มี <code>try_files $uri $uri/ /index.html</code> คือถ้าไม่เจอไฟล์จริงให้ส่ง index.html กลับไป แล้ว React Router อ่าน URL ทำงานต่อเอง ถ้าไม่มีบรรทัดนี้จะได้ 404 ของ nginx</p>`],
+  ['b',`<code>VITE_API_BASE_URL</code> กับ <code>VITE_MOCK_MODE</code> คืออะไร ทำไม .env.production ตั้ง base URL เป็น <code>/api/v1</code> แบบ relative`,`.env.example, .env.production, src/api/client.js`,
+   `<p>ตัวแปรที่ขึ้นต้นด้วย <code>VITE_</code> ถูกแทนค่าลงในโค้ดตอน build ผ่าน <code>import.meta.env</code></p><p>ใช้ relative path เพื่อให้ browser ยิงไปที่ origin เดียวกับหน้าเว็บ (เครื่อง nginx) แล้ว nginx proxy ต่อไป Flask เอง ข้อดีคือ frontend ไม่ต้องรู้ IP ของ backend และเป็น same-origin จึงไม่ติด CORS</p>`],
+  ['c',`Mock mode ทำงานอย่างไร และทำไม mock ต้องคืนข้อมูลรูปแบบเดียวกับ API จริง`,`src/api/client.js, src/api/mockData.js, components/MockModeBanner.jsx`,
+   `<p>ทุกฟังก์ชันใน <code>api</code> เช็ค <code>MOCK_MODE</code> ก่อน ถ้าเปิดอยู่จะคืนข้อมูลจาก mockData ผ่าน <code>delay()</code> ให้ดูเหมือนรอ network</p><p>ข้อมูล mock มีรูปแบบเดียวกับสิ่งที่ <code>request()</code> unwrap ออกมาจาก <code>{success, data}</code> จริง หน้าเว็บจึงไม่ต้องแก้โค้ดตอนสลับไปใช้ backend จริง และทีม frontend ทำงานได้โดยไม่ต้องรอ backend</p>`],
+ ]},
+ {name:'Authentication และการเรียก API', qs:[
+  ['c',`ไล่โค้ดตอนกดปุ่ม Log in ตั้งแต่ <code>handleSubmit</code> จนเปลี่ยนไปหน้า Home`,`pages/Login.jsx → context/AuthContext.jsx → api/client.js`,
+   `<ol><li><code>e.preventDefault()</code> แล้วตรวจ email ด้วย regex และเช็คว่ากรอกรหัสผ่าน</li><li><code>setLoading(true)</code> → เรียก <code>login()</code> จาก <code>useAuth()</code></li><li><code>api.login</code> → <code>request(client.post('/login'))</code> ซึ่ง interceptor แนบ header ให้</li><li>ได้ <code>access_token</code> กับ <code>user</code> → <code>persist()</code> เก็บ <code>luma_token</code>, <code>luma_user</code> ลง localStorage และ setState</li><li><code>navigate('/')</code> ถ้า error ใช้ <code>loginErrorMessage</code> แปลง INVALID_CREDENTIALS เป็นข้อความไทย</li></ol>`],
+  ['c',`Request interceptor แนบ token อย่างไร ทำไมอ่านจาก localStorage ทุกครั้งแทนที่จะเก็บไว้ในตัวแปร`,`api/client.js (interceptors.request)`,
+   `<p>ทุก request อ่าน <code>localStorage.getItem('luma_token')</code> แล้วใส่ <code>Authorization: Bearer &lt;token&gt;</code> การอ่านใหม่ทุกครั้งทำให้ได้ token ล่าสุดเสมอหลัง login/logout โดยไม่ต้องผูก axios instance กับ React state ถ้าไม่มี token ก็ไม่ใส่ header แล้ว backend ตอบ 401</p>`],
+  ['c',`Response interceptor จัดการ 401 อย่างไร และทำไมต้องมีโค้ดอ่าน Blob ด้วย`,`api/client.js (interceptors.response, readBlobText)`,
+   `<p>ถ้า <code>error.code === 'UNAUTHORIZED'</code> จะลบ token กับ user ออกจาก localStorage แล้ว <code>window.location.href = '/login'</code></p><p>endpoint แต่งภาพที่ตั้ง <code>responseType: 'blob'</code> จะได้ error body เป็น Blob ด้วย ทำให้ <code>error.response.data.error.code</code> เป็น undefined ต้องอ่าน Blob เป็นข้อความแล้ว <code>JSON.parse</code> ก่อน ไม่อย่างนั้น token หมดอายุระหว่างใช้ฟีเจอร์แต่งภาพจะไม่ถูก logout</p>`],
+  ['c',`ฟังก์ชัน <code>request()</code> กับ <code>wrapBlobError()</code> ต่างกันอย่างไร และ <code>err.code</code> ที่หน้าเว็บใช้มาจากไหน`,`api/client.js`,
+   `<p><code>request()</code> คืน <code>res.data.data</code> (แกะ envelope) ถ้า error จะสร้าง <code>Error</code> ใหม่ที่มี <code>.message</code> และ <code>.code</code> จาก <code>error.code</code> ของ backend ถ้าไม่มี code: <code>ECONNABORTED</code> (axios timeout) → <code>AI_SERVER_TIMEOUT</code> อื่น ๆ → <code>NETWORK_ERROR</code></p><p><code>wrapBlobError()</code> ทำแบบเดียวกันแต่ parse error จาก Blob ก่อน ใช้กับ endpoint ที่คืนรูป</p>`],
+  ['d',`ทำไม interceptor ใช้ <code>window.location.href</code> แทน <code>navigate()</code> ของ React Router`,`api/client.js`,
+   `<p>interceptor อยู่นอก React component จึงเรียก hook อย่าง <code>useNavigate</code> ไม่ได้ และการ reload ทั้งหน้ายังล้าง state ใน AuthContext ที่ยังถือ token เก่าอยู่ในหน่วยความจำด้วย ถ้าใช้ navigate อย่างเดียว ProtectedRoute อาจยังคิดว่าล็อกอินอยู่</p>`],
+  ['w',`AuthContext ตรวจว่า token หมดอายุหรือยังไหม ตัวแปร <code>ready</code> มีไว้ทำอะไร`,`context/AuthContext.jsx`,
+   `<p>ไม่ตรวจ <code>isAuthenticated = !!token</code> ดูแค่ว่ามี token หรือเปล่า ถ้า token หมดอายุแล้ว ProtectedRoute ยังให้เข้าหน้าได้ จนกว่าหน้านั้นจะยิง API แล้วโดน 401 จึงถูกพาไป login</p><p><code>ready</code> เป็น true ตลอดและไม่มีใครใช้ เป็นโค้ดค้างจากเวอร์ชันก่อน วิธีปรับปรุงคือ decode ค่า <code>exp</code> ใน JWT ตอนโหลดแอป ถ้าหมดอายุให้ logout ทันที</p>`],
+  ['w',`เก็บ JWT ไว้ใน localStorage มีความเสี่ยงอะไร มีทางเลือกอื่นไหม`,`context/AuthContext.jsx`,
+   `<p>ถ้าเว็บโดน XSS สคริปต์ของผู้โจมตีอ่าน localStorage แล้วขโมย token ได้ ทางเลือกคือเก็บใน cookie แบบ <code>HttpOnly; Secure; SameSite</code> ที่ JS อ่านไม่ได้ แต่ต้องเพิ่มการป้องกัน CSRF ส่วนที่ช่วยลดความเสี่ยงในโปรเจคนี้คือ React escape ข้อความให้อัตโนมัติ และไม่มีการใช้ <code>dangerouslySetInnerHTML</code></p>`],
+  ['c',`การตรวจข้อมูลตอนสมัครสมาชิกฝั่ง frontend ต่างจาก backend อย่างไร ทำไมต้องตรวจทั้งสองฝั่ง`,`pages/Register.jsx, backend/app/routes/auth.py`,
+   `<p>Frontend ใช้ regex <code>^\\S+@\\S+\\.\\S+$</code> รหัสผ่านอย่างน้อย 8 ตัว และช่องยืนยันต้องตรงกัน Backend ใช้ regex <code>^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$</code> ซึ่งเข้มกว่า (เช่นอีเมลที่มี <code>+</code> ผ่าน frontend แต่ไม่ผ่าน backend)</p><p>Frontend ตรวจเพื่อ UX คือบอกผู้ใช้ได้ทันที Backend ตรวจเพื่อความปลอดภัยจริง เพราะใครก็ยิง API ตรงได้โดยไม่ผ่านหน้าเว็บ</p>`],
+  ['c',`ทำไมแสดงรูปด้วย <code>&lt;img src="/api/v1/images/5"&gt;</code> ตรง ๆ ไม่ได้ ไล่โค้ด AuthImage ว่าแก้ปัญหานี้อย่างไร`,`components/AuthImage.jsx, api/client.js (getImageBlob)`,
+   `<p>endpoint รูปต้องมี header <code>Authorization</code> แต่แท็ก img ส่ง header เองไม่ได้ จึงใช้ axios ดึงรูปเป็น Blob แล้ว <code>URL.createObjectURL()</code> ได้ URL แบบ <code>blob:</code> มาใส่ src</p><p>cleanup ใน useEffect เรียก <code>URL.revokeObjectURL</code> คืนหน่วยความจำ และใช้ตัวแปร <code>cancelled</code> กันไม่ให้ setState หลัง component ถูก unmount หรือหลัง imageUrl เปลี่ยนแล้ว (race condition)</p>`],
+  ['d',`ใน <code>getImageBlob</code> ทำไมต้องตั้ง <code>baseURL: BASE_URL.replace(/\\/api\\/v1$/, '')</code>`,`api/client.js`,
+   `<p><code>image_url</code> ที่ backend ส่งมามี <code>/api/v1/images/:id</code> ครบอยู่แล้ว ถ้าใช้ baseURL เดิมจะต่อกันเป็น <code>/api/v1/api/v1/images/:id</code> จึงตัด <code>/api/v1</code> ออกจาก baseURL ก่อน</p>`],
+ ]},
+ {name:'หน้า Generate, Result, History, Home', qs:[
+  ['c',`ไล่การทำงานของหน้า Generate ตั้งแต่โหลดหน้า เลือกค่า กด Generate จนไปหน้า Result`,`pages/Generate.jsx`,
+   `<ol><li>useEffect ตอน mount เรียก <code>api.getModels()</code> ใส่ dropdown และเลือกโมเดลตัวแรกถ้ายังไม่มีค่า</li><li><code>update(key, value)</code> อัปเดต state <code>form</code></li><li><code>validate()</code> ตรวจ prompt ไม่ว่างและไม่เกิน 2000, ขนาดต้องเป็น 512/768/1024, steps 1-50, CFG 1-20, sampler อยู่ในรายการ</li><li>สร้าง payload แปลงเป็นตัวเลข ถ้าติ๊ก random seed ส่ง -1</li><li><code>api.generate(payload)</code> ใช้ timeout 90 วินาที → <code>navigate('/result/' + generation_id)</code></li><li>error code <code>AI_SERVER_BUSY</code> / <code>AI_SERVER_TIMEOUT</code> แสดงข้อความเฉพาะ</li></ol>`],
+  ['c',`ปุ่ม Generate Again ส่งค่าเดิมกลับไปหน้า Generate อย่างไร ถ้ากด refresh หน้า Generate ค่ายังอยู่ไหม`,`pages/Result.jsx, pages/History.jsx, pages/Generate.jsx`,
+   `<p>ใช้ <code>navigate('/generate', { state: { prefill: {...} } })</code> แล้วหน้า Generate รวมค่า <code>{...DEFAULTS, ...location.state?.prefill}</code> เป็นค่าเริ่มต้นของ state โดยตั้ง seed เป็น -1 เสมอ</p><p>state นี้ผูกกับ history entry ของ browser กด refresh ค่ายังอยู่ แต่ถ้าเปิด URL ใหม่ในแท็บใหม่จะหาย</p>`],
+  ['d',`Frontend ตั้ง timeout ของ /generate ไว้ 90 วินาที แต่ backend อาจใช้เวลารอคิว 40 วินาที + รอ AI 75 วินาที = 115 วินาที จะเกิดอะไรขึ้น`,`api/client.js (GENERATE_TIMEOUT), backend/app/services/ai_client.py`,
+   `<p>Frontend จะ timeout ที่ 90 วินาทีแล้วแสดงว่า AI ตอบช้า แต่ backend ยังทำงานต่อ เมื่อเสร็จก็บันทึกรูปลงฐานข้อมูล ผู้ใช้จะเห็นรูปนั้นโผล่ใน History ภายหลังทั้งที่หน้าจอบอกว่าล้มเหลว</p><p>วิธีแก้: ให้ timeout ของ frontend มากกว่า 115 วินาที (ไม่เกิน 120 ของ nginx) หรือเปลี่ยนเป็นงานแบบ async คือคืน job id ทันทีแล้ว frontend poll สถานะ</p>`],
+  ['c',`หน้า Generate ป้องกันการกดปุ่มซ้ำระหว่างรอผลอย่างไร`,`pages/Generate.jsx`,
+   `<p>ปุ่มมี <code>disabled={loading}</code> และ loading เป็น true ตั้งแต่เริ่มเรียก API จนจบใน <code>finally</code> ปุ่มเปลี่ยนเป็น spinner “Generating…” แต่ถ้าเปิดหลายแท็บก็ยังส่งพร้อมกันได้ ซึ่ง backend จัดการด้วยคิว GPU</p>`],
+  ['c',`หน้า Result โหลดข้อมูลและรูปอย่างไร ปุ่ม Download ทำงานอย่างไร`,`pages/Result.jsx`,
+   `<p>อ่าน <code>id</code> จาก <code>useParams()</code> → <code>api.getGeneration(id)</code> ได้รายละเอียด → <code>api.getImageBlob(data.image_url)</code> ได้ blob URL มาแสดง cleanup revoke URL ตอนออกจากหน้า</p><p>Download สร้าง <code>&lt;a&gt;</code> ชั่วคราวที่ <code>href</code> เป็น blob URL และ <code>download="luma-ID.png"</code> แล้วสั่ง <code>click()</code></p>`],
+  ['c',`หน้า History แบ่งหน้าอย่างไร และหลังลบรายการ state เปลี่ยนอย่างไร`,`pages/History.jsx`,
+   `<p><code>load(page)</code> เรียก <code>getHistory(page, 20)</code> เก็บ <code>items</code> และ <code>pagination</code> ปุ่ม Prev/Next disable ตาม <code>page</code> กับ <code>total_pages</code></p><p>ลบ: ถาม <code>window.confirm</code> → <code>api.deleteGeneration(id)</code> → สำเร็จแล้ว <code>filter</code> รายการนั้นออกจาก state โดยไม่โหลดใหม่ + แสดง toast</p><p>ข้อสังเกต: ตัวเลข total ที่หัวหน้าไม่ลดลงหลังลบ และหน้าไม่ถูกเติมรายการจากหน้าถัดไป</p>`],
+  ['c',`หน้า Home ดึงข้อมูลอะไรบ้าง ชื่อที่แสดงใน “Welcome, …” มาจากไหน`,`pages/Home.jsx`,
+   `<p>เรียก <code>getHistory(1, 4)</code> เอา 4 รายการล่าสุด ระหว่างโหลดแสดง SkeletonCard ชื่อมาจาก <code>displayName(user)</code> ที่ตัดส่วนหน้า @ ของอีเมล แยกด้วย <code>. _ - +</code> แล้วทำตัวแรกเป็นพิมพ์ใหญ่</p>`],
+ ]},
+ {name:'หน้า Features (เครื่องมือแต่งภาพ)', qs:[
+  ['c',`ถ้าจะเพิ่มเครื่องมือแต่งภาพตัวใหม่ ต้องแก้ไฟล์ไหนบ้าง ทำไม Tilt-Shift กับ HDR มี component แต่ไม่แสดงบนหน้าเว็บ`,`features/registry.js, features/active.js`,
+   `<p>1) เพิ่ม entry ใน <code>FEATURE_REGISTRY</code> 2) เขียน component ใน <code>components/features/</code> 3) เพิ่ม <code>api.processXxx</code> ใน client.js 4) ใส่ id ลง <code>ACTIVE_FEATURE_IDS</code></p><p>ตอนนี้ ACTIVE มีแค่ 4 ตัว (spot-blur, cartoonize, hand-gesture, remove-background) เพราะ animation ของหน้า Features จูนไว้สำหรับ 4 ช่องพอดี <code>getActiveFeatures()</code> จะ warn ถ้าไม่ใช่ 4</p>`],
+  ['c',`SpotBlurCanvas แปลงพิกัดเมาส์เป็นพิกัดบนรูปจริงอย่างไร ทำไมต้องแปลง`,`components/features/SpotBlurCanvas.jsx (getScale, toNatural)`,
+   `<p>รูปบนจอมักแสดงเล็กกว่าขนาดจริง scale = <code>naturalWidth / clientWidth</code> พิกัด = <code>(clientX - rect.left) × scale</code> และรัศมีแปรงก็คูณ scale เช่นกัน</p><p>backend ทำงานบนภาพความละเอียดเต็ม ถ้าส่งพิกัดตามจอไป วงเบลอจะผิดตำแหน่งและเล็กเกินไป ตอนวาดบน canvas ก็หารกลับด้วย scale</p>`],
+  ['d',`ตอนลากเมาส์ ทำไมเพิ่มวงกลมใหม่เฉพาะเมื่อเลื่อนเกิน r/3 และทำไมใช้ <code>circlesRef</code> แทนการอ่าน state ตรง ๆ`,`components/features/SpotBlurCanvas.jsx (addCircle, handlePointerMove)`,
+   `<p>เงื่อนไข <code>Math.hypot(dx, dy) &gt; r/3</code> ทำให้เส้นยังต่อเนื่องแต่ไม่ส่งวงกลมซ้ำ ๆ จำนวนมากไป backend</p><p>pointermove เกิดหลายครั้งก่อน React re-render ถ้าอ่าน <code>circles</code> จาก props จะได้ค่าเก่า (stale closure) แล้ววงกลมหาย ref อัปเดตทันทีใน <code>addCircle</code> จึงไม่หาย</p>`],
+  ['d',`ทำไม canvas ต้องคูณขนาดด้วย <code>devicePixelRatio</code> และ ResizeObserver ใช้ทำอะไร`,`SpotBlurCanvas.jsx, RemoveBackgroundCanvas.jsx (redraw)`,
+   `<p>บนจอความละเอียดสูง (DPR 2) ถ้า canvas มีพิกเซลเท่าขนาด CSS ภาพจะเบลอ จึงตั้ง <code>canvas.width = w × dpr</code> แล้ว <code>setTransform(dpr,...)</code> ให้วาดด้วยหน่วย CSS ได้ตามปกติ</p><p>ResizeObserver คอยดูขนาดรูป เมื่อหน้าต่างเปลี่ยนขนาดหรือ sidebar เปลี่ยน จะเรียก <code>redraw()</code> ให้ overlay ตรงกับรูป</p>`],
+  ['c',`RemoveBackgroundCanvas ทำไมเก็บทั้งกรอบและเส้นแปรงไว้ใน <code>actions</code> ชุดเดียว`,`components/features/RemoveBackgroundCanvas.jsx`,
+   `<p>ปุ่ม Undo ต้องลบสิ่งที่วาดล่าสุดไม่ว่าจะเป็นกรอบหรือแปรง จึงเก็บเป็น stack ตามลำดับเวลา แล้วคำนวณ <code>rect</code> (กรอบล่าสุดอันเดียว) กับ <code>strokes</code> ใหม่ทุกครั้งที่ render ระหว่างลากยังไม่ commit เข้า state ใช้ ref (<code>liveRectRef</code>, <code>currentStrokeRef</code>) แล้ววาดตรง เพื่อไม่ให้ re-render ทุกการขยับเมาส์</p>`],
+  ['c',`RemoveBackgroundTool เลือกโหมด “AI อัตโนมัติ / AI + GrabCut / GrabCut ล้วน” จากเงื่อนไขอะไร`,`components/features/RemoveBackgroundTool.jsx (modeLabel, canSubmit)`,
+   `<p>ปิด AI → GrabCut ล้วน และต้องมีกรอบ (<code>canSubmit = useAi || !!rect</code>) เปิด AI แต่ไม่มีกรอบหรือแปรง → AI อย่างเดียว มีกรอบหรือแปรงด้วย → AI + GrabCut ตรงกับกฎของ backend และตรวจ MAX_STROKES 200 / MAX_POINTS 5000 ก่อนส่ง</p>`],
+  ['c',`ImageUploader ตรวจไฟล์อย่างไร ทำไมต้องตั้ง <code>e.target.value = ''</code> และทำไม dragover ต้อง preventDefault`,`components/features/ImageUploader.jsx`,
+   `<p><code>useImagePicker</code> ตรวจ MIME ต้องเป็น jpeg/png/webp ถ้าไม่ใช่แสดง toast สร้าง object URL ใหม่และ revoke อันเก่า</p><p>รีเซ็ต value เพื่อให้เลือกไฟล์เดิมซ้ำแล้ว onChange ยังทำงาน ส่วน dragover ต้อง <code>preventDefault()</code> ไม่อย่างนั้น browser จะเปิดไฟล์ในแท็บแทนการ drop</p>`],
+  ['c',`ทำไม endpoint <code>/process/*</code> ส่งเป็น FormData และรับเป็น blob แต่ <code>processGesture</code> ไม่ได้ตั้ง responseType เป็น blob`,`api/client.js (processImage, processGesture)`,
+   `<p>ต้องอัปโหลดไฟล์รูปจึงใช้ <code>multipart/form-data</code> ผลลัพธ์ของ blur, cartoonize, remove-bg ฯลฯ เป็นไฟล์ PNG ดิบจึงรับเป็น blob แล้วทำเป็น object URL ส่วน gesture คืนผลเป็น JSON ใน envelope ปกติ (ชื่อท่า, confidence, landmarks) จึงใช้ <code>request()</code> ธรรมดา</p>`],
+  ['d',`อธิบายแนวคิด animation ของหน้า Features (เปิด/ปิด panel และสลับแท็บ) ว่าใช้เทคนิคอะไร`,`pages/Features.jsx`,
+   `<p>ใช้ <code>motion</code> layout animation ให้การ์ดเปลี่ยนเป็นแท็บ และใช้ Web Animations API (<code>el.animate</code>) ขยาย panel แยก track ความสูง/ความกว้างให้ overshoot คนละจังหวะ เก็บสถานะใน state <code>ui</code> ทีละขั้น ใช้ <code>runId</code> ยกเลิกลำดับเก่าเมื่อกดซ้อน และใช้ ResizeObserver ทำให้ความสูง panel เปลี่ยนนุ่มนวลเพราะ CSS transition ไปยัง <code>height: auto</code> ไม่ได้ รองรับ <code>useReducedMotion</code></p>`],
+ ]},
+ {name:'Theme, Admin, Error handling และการทดสอบ', qs:[
+  ['c',`ThemeContext เปลี่ยนสีทั้งแอปได้อย่างไร และต่างจาก LayoutContext อย่างไร`,`context/ThemeContext.jsx, context/LayoutContext.jsx, themes/presets.js`,
+   `<p>Theme: เมื่อ <code>themeId</code> เปลี่ยน วนทุกสีใน preset แปลง camelCase เป็น kebab-case แล้ว <code>root.style.setProperty('--accent1', ...)</code> CSS ทั้งแอปใช้ <code>var(--...)</code> จึงเปลี่ยนทันที และจำค่าใน localStorage</p><p>Layout: ตั้ง <code>data-template</code> บน <code>&lt;html&gt;</code> ให้ CSS เขียน override ใต้ <code>[data-template="soft"]</code> และ Layout.jsx เลือก ClassicLayout หรือ SoftLayout Theme คุมสี ส่วน Template คุมโครงหน้า</p>`],
+  ['c',`หน้า Admin ซ่อนเมนูจากคนทั่วไปอย่างไร ถ้าผู้ใช้แก้ <code>luma_user.role</code> ใน localStorage เป็น admin จะทำอะไรได้บ้าง`,`pages/Admin.jsx, utils/roles.js, components/templates/navItems.js`,
+   `<p><code>visibleNavItems(user)</code> ซ่อนเมนูที่มี <code>adminOnly</code> และ Admin.jsx เช็ค <code>isAdmin(user)</code> ทั้งสองอย่างเป็นแค่ UX</p><p>ถ้าแก้ localStorage จะเห็นหน้า Admin แต่ API <code>/admin/users</code> ตอบ 403 FORBIDDEN เพราะ backend เช็ค role จากฐานข้อมูลใน <code>admin_required</code> หน้าเว็บจึงแสดง “คุณไม่มีสิทธิ์เข้าถึงหน้านี้”</p>`],
+  ['c',`ใน modal ยืนยันลบผู้ใช้ ทำไมต้อง <code>stopPropagation</code> และปุ่มลบของตัวเองถูกจัดการอย่างไร`,`pages/Admin.jsx`,
+   `<p>คลิกพื้นหลัง (backdrop) จะปิด modal ถ้าไม่ stopPropagation ที่ตัว modal คลิกข้างในก็จะ bubble ขึ้นไปปิด modal ด้วย มีปุ่ม Esc ปิดได้ แต่ไม่ให้ปิดระหว่างกำลังลบ</p><p>แถวของตัวเองปุ่มลบเป็น <code>disabled</code> และ backend มีด่าน <code>CANNOT_DELETE_SELF</code> อีกชั้น</p>`],
+  ['c',`ErrorBoundary ทำไมต้องเขียนเป็น class component และจับ error แบบไหนได้หรือไม่ได้`,`components/ErrorBoundary.jsx`,
+   `<p>React มี <code>getDerivedStateFromError</code> / <code>componentDidCatch</code> ให้เฉพาะ class component จับได้เฉพาะ error ระหว่าง render, lifecycle และ constructor ของลูก จับไม่ได้ใน event handler, setTimeout หรือ promise ซึ่งโปรเจคนี้ใช้ try/catch + toast แทน</p>`],
+  ['c',`ระบบ Toast ทำงานอย่างไร ทำไมใช้ <code>useCallback</code>`,`context/ToastContext.jsx, components/Toast.jsx`,
+   `<p><code>showToast</code> เพิ่ม object ที่มี id ไม่ซ้ำ (<code>Date.now() + Math.random()</code>) ลง array แล้วตั้ง setTimeout 3.5 วินาทีลบออก ToastContainer render รายการ</p><p><code>useCallback</code> ทำให้ฟังก์ชันมี reference เดิมทุก render component ที่ใส่ไว้ใน dependency ของ useEffect จะไม่รันซ้ำโดยไม่จำเป็น</p>`],
+  ['c',`settingsStorage แยกค่าตั้งของแต่ละผู้ใช้อย่างไร ทำไมส่วน Generation Defaults ถูกซ่อน`,`utils/settingsStorage.js, pages/Setting.jsx`,
+   `<p>key เป็น <code>luma_settings_&lt;user.id&gt;</code> และมี <code>migrateLegacy</code> ย้าย key เก่าที่ใช้ร่วมกัน (<code>luma_settings</code>) มาเป็นของผู้ใช้แล้วลบทิ้ง อ่านค่าแบบ merge กับ DEFAULT_SETTINGS และ try/catch กัน JSON เสีย</p><p>ซ่อนเพราะหน้า Generate ยังไม่อ่านค่าเหล่านี้ (<code>SHOW_GENERATION_DEFAULTS = false</code>) ถ้าโชว์ไว้ผู้ใช้จะตั้งค่าแล้วไม่มีผล</p>`],
+  ['c',`เทสต์ฝั่ง frontend มีอะไรบ้าง contract test ทดสอบอะไร รันอย่างไร`,`src/test/*.test.js, vite.config.js (test)`,
+   `<p>รันด้วย <code>npm test</code> (vitest + jsdom) contract.test.js mock axios แล้วตรวจว่าแต่ละฟังก์ชันใน api ส่ง request ถูกรูปแบบ (เช่น FormData มี field ครบ) และ parse response/error ถูก รวมถึงอ่าน error code จาก Blob และ timeout → AI_SERVER_TIMEOUT เทสต์อื่นคือ ErrorBoundary, admin roles, modelSizes, settingsStorage</p>`],
+  ['d',`React.StrictMode ในโหมด dev ทำให้ useEffect รันสองครั้ง มีผลกับ AuthImage หรือการโหลดโมเดลอย่างไร`,`src/main.jsx, components/AuthImage.jsx, pages/Generate.jsx`,
+   `<p>StrictMode จำลอง mount → unmount → mount เพื่อหาโค้ดที่ cleanup ไม่ครบ ผลคือ dev ยิง API ซ้ำ 2 ครั้ง AuthImage ปลอดภัยเพราะ cleanup ตั้ง <code>cancelled = true</code> และ revoke URL ส่วน production build ไม่รันซ้ำ</p>`],
+ ]},
+ ]},
+
+{id:'backend', no:'2', prefix:'B', title:'Backend',
+ desc:'Flask application factory, Blueprints, JWT, การคุยกับ AI Server และ endpoint แต่งภาพ (backend/)',
+ groups:[
+ {name:'โครงสร้าง Flask และการตั้งค่า', qs:[
+  ['b',`อธิบายโครงสร้างโฟลเดอร์ backend ว่าแต่ละส่วน (routes, models, middleware, services, utils) ทำหน้าที่อะไร`,`backend/app/`,
+   `<p><code>routes/</code> endpoint ตามกลุ่ม (auth, sd, history, profile, admin) · <code>models/</code> SQLAlchemy model (User, Generation) · <code>middleware/jwt_auth.py</code> decorator ตรวจ token/admin · <code>services/ai_client.py</code> คุยกับ AI Server + คิว GPU · <code>services/image_filters/</code> อัลกอริทึม OpenCV/MediaPipe + blueprint <code>/process/*</code> · <code>utils/error_codes.py</code> รูปแบบ response มาตรฐาน · <code>config.py</code> ค่าตั้งจาก .env</p>`],
+  ['c',`ไล่ฟังก์ชัน <code>create_app()</code> ทีละขั้น`,`backend/app/__init__.py`,
+   `<ol><li>load_dotenv, สร้าง Flask, โหลด Config, override ด้วย test_config</li><li>ตั้ง CORS</li><li>ตั้ง path SQLite เป็น <code>database/database.db</code> ถ้ายังไม่กำหนด</li><li>สร้างโฟลเดอร์ <code>uploads/generations</code></li><li>ตั้ง logging</li><li><code>db.init_app(app)</code></li><li>register blueprint ทั้งหมด + alias</li><li>route <code>/health</code> และ error handler 413</li><li>ครอบ ProxyFix</li><li><code>db.create_all()</code> แล้วเช็คคอลัมน์ที่ขาดและ ALTER TABLE เพิ่ม</li></ol>`],
+  ['d',`Application Factory คืออะไร ทำไมดีกว่าสร้าง <code>app = Flask(__name__)</code> ไว้ระดับ module`,`backend/app/__init__.py, backend/tests/`,
+   `<p>สร้าง app ผ่านฟังก์ชัน ทำให้สร้างหลาย instance ด้วย config ต่างกันได้ (เช่นเทสต์ส่ง test_config ใช้ฐานข้อมูลแยก) และ import blueprint ภายในฟังก์ชันช่วยเลี่ยง circular import ส่วน <code>db = SQLAlchemy()</code> แยกไว้ใน extensions.py แล้วค่อย <code>init_app</code> ทีหลังด้วยเหตุผลเดียวกัน</p>`],
+  ['c',`ทำไม register blueprint ซ้ำสองรอบ (prefix <code>/api/v1</code> และว่าง) ต้องตั้ง <code>name</code> ใหม่เพราะอะไร ถ้าเข้าผ่าน nginx alias ยังใช้ได้ไหม`,`backend/app/__init__.py`,
+   `<p>ทำ alias ให้ยิง <code>/login</code> ตรงได้ด้วย Flask กำหนดชื่อ blueprint ต้องไม่ซ้ำ จึงตั้ง <code>name="auth_alias"</code> ฯลฯ</p><p>ผ่าน nginx ใช้ไม่ได้ เพราะ nginx ส่งต่อเฉพาะ <code>/api/v1/</code> ส่วน path อื่นได้ index.html หรือ <code>/api/</code> ได้ 404 alias จึงมีผลเฉพาะตอนยิง :5000 ตรงในเครื่อง dev</p>`],
+  ['c',`Config อ่านค่าจาก .env อย่างไร ค่า SECRET_KEY มีลำดับ fallback อย่างไร`,`backend/config.py, backend/.env.example`,
+   `<p><code>load_dotenv()</code> โหลด .env เข้า environment แล้ว <code>os.environ.get</code> SECRET_KEY = <code>JWT_SECRET_KEY</code> หรือ <code>JWT_SECRET</code> หรือค่า default <code>luma_default_jwt_secret_key_2026</code> อื่น ๆ เช่น AI_SERVER_URL, CORS_ORIGINS (คั่นด้วยจุลภาค), MAX_CONTENT_LENGTH 16 MB, UPLOAD_FOLDER, LOG_LEVEL</p>`],
+  ['w',`มีค่า default ที่อันตรายใน config ไหม`,`backend/config.py, middleware/jwt_auth.py`,
+   `<p>1) JWT secret default เขียนไว้ในโค้ดบน GitHub ถ้าลืมตั้ง .env ใครก็ปลอม token ได้ ควรให้แอป start ไม่ได้ถ้าไม่มี secret 2) CORS default มี <code>"*"</code> อนุญาตทุก origin (แต่ token อยู่ใน header ไม่ใช่ cookie จึงเสี่ยงน้อยกว่าที่คิด) 3) AI_SERVER_URL default เป็น IP เครือข่ายเก่า</p>`],
+  ['c',`ProxyFix ตั้ง <code>x_for=1, x_proto=1, x_host=1</code> ทำอะไร ทำไมเป็นเลข 1`,`backend/app/__init__.py`,
+   `<p>Flask อยู่หลัง nginx เลย <code>request.remote_addr</code> จะเป็น IP ของ nginx เสมอ ProxyFix อ่าน <code>X-Forwarded-For/Proto/Host</code> ที่ nginx ใส่มาแทน เลข 1 คือเชื่อ proxy 1 ชั้นเท่านั้น ถ้าตั้งมากกว่าจำนวน proxy จริง client ปลอม header เพื่อหลอก IP ได้</p>`],
+  ['c',`ระบบ logging ตั้งไว้อย่างไร`,`backend/app/__init__.py (_setup_logging)`,
+   `<p>log ทั้ง console และไฟล์ <code>logs/luma_backend.log</code> ด้วย RotatingFileHandler (5 MB ต่อไฟล์ เก็บ 3 ไฟล์) ระดับจาก LOG_LEVEL ไม่เขียนไฟล์ตอน TESTING และเช็คไม่ให้เพิ่ม handler ซ้ำ</p>`],
+  ['c',`run.py กับ gunicorn_conf.py ต่างกันอย่างไร ทำไมต้องปิด debug mode`,`backend/run.py, backend/gunicorn_conf.py`,
+   `<p>run.py ใช้ dev server ของ Werkzeug (Windows ใช้ตัวนี้) bind HOST/PORT จาก .env และตรวจไฟล์โมเดลก่อน gunicorn ใช้ production บน Linux</p><p>Werkzeug debugger เปิดให้รันโค้ด Python ผ่านหน้า error ได้ ถ้าเปิดรับจาก LAN เท่ากับให้คนอื่นรันคำสั่งบนเครื่องได้ (RCE)</p>`],
+  ['d',`ทำไม gunicorn ตั้ง <code>workers = 1</code> แต่ <code>threads = 8</code> ถ้าจะรองรับผู้ใช้มากขึ้นต้องทำอย่างไร`,`backend/gunicorn_conf.py, services/ai_client.py`,
+   `<p><code>_gpu_lock</code> เป็น <code>threading.Lock</code> ในหน่วยความจำของ process เดียว ถ้ามีหลาย worker แต่ละ process มี lock ของตัวเอง หลายงานจะยิงเข้า GPU พร้อมกันจน VRAM เต็ม จึงใช้ 1 process หลาย thread ให้ request อื่นทำงานได้ระหว่างรอ</p><p>ขยาย: ใช้ lock/คิวภายนอกเช่น Redis + Celery/RQ worker แยก หรือให้ AI Server จัดคิวเอง</p>`],
+ ]},
+ {name:'Authentication และความปลอดภัย', qs:[
+  ['c',`ไล่ POST /register ทุกขั้นตอน รวมถึงกรณีสองคนสมัครอีเมลเดียวกันพร้อมกัน`,`backend/app/routes/auth.py (register)`,
+   `<p>อ่าน JSON → ตรวจรูปแบบอีเมล → รหัสผ่าน ≥ 8 → query หาอีเมลซ้ำ ถ้ามีตอบ 409 EMAIL_EXISTS → hash รหัสผ่าน → add + commit → 201 พร้อม <code>user.to_dict()</code></p><p>ถ้าสองคนผ่านการเช็คซ้ำพร้อมกัน คนที่ commit ทีหลังชน UNIQUE constraint ได้ <code>IntegrityError</code> → rollback แล้วตอบ 409 เช่นกัน ฐานข้อมูลเป็นด่านสุดท้าย</p>`],
+  ['c',`<code>generate_password_hash</code> ใช้อัลกอริทึมอะไร salt คืออะไร ทำไมห้ามเก็บรหัสผ่านตรง ๆ`,`backend/app/routes/auth.py, requirements.txt (Werkzeug 3.0.4)`,
+   `<p>Werkzeug 3.x ใช้ <code>scrypt</code> เป็นค่า default (คอมเมนต์ในโค้ดเขียนว่า PBKDF2 ซึ่งเป็นค่า default ของเวอร์ชันเก่า) ผลลัพธ์เก็บรูปแบบ <code>method$salt$hash</code> salt สุ่มต่อผู้ใช้ทำให้รหัสเดียวกันได้ hash ต่างกัน กัน rainbow table และ scrypt ช้าโดยตั้งใจทำให้ brute force ยาก <code>check_password_hash</code> อ่าน method/salt จาก string แล้วคำนวณเทียบ</p>`],
+  ['c',`ไล่ POST /login ว่า JWT ที่ออกให้มีข้อมูลอะไร เซ็นด้วยอะไร หมดอายุเมื่อไร`,`backend/app/routes/auth.py (login)`,
+   `<p>หา user จากอีเมล → <code>check_password_hash</code> ไม่ผ่านตอบ 401 INVALID_CREDENTIALS ข้อความเดียวกันไม่ว่าอีเมลไม่มีหรือรหัสผิด → payload <code>{user_id, email, role, exp}</code> exp = ตอนนี้ (UTC) + 24 ชม. → <code>jwt.encode(..., algorithm="HS256")</code> → ตอบ access_token, token_type Bearer, expires_in 86400, user</p>`],
+  ['c',`decorator <code>token_required</code> ทำงานทีละขั้นอย่างไร <code>@wraps</code> มีไว้ทำไม และ user_id ถูกส่งต่อให้ route อย่างไร`,`backend/app/middleware/jwt_auth.py`,
+   `<p>อ่าน header Authorization → split ต้องได้ 2 ส่วนและส่วนแรกเป็น bearer → <code>jwt.decode(token, secret, algorithms=["HS256"])</code> ตรวจลายเซ็นและ exp → เก็บ <code>request.user_id</code>, <code>request.user_email</code> → เรียก route ต่อ ExpiredSignatureError / InvalidTokenError ตอบ 401</p><p><code>@wraps</code> คงชื่อฟังก์ชันเดิมไว้ Flask ใช้ชื่อฟังก์ชันเป็น endpoint name ถ้าไม่มี wraps ทุก route จะชื่อ <code>decorated</code> ชนกัน</p><p>การกำหนด <code>algorithms=["HS256"]</code> ชัดเจนกันการโจมตีแบบ alg=none</p>`],
+  ['d',`JWT ถูกเข้ารหัสหรือแค่เซ็น ผู้ใช้แก้ role ใน token เป็น admin ได้ไหม ทำไม <code>admin_required</code> ไป query role จากฐานข้อมูลแทนการเชื่อ role ใน token`,`middleware/jwt_auth.py (admin_required)`,
+   `<p>แค่เซ็น ใครก็ base64 decode อ่าน payload ได้ แต่แก้แล้วลายเซ็น HMAC ไม่ตรง decode จะ fail</p><p>เช็คจาก DB เพราะถ้าถอดสิทธิ์ admin ด้วย set_admin.py จะมีผลทันที ไม่ต้องรอ token เดิมหมดอายุ 24 ชม. และถ้า user ถูกลบแล้วก็ได้ 401</p>`],
+  ['c',`<code>admin_required</code> ซ้อน <code>token_required</code> ไว้ข้างใน ลำดับการทำงานเป็นอย่างไร 401 กับ 403 ต่างกันอย่างไร`,`middleware/jwt_auth.py`,
+   `<p>ลำดับ: token_required ตรวจ token ก่อน → ผ่านแล้วค่อยเข้าโค้ดใน admin_required ที่โหลด User จาก DB → ไม่ใช่ admin ตอบ 403 401 = ยังไม่รู้ว่าเป็นใคร (ไม่มี token หรือ token เสีย) 403 = รู้ว่าเป็นใครแต่ไม่มีสิทธิ์</p>`],
+  ['w',`ระบบนี้กัน user enumeration และ brute force อย่างไร ยังมีช่องโหว่ตรงไหน`,`routes/auth.py, nginx/conf/nginx.conf (luma_auth)`,
+   `<p>login ตอบข้อความเดียวกันเสมอ และ nginx จำกัด 10 ครั้งต่อนาทีต่อ IP (burst 5) แต่ register ตอบ EMAIL_EXISTS ทำให้เช็คได้ว่าอีเมลไหนมีบัญชี และถ้ายิง :5000 ตรงจะไม่ผ่าน rate limit (firewall ช่วยปิดทางนี้)</p>`],
+  ['w',`Logout ฝั่ง server ทำอะไรบ้าง ถ้า token หลุดหรือ user ถูกลบ token เดิมยังใช้ได้ไหม`,`context/AuthContext.jsx, middleware/jwt_auth.py`,
+   `<p>ไม่มี logout ฝั่ง server แค่ลบ token จาก localStorage token ที่หลุดยังใช้ได้จนครบ 24 ชม. (stateless JWT) ถ้า user ถูกลบ <code>token_required</code> ไม่เช็ค DB บาง endpoint เช่น history จะคืนรายการว่าง แต่ profile/generate เช็ค user แล้วตอบ 401 วิธีแก้: blacklist token (jti) หรือใช้ token อายุสั้น + refresh token</p>`],
+ ]},
+ {name:'การสร้างภาพและ AI Client', qs:[
+  ['c',`ไล่ POST /generate ตั้งแต่รับ request จนตอบ 201`,`backend/app/routes/sd.py (generate_image)`,
+   `<ol><li>เช็คว่า user มีอยู่จริง</li><li>validate prompt (1-2000), negative ≤ 2000, แปลง width/height/steps/cfg/seed เป็นตัวเลข</li><li>ขนาดต้อง 512/768/1024, steps 1-50, cfg 1-20</li><li><code>generate_sd_image(clean_payload)</code> เข้าคิว GPU ได้ base64</li><li><code>b64decode</code> → สร้าง Generation (category sd_generate, action txt2img, image_data BLOB) → commit</li><li>เขียนไฟล์ <code>uploads/generations/&lt;id&gt;.png</code> → ตั้ง image_path → commit อีกรอบ</li><li>ตอบ generation_id, image_url, seed, estimated/actual time</li></ol><p>Exception แต่ละชนิด map เป็น 409/504/503/500</p>`],
+  ['c',`ทำไมจำกัด width/height เป็น 512, 768, 1024 และ steps ไม่เกิน 50`,`routes/sd.py, pages/Generate.jsx`,
+   `<p>Stable Diffusion ทำงานใน latent space ที่ย่อ 8 เท่า ขนาดควรหารด้วย 8 (หรือ 64) ลงตัว การจำกัดค่าเป็นชุดที่ทดสอบแล้วกัน VRAM เต็มและกันเวลารันเกิน timeout steps มากขึ้นเวลาเพิ่มตามแบบเส้นตรงแต่คุณภาพแทบไม่ดีขึ้นหลัง ~30-50</p>`],
+  ['c',`อธิบายระบบคิว GPU ใน ai_client.py: <code>_gpu_lock</code>, <code>_waiting_jobs_count</code>, <code>acquire(timeout=40)</code> และ <code>finally</code>`,`backend/app/services/ai_client.py (generate_sd_image)`,
+   `<p>เพิ่มตัวนับคิว (ภายใต้ <code>_waiting_counter_lock</code>) → รอ <code>_gpu_lock</code> นานสุด 40 วินาที → ลดตัวนับ → ถ้าไม่ได้ lock ยก AIServerBusyException (409) → ได้ lock แล้ว POST txt2img timeout 75 วินาที → <code>finally: _gpu_lock.release()</code> ปล่อยเสมอไม่ว่าสำเร็จหรือ error ทำให้ GPU ทำงานทีละงาน คนที่สองต้องรอ</p>`],
+  ['d',`ทำไมตั้ง lock timeout 40 วินาทีและ request timeout 75 วินาที สัมพันธ์กับ nginx 120 วินาทีอย่างไร ถ้า lock ไม่สำเร็จจะเรียก release ผิดพลาดไหม`,`ai_client.py, nginx/conf/luma_proxy_backend.conf`,
+   `<p>40 + 75 = 115 &lt; 120 ของ <code>proxy_read_timeout</code> backend จึงตอบ JSON error ของตัวเองก่อนที่ nginx จะตัด 504 แล้วแสดง @backend_down</p><p>ไม่ผิดพลาด เพราะเมื่อ acquire ไม่สำเร็จจะ raise ก่อนเข้า <code>try</code> จึงไม่ถึง <code>finally</code> (ถ้า release lock ที่ไม่ได้ถือจะได้ RuntimeError)</p>`],
+  ['c',`สูตรประมาณเวลาใน <code>calculate_estimated_time</code> คืออะไร หน้าเว็บนำค่านี้ไปใช้ไหม`,`ai_client.py, config.py`,
+   `<p>resolution_factor = (w×h)/(512×512) · gen = max(1.5, steps × 0.15 × factor) · queue = งานที่รอ × 4.5 · total = gen + queue</p><p>backend ส่ง <code>estimated_time_seconds</code> กลับ แต่หน้า Generate ไม่ได้แสดง และ endpoint <code>/estimate</code> ถูก comment ไว้ ค่าคงที่ 0.15 วิ/step ไม่ได้วัดจาก GPU จริง</p>`],
+  ['w',`seed ที่บันทึกลงฐานข้อมูลคือค่าอะไร ถ้าผู้ใช้เลือก random seed จะสร้างภาพเดิมซ้ำได้ไหม`,`routes/sd.py, ai_client.py`,
+   `<p>บันทึกค่าที่ผู้ใช้ส่งมา ถ้าเป็น random จะเก็บ -1 ไม่ใช่ seed จริงที่ SD สุ่ม จึงสร้างภาพเดิมซ้ำไม่ได้ seed จริงอยู่ใน field <code>info</code> (JSON string) ของ response จาก txt2img ควร <code>json.loads(info)["seed"]</code> แล้วเก็บค่านั้น</p>`],
+  ['c',`ทำไมเก็บรูปทั้งเป็น BLOB ในฐานข้อมูลและเป็นไฟล์บน disk endpoint <code>/images/:id</code> เลือกส่งจากที่ไหน`,`routes/sd.py (stream_image), models/generation.py`,
+   `<p>ไฟล์บน disk ส่งด้วย <code>send_file(path)</code> ประหยัด RAM และใช้ sendfile ของ OS ได้ BLOB เป็น fallback ถ้าไฟล์หายหรือย้ายเครื่อง stream_image ลอง disk ก่อน ไม่มีค่อยใช้ BLOB ไม่มีทั้งคู่ตอบ IMAGE_NOT_FOUND</p><p>ข้อเสีย: เก็บซ้ำสองที่ ไฟล์ DB โตเร็ว</p>`],
+  ['w',`ลำดับ commit ตอนสร้างภาพและตอนลบประวัติมีความเสี่ยงอะไร`,`routes/sd.py, routes/history.py, routes/admin.py`,
+   `<p>สร้าง: commit แถวก่อน แล้วเขียนไฟล์ แล้ว commit อีกรอบ ถ้าเขียนไฟล์พังยังมี BLOB ใช้ได้ (ออกแบบให้ทนได้)</p><p>ลบ: <code>os.remove</code> ไฟล์ก่อนแล้วค่อย commit ถ้า commit ล้มเหลวจะ rollback แถวกลับมาแต่ไฟล์หายไปแล้ว ยังแสดงได้จาก BLOB ที่ถูกกว่าคือ commit ก่อนแล้วค่อยลบไฟล์</p>`],
+  ['c',`GET /models ทำไมไม่ต้องใช้ token มีการจัดการ error อย่างไร`,`routes/sd.py (get_models), ai_client.py (fetch_available_models)`,
+   `<p>ข้อมูลรายชื่อโมเดลไม่เป็นความลับ (แต่ก็เปิดให้คนไม่ล็อกอินกระตุ้นให้ backend ยิงไป AI Server ได้) เรียก <code>/sdapi/v1/sd-models</code> timeout 10 วิ แปลงเป็น <code>{title, model_name}</code> Timeout → 504 AI_SERVER_TIMEOUT, ต่อไม่ได้หรือ status ไม่ใช่ 200 → 503 AI_SERVER_ERROR มีโค้ด fallback mock ที่ comment ไว้</p>`],
+ ]},
+ {name:'History, Profile, Admin', qs:[
+  ['c',`IDOR คืออะไร โค้ดป้องกันอย่างไร ทำไมตอบ 404 แทน 403 เมื่อพยายามเปิดรูปของคนอื่น`,`routes/history.py, routes/sd.py (stream_image)`,
+   `<p>IDOR คือเปลี่ยนเลข id ใน URL เพื่อเข้าถึงข้อมูลของคนอื่น ทุก query ใช้ <code>filter_by(id=..., user_id=request.user_id)</code> โดย user_id มาจาก token ที่ปลอมไม่ได้ ตอบ 404 เพื่อไม่บอกว่ามี record นี้อยู่จริง</p>`],
+  ['c',`GET /history แบ่งหน้าอย่างไร <code>error_out=False</code> หมายความว่าอะไร`,`routes/history.py`,
+   `<p><code>query.order_by(created_at.desc()).paginate(page, per_page=limit, error_out=False)</code> คืน items + total + pages <code>error_out=False</code> ทำให้ขอหน้าเกินจำนวนได้รายการว่างแทน 404</p><p>จุดอ่อน: <code>limit</code> ไม่มีค่าสูงสุด ยิง <code>?limit=100000</code> ได้ และ query โหลดคอลัมน์ image_data (BLOB) ทุกแถวมาด้วยทั้งที่ไม่ได้ใช้</p>`],
+  ['c',`Admin ดึงรายชื่อผู้ใช้พร้อมจำนวนรูปด้วย query กี่ครั้ง ทำไมไม่นับทีละคน`,`routes/admin.py (list_users)`,
+   `<p>2 query: ผู้ใช้ทั้งหมด 1 ครั้ง และ <code>GROUP BY user_id</code> นับรูป 1 ครั้งแล้วทำเป็น dict ถ้านับทีละคนจะเป็นปัญหา N+1 query (ผู้ใช้ 100 คน = 101 query)</p>`],
+  ['c',`ไล่ DELETE /admin/users/:id`,`routes/admin.py (delete_user)`,
+   `<p>ห้ามลบตัวเอง (400 CANNOT_DELETE_SELF) → หา user ไม่เจอ 404 → วนลบไฟล์รูปบน disk ของ user → <code>db.session.delete(user)</code> ORM cascade ลบแถว generations → commit → log ว่า admin คนไหนลบใคร → ตอบจำนวนแถว/ไฟล์ที่ลบ</p>`],
+  ['c',`จะตั้งผู้ใช้คนแรกเป็น admin ได้อย่างไร ทำไมไม่มี API สำหรับเลื่อนสิทธิ์`,`backend/scripts/set_admin.py`,
+   `<p>รัน <code>python backend/scripts/set_admin.py user@example.com</code> บนเครื่อง backend (มี <code>--list</code>, <code>--revoke</code>) ต้องเข้าถึงเครื่องได้จริงถึงจะตั้งได้ ไม่เปิดเป็น API เพื่อลดช่องทางยกระดับสิทธิ์</p>`],
+  ['c',`GET /profile ส่งอะไรกลับ ทำไมโค้ดนับแยกประเภทถูก comment ไว้`,`routes/profile.py`,
+   `<p>ส่ง id, email, role, created_at, generation_count (นับด้วย <code>.count()</code>) โค้ดนับ checkpoint/filter แยกถูก comment เพราะหน้า Profile แสดงแค่ยอดรวม ลด query ที่ไม่จำเป็น</p>`],
+ ]},
+ {name:'Endpoint แต่งภาพ /process/*', qs:[
+  ['c',`ไล่ POST /process/spot-blur ตั้งแต่รับไฟล์จนส่ง PNG กลับ`,`services/image_filters/routes.py (process_spot_blur)`,
+   `<p>เช็คมีไฟล์ → เช็คนามสกุล (415) → <code>json.loads(circles)</code>, <code>int(strength)</code> → ตรวจ circles เป็น list ของ [x,y,r] ตัวเลข r&gt;0, strength 1-30, soft true/false → <code>file.read()</code> → <code>cv2.imdecode(np.frombuffer(...), IMREAD_COLOR)</code> → <code>spot_blur()</code> → <code>cv2.imencode('.png')</code> → <code>send_file(BytesIO(png), mimetype='image/png')</code></p>`],
+  ['d',`ทำไมตรวจชนิดตัวเลขด้วย <code>type(v) in (int, float)</code> แทน <code>isinstance(v, (int, float))</code>`,`routes.py (_is_num)`,
+   `<p>ใน Python <code>bool</code> เป็น subclass ของ <code>int</code> <code>isinstance(True, int)</code> จึงเป็น True ทำให้ JSON <code>[true, false, true]</code> ผ่านการตรวจ ใช้ <code>type()</code> เทียบตรงจึงกัน boolean ได้</p>`],
+  ['w',`การตรวจไฟล์จากนามสกุลชื่อไฟล์เพียงพอไหม ระบบมีด่านอื่นอะไรอีก`,`routes.py, app/__init__.py (413 handler), config.py`,
+   `<p>ไม่พอ เพราะเปลี่ยนชื่อไฟล์ได้ แต่ด่านถัดไปคือ <code>cv2.imdecode</code> ถ้าไม่ใช่รูปจริงจะได้ None → 400 INVALID_IMAGE และขนาดไฟล์จำกัด 16 MB (<code>MAX_CONTENT_LENGTH</code> → 413 FILE_TOO_LARGE และ nginx <code>client_max_body_size 16m</code>) ภาพไม่ถูกเขียนลง disk จึงไม่เสี่ยงอัปโหลดไฟล์สคริปต์ แต่ยังไม่จำกัดจำนวนพิกเซล (รูป 16 MB อาจคลายออกเป็นหลายร้อย MB)</p>`],
+  ['c',`/process/remove-bg ตรวจ input อะไรบ้าง ทำไมมี MAX_STROKES กับ MAX_POINTS และแปลงสี hex อย่างไร`,`routes.py (process_remove_bg, _valid_rect, _valid_strokes)`,
+   `<p>rect ต้องเป็น None หรือ [x,y,w,h] ที่ w,h&gt;0 · strokes ไม่เกิน 200 เส้น รวมไม่เกิน 5000 จุด แต่ละเส้นมี type keep/remove และ r 1-500 · use_ai=false ต้องมี rect · bg เป็น transparent หรือ <code>#RRGGBB</code> ตาม regex</p><p>จำกัดจำนวนเพื่อกันคนส่งข้อมูลมหาศาลให้เซิร์ฟเวอร์ทำงานหนัก (DoS) สี: <code>int(bg[i:i+2],16) for i in (5,3,1)</code> อ่าน BB, GG, RR ได้ลำดับ BGR ตามที่ OpenCV ใช้</p>`],
+  ['c',`/process/gesture ต่างจาก endpoint อื่นอย่างไร ถ้าดาวน์โหลดโมเดลไม่ได้จะเกิดอะไร`,`routes.py (process_gesture)`,
+   `<p>คืน JSON ผ่าน <code>success_response</code> ไม่ใช่รูป รับ num_hands 1-4 และ min_confidence 0.1-1.0 (มีค่า default) ถ้าโหลดโมเดลไม่ได้ (urllib ยก OSError) ตอบ 503 MODEL_UNAVAILABLE</p>`],
+  ['w',`ผลลัพธ์ของเครื่องมือแต่งภาพถูกบันทึกลง History ไหม ทั้งที่ model มี category <code>image_filter</code>`,`routes.py, models/generation.py`,
+   `<p>ไม่บันทึก ทุก endpoint คืน PNG แล้วจบ category <code>image_filter</code>, <code>source_image_id</code> และ endpoint <code>/process/cartoonize/&lt;id&gt;</code> ที่บันทึกได้ถูก comment ไว้ ถ้าจะบันทึกต้องสร้าง Generation ด้วย <code>image_data=png</code> และ action_type ตามฟีเจอร์ และหน้า History ต้องแสดงประเภท (ตอนนี้แสดง checkpoint/ขนาดซึ่งไม่มีความหมายกับฟีเจอร์แต่งภาพ)</p>`],
+  ['c',`Response มาตรฐานของ API มีรูปแบบอย่างไร ทำไมต้องมี error code เป็นข้อความทั้งที่มี HTTP status แล้ว`,`backend/app/utils/error_codes.py`,
+   `<p>สำเร็จ <code>{"success": true, "data": {...}}</code> ผิดพลาด <code>{"success": false, "error": {"code", "message"}}</code></p><p>HTTP status เดียวกันมีหลายสาเหตุ เช่น 409 อาจเป็น EMAIL_EXISTS หรือ AI_SERVER_BUSY 401 อาจเป็น INVALID_CREDENTIALS หรือ UNAUTHORIZED frontend ใช้ code เลือกข้อความและพฤติกรรม (เช่น logout เฉพาะ UNAUTHORIZED)</p>`],
+  ['c',`เทสต์ฝั่ง backend ครอบคลุมอะไรบ้าง รันอย่างไร`,`backend/tests/test_backend_full.py, test_image_filters_suite.py`,
+   `<p>รัน <code>pytest</code> ในโฟลเดอร์ backend ครอบคลุม: สมัครและอีเมลซ้ำ, login + JWT, การแยกข้อมูลผู้ใช้/IDOR, pagination, จำลองการสร้างภาพพร้อมกัน, การแปลงชนิดพารามิเตอร์, ชื่อประเภท, profile contract, health, disk storage + streaming, role ใน auth, สิทธิ์ admin และอัลกอริทึม cartoonize/spot blur + endpoint อัปโหลด เทสต์ใช้ <code>create_app(test_config)</code> แยกฐานข้อมูล และ mock AI Server</p>`],
+ ]},
+ ]},
+
+{id:'database', no:'3', prefix:'D', title:'Database และฟีเจอร์',
+ desc:'SQLite schema, SQLAlchemy model และอัลกอริทึมประมวลผลภาพของแต่ละฟีเจอร์ (database/, backend/app/models, services/image_filters)',
+ groups:[
+ {name:'ฐานข้อมูลและ Schema', qs:[
+  ['b',`ใช้ฐานข้อมูลอะไร ทำไมเลือก SQLite มีข้อจำกัดอะไร`,`database/, backend/app/__init__.py`,
+   `<p>SQLite เป็นไฟล์เดียว ไม่ต้องติดตั้ง server เหมาะกับโปรเจคขนาดเล็กที่ backend มีเครื่องเดียว ข้อจำกัด: เขียนได้ทีละ transaction (lock ทั้งไฟล์) ไม่เหมาะกับหลายเครื่องหรือเขียนพร้อมกันมาก ๆ ถ้าขยายควรย้ายไป PostgreSQL/MySQL ซึ่งเปลี่ยนแค่ <code>SQLALCHEMY_DATABASE_URI</code></p>`],
+  ['c',`อธิบายตาราง users และ generations ทุกคอลัมน์ และความสัมพันธ์ระหว่างสองตาราง`,`database/schema.sql, models/user.py, models/generation.py`,
+   `<p><b>users</b>: id PK, email UNIQUE, password_hash, role (user/admin), created_at</p><p><b>generations</b>: id PK, user_id FK, category (sd_generate/image_filter), action_type, prompt, negative_prompt, checkpoint, sampler, width, height, steps, cfg_scale, seed, params (JSON text), source_image_id, image_path, image_data (BLOB), created_at</p><p>ความสัมพันธ์ 1:N ผู้ใช้หนึ่งคนมีได้หลายภาพ ฝั่ง ORM ใช้ <code>relationship(..., backref="user", cascade="all, delete-orphan")</code></p>`],
+  ['c',`มี index อะไรบ้าง ช่วย query ไหน`,`database/schema.sql, models/generation.py (index=True)`,
+   `<p>users.email (unique), generations.user_id, category, created_at query หลักคือ <code>WHERE user_id = ? ORDER BY created_at DESC</code> ของหน้า History ที่ใช้ index user_id ส่วนการนับต่อ user ของ admin ก็ใช้ index นี้ ถ้าจะดีขึ้นอีกควรทำ composite index <code>(user_id, created_at)</code></p>`],
+  ['d',`<code>ON DELETE CASCADE</code> ใน SQLite ทำงานจริงไหมในโปรเจคนี้ แล้วทำไมลบ user แล้วรูปก็ถูกลบด้วย`,`models/generation.py, models/user.py, database/init_db.py`,
+   `<p>SQLite จะบังคับ foreign key ก็ต่อเมื่อเปิด <code>PRAGMA foreign_keys = ON</code> ในทุก connection init_db.py เปิดไว้ แต่ Flask-SQLAlchemy ไม่ได้เปิดให้ การลบทำงานได้เพราะ ORM <code>cascade="all, delete-orphan"</code> สั่ง DELETE แถวลูกเองก่อนลบ user ถ้าลบด้วย SQL ตรง ๆ จะเหลือแถว generations ที่ไม่มีเจ้าของ แก้ได้ด้วย event listener ตั้ง PRAGMA ตอน connect</p>`],
+  ['c',`ตารางถูกสร้างขึ้นตอนไหน schema.sql + init_db.py กับ <code>db.create_all()</code> ต่างกันอย่างไร`,`database/init_db.py, database/schema.sql, backend/app/__init__.py`,
+   `<p>ตอน backend start <code>db.create_all()</code> สร้างตารางจาก model ถ้ายังไม่มีที่ <code>database/database.db</code> ส่วน init_db.py รัน schema.sql ด้วย sqlite3 ตรง ๆ สองทางนี้ไม่ตรงกันทุกจุด เช่น prompt เป็น TEXT ใน SQL แต่ String(2000) ใน model, sampler 50 vs 100 (SQLite ไม่บังคับความยาว VARCHAR จึงไม่มีผลจริง)</p>`],
+  ['c',`Auto-migration ใน create_app ทำงานอย่างไร ทำไมใช้ได้แค่ ADD COLUMN มีวิธีที่ดีกว่าไหม`,`backend/app/__init__.py (ขั้นที่ 8)`,
+   `<p>ใช้ <code>db.inspect(db.engine).get_columns()</code> ดูคอลัมน์ที่มี ถ้าขาด role, image_data, category, action_type, params, source_image_id ก็ <code>ALTER TABLE ... ADD COLUMN</code> ไว้รองรับไฟล์ DB เวอร์ชันเก่า SQLite แก้/ลบคอลัมน์ได้จำกัดมาก ถ้าทำจริงควรใช้ Flask-Migrate (Alembic) ที่เก็บ migration เป็นเวอร์ชันและ rollback ได้ และ except กลืน error เงียบ ๆ ทำให้ debug ยาก</p>`],
+  ['w',`สคริปต์ Test1-Test3 ในโฟลเดอร์ database ยังใช้งานกับระบบปัจจุบันได้ไหม`,`database/Test1_create_user.py, Test2_insert_generation.py, Test3_select_all.py`,
+   `<p>ใช้ไฟล์ <code>app.db</code> ซึ่งเป็นคนละไฟล์กับที่ backend ใช้ (<code>database.db</code>) และ Test2 INSERT โดยไม่มี <code>image_data</code> ซึ่งตอนนี้เป็น NOT NULL จะ fail กับ schema ใหม่ Test1 ใส่ password_hash ปลอมจึง login ไม่ได้ เป็นสคริปต์ทดลองช่วงแรก</p>`],
+  ['c',`clear.py ทำงานอย่างไร EXCLUDE_USER_IDS ใช้ทำอะไร ทำไมต้อง VACUUM`,`database/clear.py`,
+   `<p>ไม่ระบุ id: ลบทุกตารางและรีเซ็ต <code>sqlite_sequence</code> ให้ AUTOINCREMENT เริ่มที่ 1 ระบุ id: ลบ generations และ users ที่ไม่อยู่ในรายการด้วย placeholder <code>?</code> (กัน SQL injection) ปิด foreign_keys ระหว่างลบ VACUUM บีบไฟล์คืนพื้นที่ เพราะ SQLite ไม่คืนพื้นที่ดิสก์เองหลังลบ BLOB ขนาดใหญ่ ข้อสังเกต: ลบแถวแล้วแต่ไม่ได้ลบไฟล์ใน uploads/</p>`],
+  ['c',`<code>category</code> กับ <code>action_type</code> ใช้แยกอะไร และ <code>to_dict()</code> ส่งอะไรไปให้ frontend`,`models/generation.py`,
+   `<p>category แยก 2 รูปแบบหลัก (sd_generate = สร้างจาก AI, image_filter = แต่งภาพ) action_type บอกฟังก์ชันที่ใช้ (txt2img, cartoonize, …) <code>get_type_display_name()</code> แปลงเป็นข้อความแสดงผล <code>to_dict()</code> ส่งทุกฟิลด์ ยกเว้น image_data และ image_path แทนด้วย <code>image_url</code> พร้อมค่า default ถ้าเป็น null และ <code>params</code> parse เป็น dict</p>`],
+  ['c',`ทำไมเก็บ <code>params</code> เป็น JSON string ในคอลัมน์ TEXT ข้อดีข้อเสียคืออะไร`,`models/generation.py (get_params_dict), routes/sd.py`,
+   `<p>แต่ละฟีเจอร์มีพารามิเตอร์ต่างกัน เก็บเป็น JSON ไม่ต้องเพิ่มคอลัมน์ทุกครั้งที่มีฟีเจอร์ใหม่ ข้อเสีย: query/filter ตามค่าข้างในยาก ไม่มีการตรวจชนิดข้อมูล และ /generate เก็บ <code>json.dumps(data)</code> คือ body ดิบจากผู้ใช้ทั้งก้อน ใครส่ง field แปลก ๆ มาก็ถูกเก็บ</p>`],
+  ['w',`เวลา <code>created_at</code> เก็บเป็น timezone อะไร หน้าเว็บแสดงถูกไหม`,`models/user.py, models/generation.py, pages/Result.jsx`,
+   `<p>ใช้ <code>datetime.utcnow</code> ได้เวลา UTC แบบไม่มี timezone <code>isoformat()</code> จึงไม่มี <code>Z</code> ต่อท้าย หน้า Result/Profile แสดง string ดิบ คนไทยจะเห็นเวลาช้าไป 7 ชม. หน้า Admin ใช้ <code>new Date()</code> ซึ่งตีความเป็นเวลาท้องถิ่น อาจคลาดวัน และ <code>utcnow</code> ถูก deprecate ใน Python 3.12 ควรใช้ <code>datetime.now(timezone.utc)</code></p>`],
+  ['d',`การเก็บรูปเป็น BLOB ส่งผลต่อประสิทธิภาพ query หน้า History อย่างไร จะแก้อย่างไร`,`routes/history.py, models/generation.py`,
+   `<p><code>Generation.query...paginate()</code> SELECT ทุกคอลัมน์รวม image_data รูปละหลายร้อย KB-MB 20 แถวต่อหน้าจึงอ่านข้อมูลหลายสิบ MB ทั้งที่ to_dict ไม่ได้ใช้ แก้ด้วย <code>db.deferred()</code> / <code>defer(Generation.image_data)</code> หรือเลิกเก็บ BLOB เหลือแค่ไฟล์</p>`],
+ ]},
+ {name:'อัลกอริทึมของแต่ละฟีเจอร์แต่งภาพ', qs:[
+  ['b',`OpenCV เก็บสีเป็น BGR แต่ MediaPipe ใช้ RGB มีจุดไหนในโค้ดที่ต้องแปลง และ <code>IMREAD_COLOR</code> ทำอะไรกับรูป PNG โปร่งใส`,`image_filters/routes.py, gesture.py, remove_bg.py`,
+   `<p>แปลงด้วย <code>cv2.cvtColor(img, cv2.COLOR_BGR2RGB)</code> ใน <code>_to_mp_image</code> และ <code>_person_prob</code> ก่อนส่งเข้า MediaPipe <code>IMREAD_COLOR</code> บังคับให้เป็น BGR 3 ช่องเสมอ รูปขาวดำถูกขยายเป็น 3 ช่อง และช่อง alpha ของ PNG ถูกทิ้ง</p>`],
+  ['c',`Spot Blur ทำงานอย่างไรทีละขั้น ทำไมขนาด kernel ต้องเป็น <code>strength*2+1</code>`,`image_filters/spot_blur.py`,
+   `<ol><li>Gaussian blur ทั้งภาพเตรียมไว้</li><li>สร้าง mask float ศูนย์ทั้งภาพ วาดวงกลมค่า 1 ตาม circles</li><li>ถ้า soft เบลอ mask ด้วยขนาดประมาณครึ่งรัศมีใหญ่สุด ขอบจะไล่ระดับ</li><li>ผสม <code>out = img·(1−m) + blurred·m</code></li></ol><p>Gaussian kernel ต้องเป็นเลขคี่เพื่อให้มีจุดศูนย์กลาง <code>*2+1</code> รับประกันเลขคี่ <code>mask[:,:,None]</code> เพิ่มมิติให้ broadcast กับภาพ 3 ช่องได้</p>`],
+  ['d',`Spot Blur เบลอทั้งภาพทั้งที่ใช้แค่บางจุด มีผลเสียอะไร ทำให้เร็วขึ้นได้อย่างไร`,`spot_blur.py`,
+   `<p>เปลืองเวลาและหน่วยความจำกับภาพใหญ่ (float64 จากการคูณ mask) ทำให้เร็วขึ้นได้โดยเบลอเฉพาะ bounding box ของวงกลม (ขยายขอบเผื่อ kernel) แล้วผสมเฉพาะ ROI</p>`],
+  ['c',`Cartoonize มีกี่ขั้น แต่ละขั้นใช้อัลกอริทึมอะไร`,`image_filters/cartoonize.py`,
+   `<ol><li><b>Bilateral filter</b> (ทำซ้ำ smoothness/2 รอบ) เกลี่ยผิวโดยรักษาขอบ เพราะถ่วงน้ำหนักทั้งระยะทางและความต่างของสี</li><li><b>K-Means</b> จัดกลุ่มสีพิกเซลเหลือ k สี (color quantization) criteria 20 รอบหรือ eps 0.001 ทำ 10 attempts แบบสุ่มจุดเริ่มแล้วเลือกผลดีสุด</li><li><b>เส้นขอบ</b>: grayscale → median blur 7 ลด noise → adaptive threshold (mean, block 9, C 2) ได้เส้นดำบนพื้นขาว</li><li>ถ้า line_thickness &gt; 1 ใช้ <b>erode</b> ให้เส้นดำหนาขึ้น</li><li><code>bitwise_and</code> สีกับเส้นขอบ ตรงเส้นดำ (0) ผลเป็นสีดำ</li></ol>`],
+  ['d',`ทำไมใช้ erode ไม่ใช่ dilate เพื่อทำเส้นให้หนาขึ้น และทำไม adaptive threshold ดีกว่า threshold ค่าเดียว`,`cartoonize.py`,
+   `<p>erode ขยายส่วนที่มีค่าต่ำ (สีดำ) และลดส่วนสีขาว เส้นเป็นสีดำบนพื้นขาวจึงต้อง erode ถ้าเป็นเส้นขาวบนพื้นดำจึงใช้ dilate</p><p>adaptive threshold คำนวณค่า threshold จากค่าเฉลี่ยรอบ ๆ แต่ละพิกเซล จึงทนกับแสงที่ไม่สม่ำเสมอในภาพถ่าย ค่าเดียวจะทำให้ส่วนมืดกลายเป็นดำทั้งก้อน</p>`],
+  ['w',`Cartoonize กับรูปขนาดใหญ่มีปัญหาอะไร`,`cartoonize.py`,
+   `<p>K-Means รันบนทุกพิกเซลโดยไม่ย่อภาพ รูป 12 ล้านพิกเซล × 10 attempts ช้ามากและอาจเกิน timeout ของ nginx ต่างจาก remove_bg ที่ย่อเป็น 900 ก่อน วิธีแก้: ย่อภาพหรือสุ่มพิกเซลมาหา centers แล้วค่อย assign สีกับภาพเต็ม</p>`],
+  ['c',`Tilt-Shift ทำงานอย่างไร และสูตร smoothstep <code>0.5·(1 − cos(πt))</code> ช่วยอะไร`,`image_filters/tilt_shift.py`,
+   `<ol><li>เพิ่มความสดใน HSV (คูณช่อง S) และเพิ่ม contrast <code>(x − 128)·c + 128</code> ให้เหมือนโมเดลของเล่น</li><li>Gaussian blur ทั้งภาพ</li><li>สร้าง depth mask ตามแกน y: ในแถบโฟกัสน้ำหนัก 0 ไกลออกไปเพิ่มขึ้นถึง 1 ภายในช่วง 25% ของความสูง</li><li>ผสมภาพคมกับภาพเบลอตาม mask</li></ol><p>cosine ทำให้รอยต่อไล่ระดับนุ่ม ความชันเป็นศูนย์ที่ปลายทั้งสองข้าง จึงไม่เห็นเส้นแบ่งระหว่างส่วนคมกับส่วนเบลอ</p>`],
+  ['c',`HDR Enhancer มีขั้นตอนอะไรบ้าง ทำไมทำ CLAHE บนช่อง L ของ LAB แทนการทำบน BGR`,`image_filters/hdr_enhancer.py`,
+   `<ol><li><b>Gray World white balance</b>: สมมติว่าค่าเฉลี่ยของภาพควรเป็นสีเทา คูณแต่ละช่องด้วย mean รวม / mean ของช่องนั้น</li><li>แปลงเป็น LAB แยก L (ความสว่าง) a, b (สี)</li><li><b>CLAHE</b> บน L: histogram equalization แบบแบ่ง tile และจำกัด clip limit กัน noise ถูกขยาย</li><li>รวมกลับเป็น BGR</li><li><b>Unsharp mask</b>: high = ภาพ − Gaussian blur แล้ว <code>addWeighted</code> บวกกลับตาม detail_strength</li></ol><p>ถ้าทำทีละช่อง B,G,R แต่ละช่องถูกยืดไม่เท่ากัน สีจะเพี้ยน ทำบน L เปลี่ยนแค่ความสว่าง สีคงเดิม</p>`],
+  ['d',`ใน HDR <code>cv2.subtract(tone_mapped, low_freq)</code> บนภาพ uint8 มีผลข้างเคียงอะไร`,`hdr_enhancer.py`,
+   `<p>uint8 ติดลบไม่ได้ <code>cv2.subtract</code> ตัดค่าลบเป็น 0 (saturate) high-frequency ด้านที่มืดกว่าค่าเฉลี่ยรอบข้างจึงหายไป ผลคือเพิ่มแค่รายละเอียดด้านสว่าง ขอบมืดไม่เข้มขึ้น ถ้าต้องการ unsharp mask ที่ถูกต้องควรแปลงเป็น float32 หรือใช้ <code>addWeighted(img, 1+s, blur, −s, 0)</code></p>`],
+  ['c',`Remove Background โหมด AI ทำงานอย่างไร (ไม่มีกรอบ ไม่มีแปรง)`,`image_filters/remove_bg.py (_person_prob, _cut, _largest_blob)`,
+   `<p>ใช้ MediaPipe Image Segmenter โมเดล <code>selfie_multiclass_256x256</code> ขอ confidence mask ช่อง 0 = ความน่าจะเป็นที่เป็นพื้นหลัง → <code>person = 1 − background</code> → soft alpha = <code>clip((p − 0.3)/0.4, 0, 1)</code> (0.3-0.7 ไล่ระดับ) → ใช้ <code>connectedComponentsWithStats</code> เก็บก้อนที่ใหญ่ที่สุดของ <code>p &gt; 0.5</code> ทิ้งเศษที่หลุด</p>`],
+  ['c',`GrabCut ทำงานอย่างไร ค่า GC_BGD, GC_FGD, GC_PR_BGD, GC_PR_FGD ต่างกันอย่างไร และ AI ช่วย GrabCut อย่างไร`,`remove_bg.py (_cut)`,
+   `<p>GrabCut สร้างโมเดลสี (Gaussian Mixture Model) ของพื้นหน้าและพื้นหลัง แล้วตัดภาพด้วย graph cut ทำซ้ำ 4 รอบ GC_BGD/GC_FGD = แน่นอน (ห้ามเปลี่ยน) GC_PR_* = “น่าจะ” (อัลกอริทึมเปลี่ยนได้)</p><p>นอกกรอบ = BGD แน่นอน ในกรอบ = PR_BGD แต่ตรงที่ AI บอกว่าคน (&gt;0.5) = PR_FGD และมั่นใจมาก (&gt;0.9) = FGD เส้นแปรงที่ผู้ใช้ระบายเป็นคำตอบแน่นอนทับทุกอย่าง ต้องมีทั้งพื้นหน้าและพื้นหลังอย่างน้อยอย่างละนิด ไม่เช่นนั้นสร้าง GMM ไม่ได้</p>`],
+  ['d',`ทำไม Remove BG ย่อภาพเหลือด้านยาว 900 ก่อน แล้วขยายกลับอย่างไร สมการ <code>F = (I − (1−α)B) / α</code> มีไว้ทำอะไร`,`remove_bg.py (remove_background)`,
+   `<p>GrabCut ช้าตามจำนวนพิกเซล จึงคำนวณบนรูปย่อ (ย่อพิกัด rect/strokes ตาม scale เดียวกัน) แล้ว resize alpha กลับขนาดเต็มและเบลอขอบเล็กน้อย</p><p>พิกเซลที่ขอบเป็นการผสม <code>I = α·F + (1−α)·B</code> ของสีวัตถุกับพื้นหลังเดิม ถ้าใช้ I ตรง ๆ จะเห็นขอบสีพื้นเดิมติดมา (halo) จึงประมาณ B จากค่าเฉลี่ยถ่วงน้ำหนักของพื้นหลังรอบ ๆ แล้วแก้หา F (color decontamination) จำกัด α ไม่ต่ำกว่า 0.15 กันหารด้วยค่าใกล้ 0 และกลางตัว (α &gt; 0.95) ใช้สีเดิม ผลลัพธ์เป็น BGRA หรือผสมกับสีพื้นที่เลือก</p>`],
+  ['d',`ทำไมต้องมี <code>threading.Lock</code> ตอนเรียก MediaPipe และโหลดโมเดลแบบ lazy อย่างไรให้ปลอดภัย`,`remove_bg.py, gesture.py`,
+   `<p>Flask รับ request หลาย thread แต่ object ของ MediaPipe ใช้พร้อมกันหลาย thread ไม่ได้ จึงล็อกตอน segment/recognize</p><p>โมเดลโหลดตอนใช้ครั้งแรก (ไม่ทำให้ start ช้า) ถ้าไม่มีไฟล์จะดาวน์โหลดไปที่ <code>.part</code> ก่อนแล้ว <code>replace</code> เป็นชื่อจริง ถ้าดาวน์โหลดค้างกลางทางจะไม่เหลือไฟล์เสียชื่อจริง และมี <code>scripts/download_models.py</code> โหลดล่วงหน้ากัน cold start</p>`],
+  ['c',`Hand Gesture ทำงานอย่างไร รู้จักท่าอะไรบ้าง ทำไมต้อง cache recognizer`,`image_filters/gesture.py`,
+   `<p>ใช้ MediaPipe GestureRecognizer โหมด IMAGE ได้ landmarks 21 จุดต่อมือ, handedness (ซ้าย/ขวา) และ gesture พร้อม score รู้จัก 7 ท่า + None: Closed_Fist, Open_Palm, Pointing_Up, Thumb_Down, Thumb_Up, Victory, ILoveYou แปลงชื่อเป็นไทยด้วย GESTURE_NAMES เลือกมือที่ confidence สูงสุดเป็นผลหลัก จับเวลา inference ด้วย <code>perf_counter</code></p><p>สร้าง recognizer ช้าหลายร้อย ms และเปลี่ยน num_hands/confidence หลังสร้างไม่ได้ จึงเก็บใน dict ด้วย key <code>(num_hands, round(conf, 1))</code> มีได้สูงสุด 4 × 10 = 40 ตัว</p>`],
+ ]},
+ {name:'การทำงานของฟีเจอร์ระบบโดยรวม', qs:[
+  ['c',`เล่า flow ของฟีเจอร์ประวัติภาพตั้งแต่สร้าง → ดูใน History → เปิด Result → Generate Again → ลบ ว่าผ่าน endpoint และตารางไหนบ้าง`,`pages/*, routes/sd.py, routes/history.py`,
+   `<p>POST /generate (INSERT generations + ไฟล์) → GET /history (SELECT ตาม user + paginate) → รูปย่อแต่ละใบ GET /images/:id → คลิกไป /result/:id → GET /history/:id + GET /images/:id → Generate Again ส่งค่าผ่าน router state → DELETE /history/:id (ลบไฟล์ + DELETE แถว)</p>`],
+  ['d',`ถ้ามีผู้ใช้ 3 คนกด Generate พร้อมกัน อธิบายทีละขั้นว่าเกิดอะไรขึ้นกับแต่ละคน`,`services/ai_client.py, gunicorn_conf.py`,
+   `<p>แต่ละ request ได้ thread ของตัวเอง ทุกคนเพิ่มตัวนับคิว คนแรกได้ lock แล้วยิง AI อีกสองคนรอ <code>acquire</code> คนแรกเสร็จ (finally release) คนต่อไปได้ lock ใครรอเกิน 40 วินาทีจะได้ 409 AI_SERVER_BUSY ไม่มีการรับประกันลำดับ (Lock ของ Python ไม่ FIFO) ค่าประมาณเวลาคิวคิดจากตัวนับ × 4.5 วินาที</p>`],
+  ['c',`ฟีเจอร์ Admin ทำงานครบวงจรอย่างไร ตั้งแต่ตั้ง admin จนลบผู้ใช้`,`scripts/set_admin.py, routes/admin.py, pages/Admin.jsx`,
+   `<p>รัน set_admin.py เปลี่ยน role → ผู้ใช้ login ใหม่ได้ user.role = admin → เมนู Admin แสดง → GET /admin/users (admin_required ตรวจ DB) → กดลบ → modal ยืนยัน → DELETE /admin/users/:id → ลบไฟล์ + cascade → ลบแถวออกจากตาราง + toast</p>`],
+ ]},
+ ]},
+
+{id:'ai-nginx', no:'4', prefix:'A', title:'AI Server และ Nginx',
+ desc:'Stable Diffusion WebUI โหมด API และ nginx ที่เป็นประตูเดียวของระบบ 3 เครื่อง (Ai Server/, nginx/)',
+ groups:[
+ {name:'AI Server (Stable Diffusion WebUI)', qs:[
+  ['b',`AI Server ใช้ซอฟต์แวร์อะไร โฟลเดอร์ <code>Ai Server/</code> ใน repo เก็บอะไรไว้ ทำไมไม่เก็บตัว WebUI`,`Ai Server/README.md, config/, scripts/, models/`,
+   `<p>AUTOMATIC1111 Stable Diffusion WebUI (หรือ Forge) เปิดโหมด <code>--api</code> repo เก็บแค่ config (webui-user.bat/.sh), สคริปต์ทดสอบ และโฟลเดอร์ models เปล่า (.gitkeep) เพราะตัว WebUI และไฟล์ checkpoint ใหญ่หลาย GB ไม่ควรขึ้น git</p>`],
+  ['c',`อธิบายแต่ละ flag ใน COMMANDLINE_ARGS`,`Ai Server/config/webui-user.bat, webui-user.sh`,
+   `<ul><li><code>--api</code> เปิด REST <code>/sdapi/v1/*</code> ถ้าไม่มี backend ได้ 404</li><li><code>--api-log</code> log ทุก request ของ API</li><li><code>--listen</code> bind 0.0.0.0 ให้เครื่องอื่นเรียกได้</li><li><code>--port 8088</code> ต้องตรงกับ AI_SERVER_URL</li><li><code>--cors-allow-origins</code> เผื่อ browser ยิงตรง</li><li><code>--xformers</code> attention ที่ประหยัด VRAM และเร็วขึ้น</li><li><code>--enable-insecure-extension-access</code> ติดตั้ง extension ผ่านหน้าเว็บได้ทั้งที่เปิด listen</li><li><code>--medvram</code>/<code>--lowvram</code> สำหรับการ์ดจอ VRAM น้อย</li></ul>`],
+  ['w',`การเปิด <code>--listen</code> คู่กับ <code>--enable-insecure-extension-access</code> อันตรายอย่างไร โปรเจคป้องกันอย่างไร`,`webui-user.bat, nginx/firewall/for-ai.ps1, nginx.conf (port 8089)`,
+   `<p>extension คือโค้ด Python ใครเข้าหน้า WebUI ได้ก็ติดตั้งโค้ดให้รันบนเครื่อง AI ได้ (เท่ากับ RCE) ป้องกันด้วย firewall ให้พอร์ต 8088 รับจากเครื่อง backend เท่านั้น และทีม dev เข้าผ่าน nginx :8089 ที่มี IP allowlist + basic auth</p>`],
+  ['c',`Backend เรียก endpoint ไหนของ AI Server ส่ง payload อะไร และได้อะไรกลับมา`,`services/ai_client.py, Ai Server/README.md (หัวข้อ 5)`,
+   `<p><code>GET /sdapi/v1/sd-models</code> ได้ list ของ title/model_name/hash <code>POST /sdapi/v1/txt2img</code> ส่ง prompt, negative_prompt, width, height, steps, cfg_scale, seed, sampler_name และ <code>override_settings.sd_model_checkpoint</code> ได้ <code>{"images": [base64 PNG], "parameters": ..., "info": "JSON string"}</code> backend ใช้ <code>images[0]</code></p>`],
+  ['c',`<code>override_settings.sd_model_checkpoint</code> ทำอะไร ทำไมภาพแรกหลังเปลี่ยนโมเดลช้ากว่าปกติ`,`ai_client.py, Ai Server/README.md`,
+   `<p>บอก WebUI ให้ใช้ checkpoint นี้สำหรับ request นี้ ถ้าไม่ใช่โมเดลที่โหลดอยู่ WebUI ต้องโหลดไฟล์ หลาย GB ขึ้น VRAM ใหม่ เพิ่มเวลา ~10-30 วินาที ถ้าผู้ใช้หลายคนสลับโมเดลไปมาจะเสียเวลาโหลดซ้ำทุกครั้ง และอาจชน timeout 75 วินาที</p>`],
+  ['b',`อธิบายพารามิเตอร์ prompt, negative prompt, steps, CFG scale, sampler และ seed ในเชิงแนวคิดของ diffusion`,`pages/Generate.jsx`,
+   `<p>โมเดลเริ่มจาก noise ใน latent space แล้วลบ noise ทีละ step ตามข้อความ <b>steps</b> = จำนวนรอบลบ noise <b>CFG scale</b> = น้ำหนักที่บังคับให้ตาม prompt เทียบกับไม่มีเงื่อนไข (สูงเกินไปภาพแข็ง สีจัด) <b>negative prompt</b> = สิ่งที่ให้หลีกเลี่ยง <b>sampler</b> = วิธีคำนวณการลบ noise แต่ละขั้น (Euler a, DPM++ 2M Karras) <b>seed</b> = ค่าเริ่มต้นของ noise seed + ค่าอื่นเดิม = ภาพเดิม</p>`],
+  ['c',`ทำไมหน้าเว็บแนะนำขนาด 512×1024 หรือ 1024×512 และถ้าใช้ 1024×1024 กับโมเดลนี้เกิดอะไร`,`frontend/src/utils/modelSizes.js`,
+   `<p>โมเดลปัจจุบัน Counterfeit-V3.0 เป็นตระกูล SD 1.5 ที่ฝึกบนภาพราว 512 พิกเซล ขนาดใหญ่กว่ามาก ๆ ทั้งสองด้านมักได้ภาพซ้ำซ้อน (หัวหรือตัวซ้ำ) และใช้เวลา/VRAM มากขึ้นตามจำนวนพิกเซล ขนาดที่แนะนำมาจากการทดสอบของคนดูแล AI Server</p>`],
+  ['c',`check_server.py กับ test_txt2img.py ตรวจอะไร ใช้แยกปัญหาว่าอยู่ฝั่งไหนอย่างไร`,`Ai Server/scripts/check_server.py, test_txt2img.py`,
+   `<p>check_server: 1) <code>/sdapi/v1/options</code> ตอบไหม (404 = ลืม --api) 2) มี checkpoint ใน sd-models ไหม 3) มี sampler “Euler a” (ค่า default ของ backend) ไหม test_txt2img: ยิง txt2img ตรงด้วย payload แบบเดียวกับ backend แล้วเซฟรูป ผ่านทั้งคู่ = ปัญหาอยู่ที่ backend/frontend ไม่ผ่าน = ปัญหาที่ AI Server</p>`],
+  ['w',`ชื่อ sampler ที่ frontend ส่ง (เช่น DPM++ 2M Karras) จะตรงกับ WebUI ทุกเวอร์ชันไหม backend ตรวจไหม`,`pages/Generate.jsx, routes/sd.py`,
+   `<p>WebUI เวอร์ชันใหม่แยก sampler กับ scheduler (เช่น <code>DPM++ 2M</code> + scheduler <code>Karras</code>) ชื่อเก่าอาจถูก map ให้หรือ error แล้วแต่เวอร์ชัน backend ไม่ตรวจชื่อ sampler ส่งต่อไปตรง ๆ ควรดึงรายชื่อจาก <code>/sdapi/v1/samplers</code> มาแสดงแทนการ hardcode</p>`],
+  ['w',`เอกสารของ AI Server ตรงกับโค้ดจริงไหม`,`Ai Server/README.md, scripts/test_txt2img.py, services/ai_client.py`,
+   `<p>ไม่ตรงหลายจุด README อ้าง <code>backend/app.py</code>, path <code>/api/generate</code>, timeout 300 วินาที และบอกว่า backend เติม data URI ให้ ซึ่งโค้ดจริงคือ <code>/api/v1/generate</code>, timeout 75 วินาที และ backend decode เป็น binary เก็บลง DB IP ใน config ยังเป็นวง 172.20.x.x ของช่วงเดิม</p>`],
+ ]},
+ {name:'Nginx: บทบาทและการ route', qs:[
+  ['b',`Reverse proxy คืออะไร ทำไมต้องมี nginx อยู่หน้า Flask`,`nginx/README.md, conf/nginx.conf`,
+   `<p>reverse proxy รับ request แทนเซิร์ฟเวอร์จริงแล้วส่งต่อ ข้อดีในโปรเจคนี้: เป็นประตูเดียว (ผู้ใช้รู้แค่ IP nginx), เสิร์ฟไฟล์ frontend เองได้เร็ว, ทำ rate limit, security headers, gzip, จำกัดขนาด upload, ซ่อน backend/AI ไม่ให้เข้าตรง และทำให้ frontend กับ API เป็น same-origin</p>`],
+  ['c',`วาดเส้นทางของ request ใน 3 เครื่อง ตั้งแต่ผู้ใช้เปิดเว็บจนได้รูปจาก AI`,`nginx/README.md, conf/nginx.conf, backend/.env.example`,
+   `<p>Browser → nginx <code>192.168.1.171:80</code> (หน้าเว็บจาก dist) → <code>/api/v1/*</code> proxy ไป Backend <code>192.168.1.169:5000</code> → Backend เรียก AI <code>192.168.1.160:8088</code> → base64 กลับมา → backend เก็บ DB/ไฟล์ → ตอบ JSON → browser ขอ <code>/api/v1/images/:id</code> อีกรอบ ลำดับเปิดเครื่อง AI → Backend → nginx</p>`],
+  ['c',`location ใน server port 80 มีอะไรบ้าง request <code>/api/v1/login</code>, <code>/api/v1/history</code>, <code>/api/v2/x</code>, <code>/healthz</code> และ <code>/history</code> ไปเข้า location ไหน`,`conf/nginx.conf`,
+   `<p>nginx เลือก: exact <code>=</code> ก่อน → prefix ที่ยาวที่สุด (ถ้าเป็น <code>^~</code> หยุดเลย) → regex ตามลำดับในไฟล์ ถ้าตรงใช้ regex → ไม่ตรงใช้ prefix ที่ยาวที่สุด</p><ul><li><code>/healthz</code> → <code>= /healthz</code> ตอบ ok เอง</li><li><code>/api/v1/login</code> → regex <code>^/api/v1/(login|register)$</code> (rate limit เข้ม)</li><li><code>/api/v1/history</code> → prefix <code>/api/v1/</code></li><li><code>/api/v2/x</code> → <code>/api/</code> ตอบ 404</li><li><code>/history</code> → <code>/</code> แล้ว try_files ได้ index.html</li></ul>`],
+  ['c',`<code>upstream luma_backend</code> ตั้ง <code>keepalive 16</code> ต้องคู่กับ <code>proxy_http_version 1.1</code> และ <code>Connection ""</code> เพราะอะไร`,`conf/nginx.conf, conf/luma_proxy_backend.conf`,
+   `<p>keepalive ให้ nginx เก็บ connection ไป backend ค้างไว้ใช้ซ้ำ ไม่ต้องเปิด TCP ใหม่ทุก request แต่ค่า default ที่ nginx คุยกับ upstream คือ HTTP/1.0 และส่ง <code>Connection: close</code> จึงต้องตั้งเป็น 1.1 และล้าง header Connection ไม่งั้น keepalive ไม่มีผล</p>`],
+  ['c',`Rate limit ตั้งไว้อย่างไร <code>burst</code> และ <code>nodelay</code> หมายความว่าอะไร เกินแล้วได้อะไร`,`conf/nginx.conf (limit_req_zone, limit_req)`,
+   `<p>zone แยกตาม IP (<code>$binary_remote_addr</code> ใช้ memory น้อย 10 MB เก็บได้ราว 160,000 IP) login/register 10 ครั้ง/นาที burst 5, API อื่น 120 ครั้ง/นาที burst 40 burst = จำนวน request ที่ยอมให้เกินอัตราได้ชั่วคราว nodelay = request ใน burst ทำทันทีไม่ต้องรอเป็นจังหวะ เกินกว่านั้นตอบ 429</p>`],
+  ['c',`timeout ของแต่ละชั้น (nginx, frontend, backend, AI) สัมพันธ์กันอย่างไร`,`luma_proxy_backend.conf, api/client.js, ai_client.py, gunicorn_conf.py`,
+   `<p>AI request 75 วิ + รอคิว 40 วิ = 115 วิ &lt; nginx <code>proxy_read_timeout 120s</code> = gunicorn timeout 120 วิ ส่วน <code>proxy_connect_timeout 5s</code> ทำให้รู้เร็วถ้า backend ดับ frontend รอ 90 วิ (ต่ำกว่า 115 ดูคำถามข้อ F-19) หลักคือชั้นในต้อง timeout ก่อนชั้นนอก เพื่อให้ error ที่มีความหมายส่งออกมาถึงผู้ใช้</p>`],
+  ['c',`<code>client_max_body_size 16m</code> ตั้งไว้ทำไม ถ้าไม่ตั้งจะเกิดอะไรเวลาอัปโหลดรูป 5 MB`,`conf/nginx.conf, backend/config.py`,
+   `<p>ค่า default ของ nginx คือ 1 MB รูป 5 MB จะได้ 413 เป็นหน้า HTML ของ nginx (ไม่ใช่ JSON) ก่อนถึง Flask ตั้งให้เท่ากับ MAX_CONTENT_LENGTH 16 MB ของ backend เพื่อให้ขีดจำกัดตรงกัน ถ้ารูปเกิน 16 MB nginx ก็ยังตอบ 413 แบบ HTML ก่อน</p>`],
+  ['c',`<code>error_page 502 503 504 = @backend_down</code> ทำงานตอนไหน ทำไม 503 AI_SERVER_ERROR ที่ Flask ตอบมายังส่งถึง frontend เป็น JSON ของ Flask`,`conf/nginx.conf, luma_proxy_backend.conf`,
+   `<p>error_page ใช้กับ error ที่ nginx สร้างเอง เช่นต่อ backend ไม่ได้ (502) หรือ upstream timeout (504) แล้วตอบ JSON envelope เดียวกับ backend ไม่ได้เปิด <code>proxy_intercept_errors</code> status ที่ Flask ตอบจึงส่งผ่านตรง ๆ frontend อ่าน code ได้ถูกต้อง</p>`],
+ ]},
+ {name:'Nginx: ความปลอดภัยและการใช้งาน', qs:[
+  ['c',`security headers แต่ละตัวป้องกันอะไร และ <code>server_tokens off</code>, <code>autoindex off</code> มีไว้ทำไม`,`conf/nginx.conf`,
+   `<ul><li><code>X-Content-Type-Options: nosniff</code> ห้าม browser เดาชนิดไฟล์</li><li><code>X-Frame-Options: SAMEORIGIN</code> กันถูกฝังใน iframe ของเว็บอื่น (clickjacking)</li><li><code>X-XSS-Protection</code> ตัวกรอง XSS ของ browser รุ่นเก่า</li><li><code>Referrer-Policy: same-origin</code> ไม่ส่ง URL ไปเว็บอื่น</li><li><code>Cache-Control: no-store</code> ไม่ cache ข้อมูลส่วนตัว</li></ul><p>server_tokens off ซ่อนเวอร์ชัน nginx autoindex off ไม่แสดงรายชื่อไฟล์ในโฟลเดอร์</p>`],
+  ['w',`<code>location /assets/</code> มี <code>add_header Cache-Control</code> ของตัวเอง security headers ระดับ server ยังถูกส่งในไฟล์ assets ไหม`,`conf/nginx.conf`,
+   `<p>ไม่ถูกส่ง nginx สืบทอด <code>add_header</code> จากระดับบนก็ต่อเมื่อ location นั้นไม่มี add_header ของตัวเองเลย พอ /assets/ ประกาศ Cache-Control ตัวเดียว header อื่น (nosniff, X-Frame-Options ฯลฯ) จะหายในไฟล์ JS/CSS แก้โดยประกาศซ้ำใน location หรือแยกไว้ในไฟล์แล้ว include</p>`],
+  ['c',`ทำไมไฟล์ใน <code>/assets/</code> cache ได้ 1 ปีแบบ immutable แต่หน้าอื่นเป็น no-store`,`conf/nginx.conf, vite build`,
+   `<p>Vite ใส่ hash ของเนื้อหาในชื่อไฟล์ (เช่น <code>index-a1b2c3.js</code>) เนื้อหาเปลี่ยนชื่อไฟล์ก็เปลี่ยน cache นานจึงปลอดภัย ส่วน index.html ต้องไม่ cache เพื่อให้ได้ไฟล์ที่ชี้ไป assets ชุดล่าสุดทุกครั้งหลัง build ใหม่</p>`],
+  ['c',`location ที่ deny dotfile และนามสกุล <code>.env .db .py .sql ...</code> มีไว้ป้องกันอะไร`,`conf/nginx.conf`,
+   `<p>กันกรณีตั้ง <code>root</code> ผิดไปชี้โฟลเดอร์โปรเจค แล้วคนโหลด <code>.env</code> (มี JWT secret), <code>database.db</code> หรือซอร์สโค้ดไปได้ เป็นการป้องกันชั้นเสริม (defense in depth) <code>(?!well-known)</code> ยกเว้น <code>.well-known</code> ที่ใช้กับใบรับรอง</p>`],
+  ['c',`พอร์ต 8089 ใช้ทำอะไร ป้องกันกี่ชั้น ทำไมต้องมี <code>Upgrade</code>/<code>Connection "upgrade"</code> และ <code>proxy_buffering off</code>`,`conf/nginx.conf (server 8089), conf/dev_allowlist.conf, extras/make_htpasswd.sh`,
+   `<p>ประตูหลังบ้านให้ทีม dev เข้าหน้า WebUI ของ AI ชั้นแรก IP allowlist (<code>allow</code> แล้ว <code>deny all</code> → 403) ชั้นสอง basic auth ด้วยไฟล์ htpasswd ที่ hash แบบ apr1 ผ่าน openssl</p><p>WebUI สร้างด้วย Gradio ซึ่งใช้ WebSocket และ Server-Sent Events ต้องส่ง header Upgrade ต่อไปจึงเปลี่ยนโปรโตคอลได้ และปิด buffering ให้ข้อมูลไหลทันที ตั้ง read timeout 600 วิ และ body 200 MB สำหรับงานฝั่ง WebUI</p>`],
+  ['d',`<code>set_real_ip_from 127.0.0.1</code> + <code>real_ip_header CF-Connecting-IP</code> มีไว้ทำไม ทำไมเชื่อ header นี้เฉพาะจาก 127.0.0.1`,`conf/nginx.conf, extras/DEMO-cloudflared.md`,
+   `<p>ตอนเดโมผ่าน Cloudflare Tunnel ทุก request มาจาก cloudflared ที่รันในเครื่อง (127.0.0.1) ถ้าไม่แก้ทุกคนจะนับเป็น IP เดียว แล้วโดน rate limit พร้อมกัน และ allowlist ใช้ไม่ได้ จึงให้ใช้ IP จริงจาก header ของ Cloudflare แต่เชื่อเฉพาะจาก localhost เพราะคนใน LAN ใส่ header นี้ปลอมเองได้</p>`],
+  ['c',`header <code>X-Forwarded-For</code>, <code>X-Forwarded-Proto</code>, <code>Host</code> ที่ nginx ส่งไป ถูกใช้ที่ฝั่ง Flask อย่างไร`,`conf/luma_proxy_backend.conf, backend/app/__init__.py (ProxyFix)`,
+   `<p>nginx ต่อท้าย IP client ใน X-Forwarded-For และบอกโปรโตคอล/โฮสต์เดิม ProxyFix (x_for=1) อ่านค่าเหล่านี้ทำให้ <code>request.remote_addr</code>, <code>request.scheme</code>, <code>request.host</code> ใน Flask เป็นของผู้ใช้จริง ใช้ใน log และการสร้าง URL</p>`],
+  ['c',`START.bat ทำอะไรบ้าง ทำไมต้องรัน <code>nginx -t</code> ก่อน reload`,`nginx/START.bat, STOP.bat, BUILD-WEB.bat, LOGS.bat`,
+   `<p>หา nginx ใน <code>nginx\\win\\</code> → เตือนถ้ายังไม่ build dist → copy <code>conf\\*.conf</code> และ htpasswd ไปที่โฟลเดอร์ nginx → <code>nginx -t</code> ตรวจ syntax → ถ้ารันอยู่แล้ว <code>nginx -s reload</code> ถ้ายังไม่รันก็ start และเช็คพอร์ต 80 ว่าว่าง</p><p><code>-t</code> กัน config ผิดแล้ว reload ไม่ผ่าน reload เองก็ graceful คือ worker เก่าทำงานที่ค้างจนเสร็จก่อนปิด</p>`],
+  ['c',`firewall script ของเครื่อง AI ทำไมสร้างกฎ block สองช่วง IP แทนการ “block ทุกคนแล้ว allow backend”`,`nginx/firewall/for-ai.ps1, for-backend.ps1, for-nginx.ps1`,
+   `<p>Windows Firewall ให้กฎ Block ชนะ Allow เสมอ ถ้า block ทั้งหมด backend ก็ถูก block ไปด้วย จึง allow IP backend แล้ว block ช่วง <code>0.0.0.1</code> ถึง IP ก่อน backend และ IP หลัง backend ถึง <code>255.255.255.254</code> เว้น IP backend ไว้ ลำดับการป้องกัน: AI 8088 รับจาก backend เท่านั้น, backend 5000 รับจาก nginx เท่านั้น, เครื่อง nginx เปิด 80/8089 และปิด 5000/5173/8088</p>`],
+  ['w',`config ชุดนี้ยังมีจุดอ่อนอะไรถ้าใช้จริง`,`conf/nginx.conf, firewall/*`,
+   `<ul><li>ใช้ HTTP ไม่มี HTTPS รหัสผ่านและ JWT วิ่งเป็น plaintext ใน LAN ดักได้</li><li><code>root</code> เป็น path ตายตัว <code>D:/Peem/...</code> ย้ายเครื่องต้องแก้</li><li>IP ในวง LAN มหาวิทยาลัยเป็น DHCP เปลี่ยนแล้วต้องแก้หลายไฟล์</li><li>firewall กันตาม IP ซึ่งปลอมได้ใน LAN เดียวกัน</li><li>/assets/ ไม่มี security headers (ข้อก่อนหน้า)</li></ul>`],
+  ['d',`ผ่าน nginx แล้วยังต้องตั้ง CORS ที่ Flask ไหม ตอนไหนที่ CORS_ORIGINS จำเป็น`,`backend/config.py, frontend/.env.example`,
+   `<p>ผ่าน nginx หน้าเว็บและ API มาจาก origin เดียวกัน browser ไม่ตรวจ CORS ส่วน CORS จำเป็นตอนพัฒนา เมื่อ Vite <code>localhost:5173</code> ยิงไป <code>:5000</code> ตรง (คนละ origin) browser จะส่ง preflight OPTIONS แล้วต้องเห็น header Access-Control-Allow-Origin จาก Flask</p>`],
+  ['c',`<code>/healthz</code> กับ <code>/api/v1/health</code> ต่างกันอย่างไร ใช้ตรวจอะไร`,`conf/nginx.conf, backend/app/__init__.py`,
+   `<p><code>/healthz</code> nginx ตอบเองโดยไม่แตะ Flask แปลว่า nginx ยังทำงาน ส่วน <code>/api/v1/health</code> ผ่านไปถึง Flask ถ้าได้ healthy แปลว่าเส้นทาง nginx → backend ใช้ได้ (แต่ไม่ได้ตรวจ AI Server หรือ DB จริง ค่า "database: connected" เขียนไว้ตายตัว)</p>`],
+ ]},
+ ]},
+];
+
+const tabsEl = document.getElementById('tabs');
+const pagesEl = document.getElementById('pages');
+let total = 0;
+
+SECTIONS.forEach(sec => {
+  const count = sec.groups.reduce((n, g) => n + g.qs.length, 0);
+  total += count;
+  const a = document.createElement('a');
+  a.href = '#' + sec.id;
+  a.dataset.id = sec.id;
+  a.innerHTML = `<span class="n">${sec.no}</span>${sec.title}<span class="n">${count}</span>`;
+  tabsEl.appendChild(a);
+
+  const page = document.createElement('div');
+  page.className = 'page';
+  page.id = 'page-' + sec.id;
+  let n = 0;
+  const groups = sec.groups.map(g => {
+    const items = g.qs.map(([lv, q, ref, ans]) => {
+      n++;
+      const code = sec.prefix + '-' + String(n).padStart(2, '0');
+      const [label, cls] = LV[lv];
+      return `<li class="q" id="${code}"><div class="qhead"><span class="qno">${code}</span><div class="qbody">
+        <p class="qtext">${q}</p>
+        <div class="qmeta"><span class="chip ${cls}">${label}</span><span class="ref">${ref}</span></div>
+        <details><summary>แนวคำตอบ</summary><div class="ans">${ans}</div></details>
+      </div></div></li>`;
+    }).join('');
+    return `<section class="group"><h3>${g.name}<small>${g.qs.length} ข้อ</small></h3><ol class="qs">${items}</ol></section>`;
+  }).join('');
+  page.innerHTML = `
+    <div class="page-head"><div><div class="eyebrow">ส่วนที่ ${sec.no} · ${count} ข้อ</div><h2>${sec.title}</h2><p>${sec.desc}</p></div>
+      <div class="tools"><button class="tb" type="button" data-open="1">เปิดแนวคำตอบทั้งหมด</button><button class="tb" type="button" data-open="0">ปิดทั้งหมด</button></div></div>
+    <div class="legend">${Object.values(LV).map(([l, c]) => `<span><span class="chip ${c}">${l}</span></span>`).join('')}
+      <span>พื้นฐาน = อธิบายภาพรวม · ไล่โค้ด = เปิดไฟล์แล้วอธิบายทีละบรรทัด · เชิงลึก = ถามต่อว่าทำไม · จุดอ่อน = จุดที่อาจโดนจับผิด</span></div>
+    ${groups}`;
+  pagesEl.appendChild(page);
+});
+
+pagesEl.addEventListener('click', e => {
+  const b = e.target.closest('button[data-open]');
+  if (!b) return;
+  const open = b.dataset.open === '1';
+  b.closest('.page').querySelectorAll('details').forEach(d => { d.open = open; });
+});
+
+function show() {
+  const raw = (location.hash || '').slice(1);
+  let id = SECTIONS[0].id;
+  if (SECTIONS.some(s => s.id === raw)) id = raw;
+  else if (/^[FBDA]-\d+$/.test(raw)) id = SECTIONS.find(s => s.prefix === raw[0]).id;
+  SECTIONS.forEach(s => { document.getElementById('page-' + s.id).hidden = s.id !== id; });
+  tabsEl.querySelectorAll('a').forEach(a => { if (a.dataset.id === id) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  if (/^[FBDA]-\d+$/.test(raw)) { const el = document.getElementById(raw); if (el) el.scrollIntoView(); }
+  else window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', show);
+show();
+</script>
