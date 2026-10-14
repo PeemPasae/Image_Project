@@ -8,6 +8,7 @@
 import os
 import json
 import base64
+import random
 from io import BytesIO
 from flask import Blueprint, request, send_file, current_app
 
@@ -87,7 +88,7 @@ def generate_image():
         return error_response(UNAUTHORIZED, "User not found in system", 401)
 
     # 2. ตรวจสอบเงื่อนไขพารามิเตอร์ (Validation) ตามสัญญา LUMA Contract
-    prompt = data.get("prompt", "").strip()
+    prompt = str(data.get("prompt") or "").strip()
     if not prompt or len(prompt) > 2000:
         return error_response(
             VALIDATION_ERROR, 
@@ -95,7 +96,7 @@ def generate_image():
             400
         )
 
-    negative_prompt = data.get("negative_prompt", "")
+    negative_prompt = str(data.get("negative_prompt") or "")
     if len(negative_prompt) > 2000:
         return error_response(
             VALIDATION_ERROR, 
@@ -137,12 +138,25 @@ def generate_image():
             400
         )
 
-    sampler = data.get("sampler") or data.get("sampler_name") or "Euler a"
-    checkpoint = data.get("checkpoint", "")
+    # [แก้บัค] seed ต้องเป็น -1 (สุ่ม) หรือ 0 ถึง 2147483647 ตามกติกาที่ตกลงกัน
+    # เดิมไม่ได้เช็ค seed ใหญ่เกินจะพังตอนบันทึก ทั้งที่ AI สร้างรูปเสร็จแล้ว (เสียเวลา GPU)
+    if not (seed == -1 or 0 <= seed <= 2147483647):
+        return error_response(
+            VALIDATION_ERROR,
+            "Seed must be -1 (random) or between 0 and 2147483647",
+            400
+        )
 
-    # รวมค่าพารามิเตอร์ที่ผ่าน Type Conversion แล้ว
-    clean_payload = dict(data)
-    clean_payload.update({
+    # [แก้บัค] ถ้าผู้ใช้เลือกสุ่ม (-1) ให้ backend สุ่มเลขเองแล้วส่งเลขนั้นให้ AI
+    # เดิมส่ง -1 ไปให้ AI สุ่ม เราเลยไม่รู้เลขจริง ประวัติเก็บได้แค่ -1 และสร้างรูปเดิมซ้ำไม่ได้
+    if seed == -1:
+        seed = random.randint(0, 2147483647)
+
+    sampler = str(data.get("sampler") or data.get("sampler_name") or "Euler a")
+    checkpoint = str(data.get("checkpoint") or "")
+
+    # [แก้บัค] เก็บเฉพาะค่าที่ใช้จริง เดิมใช้ dict(data) ทำให้ใครส่งข้อมูลขยะมาก็ถูกเก็บลง database
+    clean_payload = {
         "prompt": prompt,
         "negative_prompt": negative_prompt,
         "width": width,
@@ -152,7 +166,7 @@ def generate_image():
         "sampler": sampler,
         "checkpoint": checkpoint,
         "seed": seed,
-    })
+    }
 
     try:
         # 3. ส่งคำสั่งไปยัง AI Server ผ่านระบบ Concurrency Queue
@@ -175,7 +189,7 @@ def generate_image():
             steps=steps,
             cfg_scale=cfg_scale,
             seed=seed,
-            params=json.dumps(data),              # บันทึกพารามิเตอร์ทั้งหมดในรูปแบบ JSON
+            params=json.dumps(clean_payload),     # บันทึกเฉพาะพารามิเตอร์ที่ใช้จริง (JSON)
             image_data=image_bytes,               # เก็บข้อมูลภาพ Binary ลง SQLite
         )
 

@@ -48,7 +48,8 @@
 - **ปัญหาเดิม:**
   - ไฟล์ [`database/schema.sql`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/database/schema.sql) และ [`database/init_db.py`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/database/init_db.py) เป็นสเปกเก่าที่ชี้ไปยัง `app.db` และขาดคอลัมน์ `category`, `action_type`, `params`, `source_image_id`
 - **การแก้ไข:**
-  - ซิงค์โครงสร้าง `schema.sql` และ `init_db.py` ให้ตรงกับโมเดล [`Generation`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/models/generation.py) และชี้เป้าหมายไปที่ `database/database.db`
+  - (ภายหลัง) ลบ `schema.sql` ออก ให้โมเดลใน `backend/app/models/` เป็นที่เดียวที่กำหนดโครงตาราง และ `init_db.py` สร้างตารางจากโมเดลแทน
+  - เดิม: ซิงค์โครงสร้าง `schema.sql` และ `init_db.py` ให้ตรงกับโมเดล [`Generation`](file:///c:/Uni_Work'/3_1/Img_pro_code/Main/Image_Project/backend/app/models/generation.py) และชี้เป้าหมายไปที่ `database/database.db`
 
 ### ง. ปัญหา Type Coercion ในการรับค่าพารามิเตอร์ `/generate`
 - **ปัญหาเดิม:**

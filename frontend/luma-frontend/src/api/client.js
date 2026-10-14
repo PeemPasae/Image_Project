@@ -6,8 +6,12 @@ import {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const DEFAULT_TIMEOUT = 20000
-// /generate can take 10-60s+ on the AI server — give it real headroom (locked: 90s)
-export const GENERATE_TIMEOUT = 90000
+// [แก้บัค] /generate: backend อาจรอคิว GPU 40 วิ + รอ AI อีก 75 วิ = 115 วิ
+// เดิมหน้าเว็บรอแค่ 90 วิ เลยขึ้น timeout ทั้งที่รูปยังสร้างต่อจนเสร็จ ตอนนี้รอ 125 วิ (มากกว่า 115)
+export const GENERATE_TIMEOUT = 125000
+// [แก้บัค] /process/* (แต่งรูป): รูปใหญ่ใช้เวลาเกิน 20 วิได้ เดิมหน้าเว็บตัดทิ้งที่ 20 วิ
+// ตอนนี้รอได้ 120 วิ เท่ากับที่ nginx รอ backend
+export const PROCESS_TIMEOUT = 120000
 
 // Dev Preview Mode: browse every page with realistic fake data, no Backend needed.
 // Toggle via VITE_MOCK_MODE=true in .env. Every mock branch mirrors the exact
@@ -103,6 +107,7 @@ function processImage(path, file, fields) {
   return client.post(path, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     responseType: 'blob',
+    timeout: PROCESS_TIMEOUT,
   }).then((res) => URL.createObjectURL(res.data)).catch(wrapBlobError)
 }
 
@@ -204,6 +209,7 @@ export const api = {
     return client.post('/process/spot-blur', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
       responseType: 'blob',
+      timeout: PROCESS_TIMEOUT,
     }).then((res) => URL.createObjectURL(res.data)).catch(wrapBlobError)
   },
 
@@ -247,6 +253,7 @@ export const api = {
     form.append('min_confidence', String(min_confidence))
     return request(client.post('/process/gesture', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: PROCESS_TIMEOUT,
     }))
   },
 

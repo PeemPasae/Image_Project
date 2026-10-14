@@ -2,3 +2,5 @@
 database.db
 app.db
 clear.py
+# ไฟล์สำรองฐานข้อมูล (มีรหัสผ่านผู้ใช้ ห้ามขึ้น GitHub)
+*.bak

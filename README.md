@@ -36,10 +36,10 @@ Backend เป็นตัวกลางเดียวที่แตะ Datab
 > วง LAN มหาลัยเป็น DHCP — ถ้า IP เปลี่ยนให้ดูหัวข้อ [ถ้า IP เปลี่ยน ต้องแก้ที่ไหน](#-ถ้า-ip-เปลี่ยน-ต้องแก้ที่ไหน)
 
 ```
-                 ผู้ใช้ในวง LAN  ──  http://192.168.1.171/
+                 ผู้ใช้ในวง LAN  ──  http://172.20.57.12/
                                      │
           ┌──────────────────────────▼───────────────────────────┐
-          │  Nginx  :80   — เครื่อง 192.168.1.171   (ไอซ์)          │
+          │  Nginx  :80   — เครื่อง 172.20.57.12   (ไอซ์)          │
           │   /            → ไฟล์ static จาก frontend/.../dist      │
           │   /api/v1/*    → proxy → Backend  (rate limit)         │
           │   /api/*  อื่น → 404                                    │
@@ -48,11 +48,11 @@ Backend เป็นตัวกลางเดียวที่แตะ Datab
           └──────────────────────────┬───────────────────────────┘
                                      ▼
           ┌──────────────────────────────────────────────────────┐
-          │  Flask Backend :5000 — เครื่อง 192.168.1.169   (นาย)     │
+          │  Flask Backend :5000 — เครื่อง 172.20.57.16   (นาย)     │
           │  JWT · Validation · GPU Lock/Queue · OpenCV/MediaPipe │
           └───────────────┬──────────────────────────┬───────────┘
                           ▼                          ▼
-             SQLite  database/database.db     AI Server :8088 — 192.168.1.160 (ไอซ์)
+             SQLite  database/database.db     AI Server :8088 — 172.20.57.10 (ไอซ์)
              users / generations  (ภีม)        SD WebUI --api (A1111 / Forge)
              + ไฟล์ภาพ backend/uploads/         POST /sdapi/v1/txt2img → Base64 PNG
 ```
@@ -231,7 +231,7 @@ npm run dev                            # → http://localhost:5173
 
 **ลำดับเปิดระบบ:** AI Server → Backend → Nginx (Nginx เป็นตัว build + เสิร์ฟ Frontend ให้)
 
-### 1) AI Server — ไอซ์ (เครื่อง 192.168.1.160)
+### 1) AI Server — ไอซ์ (เครื่อง 172.20.57.10)
 
 ```powershell
 git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git   # หรือ Forge
@@ -257,7 +257,7 @@ python scripts/test_txt2img.py --url http://127.0.0.1:8088 -p "a cat astronaut" 
 > ถ้า 2 สคริปต์นี้ผ่าน แต่หน้าเว็บสร้างรูปไม่ได้ → ปัญหาอยู่ฝั่ง Backend / Nginx / Frontend
 > รายละเอียด + ตารางแก้ปัญหา: [`Ai Server/README.md`](Ai%20Server/README.md)
 
-### 2) Backend — นาย (เครื่อง 192.168.1.169)
+### 2) Backend — นาย (เครื่อง 172.20.57.16)
 
 ```powershell
 cd backend
@@ -353,7 +353,7 @@ npm test                    # Vitest
 |---|---|
 | ประตูเดียว | ผู้ใช้เข้าได้แค่ `:80` — Flask, Vite, SD WebUI ห้ามเข้าตรง |
 | จำกัด API | ผ่านเฉพาะ `/api/v1/*` · path อื่นใต้ `/api/` ตอบ 404 |
-| Rate limit | login / register 10 ครั้ง/นาที · API อื่น 120 ครั้ง/นาที ต่อ IP → `429` |
+| Rate limit | login / register 10 ครั้ง/นาที · รูปภาพ 600 ครั้ง/นาที · API อื่น 120 ครั้ง/นาที ต่อ IP → `429` |
 | Upload | `client_max_body_size 16m` ให้ตรงกับ Backend |
 | Security | ซ่อนเวอร์ชัน nginx, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, กันเข้าไฟล์ `.env/.db/.py/...` |
 | Performance | gzip, cache `/assets/` 1 ปี (ไฟล์ Vite มี hash) |
@@ -452,7 +452,8 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | `image_data` / `image_path` | ไบต์ PNG ในฐานข้อมูล + ไฟล์สำเนาบนดิสก์ (`backend/uploads/generations/<id>.png`) |
 | `created_at` | |
 
-> Backend เพิ่มคอลัมน์ที่ขาดให้อัตโนมัติตอนสตาร์ท จึงใช้กับฐานข้อมูลเก่าได้โดยข้อมูลไม่หาย
+> โครงตารางกำหนดไว้ที่เดียวคือ `backend/app/models/` (`user.py`, `generation.py`) Backend สร้างตาราง + เพิ่มคอลัมน์ที่ขาดให้อัตโนมัติตอนสตาร์ท จึงใช้กับฐานข้อมูลเก่าได้โดยข้อมูลไม่หาย
+> อยากสร้างตารางล่วงหน้าโดยไม่เปิด backend: `python database/init_db.py` (ใช้ Python ตัวเดียวกับ backend)
 
 ---
 
@@ -469,7 +470,7 @@ Base URL: `/api/v1` · 🔒 = ต้องมี `Authorization: Bearer <JWT>` �
 | `password` | ≥ 8 ตัวอักษร | Backend + Frontend |
 | upload | .jpg .jpeg .png .webp, ≤ 16 MB | Backend + Nginx |
 
-**Timeout:** Backend → AI Server 75s · Frontend → `/generate` 90s · Nginx → Backend 120s · รอคิว GPU สูงสุด 40s
+**Timeout:** Backend → AI Server 75s · รอคิว GPU สูงสุด 40s · Nginx → Backend 120s · Frontend → `/generate` 125s, `/process/*` 120s
 
 | HTTP | Error Code |
 |---|---|

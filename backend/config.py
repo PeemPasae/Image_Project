@@ -11,6 +11,12 @@ from dotenv import load_dotenv
 # โหลดตัวแปรสภาพแวดล้อม (Environment Variables) จากไฟล์ .env เข้าสู่ระบบ
 load_dotenv()
 
+# [แก้บัค] จำกัดขนาดรูปที่ OpenCV ยอมเปิด
+# ไฟล์ PNG ขนาดแค่ 0.5 MB อาจขยายเป็นรูป 14000x14000 พิกเซล ใช้ RAM หลาย GB จน backend ล่ม
+# 20 ล้านพิกเซล = รูปมือถือทั่วไป (12 MP) ผ่านสบาย ถ้าใหญ่กว่านี้ OpenCV จะไม่ยอมเปิดรูป
+MAX_IMAGE_PIXELS = 20_000_000
+os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", str(MAX_IMAGE_PIXELS))
+
 
 class Config:
     """
@@ -20,11 +26,8 @@ class Config:
     # 1. การตั้งค่าความปลอดภัยและ JWT (JSON Web Token)
     # --------------------------------------------------------------------------
     # รหัสลับสำหรับเซ็นชื่อและตรวจสอบความถูกต้องของ JWT Token (ห้ามเปิดเผยสู่สาธารณะ)
-    SECRET_KEY = (
-        os.environ.get("JWT_SECRET_KEY") 
-        or os.environ.get("JWT_SECRET") 
-        or "luma_default_jwt_secret_key_2026"
-    )
+    # [แก้บัค] ไม่มีรหัสสำรองแล้ว ต้องตั้ง JWT_SECRET_KEY ใน backend/.env เสมอ (เช็คตอนเปิด backend)
+    SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or os.environ.get("JWT_SECRET")
 
     # กำหนดอายุการใช้งานของ JWT Token เป็น 24 ชั่วโมง ตามข้อกำหนดของระบบ
     JWT_EXPIRES_IN = timedelta(hours=24)
