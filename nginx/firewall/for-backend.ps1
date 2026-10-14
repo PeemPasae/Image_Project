@@ -1,5 +1,5 @@
 ﻿# =====================================================================
-#  for-backend.ps1 — รันบน "เครื่อง Backend" (ตอนนี้ 172.20.10.8) แบบ Run as Administrator
+#  for-backend.ps1 — รันบน "เครื่อง Backend" (ตอนนี้ 172.20.57.16) แบบ Run as Administrator
 #
 #  ผล:
 #    - พอร์ต 5000 (Flask) → รับจากเครื่อง nginx เท่านั้น
@@ -11,7 +11,7 @@
 # =====================================================================
 #Requires -RunAsAdministrator
 param(
-    [string]$NginxIp = "172.20.10.6"
+    [string]$NginxIp = "172.20.57.12"
 )
 
 $ErrorActionPreference = "Stop"
