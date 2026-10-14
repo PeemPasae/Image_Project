@@ -26,7 +26,7 @@ Backend เป็นตัวกลางเดียวที่แตะ Datab
 | **ภีม** | Database Developer | ออกแบบ Schema `users` / `generations`, Relationship + Index, สคริปต์สร้าง / ทดสอบ / ล้างฐานข้อมูล | `database/` |
 | **กร** | Frontend Developer | UI/UX, React + Vite, ทุกหน้า (Login → Admin), Feature Registry ของเครื่องมือแต่งรูป, Theme + Layout Template, Mock Mode, Vitest | `frontend/luma-frontend/` |
 
-> เติม ชื่อ-นามสกุล และ รหัสนักศึกษา ของแต่ละคนได้ตามสะดวก
+
 
 ---
 
