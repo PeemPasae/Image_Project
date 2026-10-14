@@ -83,7 +83,7 @@ def main():
         sys.exit(f"[FAIL] Timeout เกิน {a.timeout}s — steps/ขนาดรูปสูงไป หรือ GPU ยังโหลด model อยู่")
     except requests.exceptions.ConnectionError as e:
         sys.exit(f"[FAIL] ต่อ {base} ไม่ได้ — เช็คว่า webui รันด้วย --api --listen --port 8088 แล้วหรือยัง\n{e}")
-
+ccfv z/
     elapsed = time.time() - started
 
     if res.status_code != 200:
